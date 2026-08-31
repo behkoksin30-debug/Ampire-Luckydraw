@@ -1,0 +1,13 @@
+{
+  "name": "lucky-draw-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "幸运抽奖登记与后台开奖系统",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

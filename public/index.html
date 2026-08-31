@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>幸运抽奖系统</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/1.0.17/tesseract.min.js" onerror="window.__ocrLoadFailed=true"></script>
+<style>
+  :root{
+    --cream:#FBF3E7;
+    --paper:#FFFDF9;
+    --plum:#3E1638;
+    --plum-2:#55204c;
+    --gold:#C6963C;
+    --gold-light:#F0D9A0;
+    --rose:#A73347;
+    --ink:#241C24;
+    --ink-soft:#7a6d76;
+    --line:#E4D7C4;
+    --success:#3F7D5C;
+    --danger:#B23A48;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--cream);color:var(--ink);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3,.display{font-family:'Fraunces',serif;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;}
+  #app{max-width:900px;margin:0 auto;padding:28px 18px 60px;min-height:100vh;}
+  .eyebrow{font-size:13px;color:var(--ink-soft);letter-spacing:.02em;margin:0 0 6px;}
+
+  .ticket{background:var(--paper);border-radius:var(--radius);box-shadow:0 1px 0 rgba(62,22,56,.06), 0 12px 32px rgba(62,22,56,.10);overflow:hidden;border:1px solid var(--line);}
+  .ticket-head{background:linear-gradient(135deg,var(--plum),var(--plum-2));color:var(--gold-light);padding:34px 30px 28px;position:relative;}
+  .ticket-head h1{color:#fff;font-size:30px;margin:0 0 8px;font-weight:600;line-height:1.25;}
+  .ticket-head p{margin:0;color:var(--gold-light);font-size:15px;opacity:.92;}
+  .perforation{height:0;border-top:2px dashed var(--line);position:relative;margin:0 0;}
+  .perforation::before,.perforation::after{content:'';position:absolute;top:-11px;width:22px;height:22px;border-radius:50%;background:var(--cream);}
+  .perforation::before{left:-11px;}
+  .perforation::after{right:-11px;}
+  .ticket-body{padding:28px 30px 30px;}
+  .field{margin-bottom:18px;}
+  .field label{display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:6px;}
+  .field .hint{font-weight:400;color:var(--ink-soft);font-size:12.5px;margin-left:6px;}
+  .field input[type=text],.field input[type=number],.field input[type=password]{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:15px;background:var(--paper);color:var(--ink);}
+  .field input:focus{outline:none;border-color:var(--gold);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media (max-width:520px){.row2{grid-template-columns:1fr;}}
+  .upload-box{border:1.5px dashed var(--line);border-radius:10px;padding:16px;background:#fffaf1;display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
+  .upload-box input[type=file]{display:none;}
+  .upload-btn{background:var(--plum);color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:600;}
+  .thumb{width:64px;height:64px;border-radius:8px;object-fit:cover;border:1px solid var(--line);}
+  .ocr-btn{background:var(--gold);color:var(--plum);border:none;padding:9px 14px;border-radius:8px;font-size:13.5px;font-weight:700;}
+  .ocr-btn:disabled{opacity:.5;cursor:not-allowed;}
+  .ocr-note{font-size:12.5px;color:var(--ink-soft);margin-top:8px;}
+  .ocr-text{margin-top:10px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--ink-soft);max-height:90px;overflow:auto;white-space:pre-wrap;}
+  .submit-btn{width:100%;background:var(--rose);color:#fff;border:none;padding:14px;border-radius:10px;font-size:16px;font-weight:700;margin-top:6px;}
+  .submit-btn:disabled{opacity:.55;cursor:not-allowed;}
+  .error-text{color:var(--danger);font-size:13px;margin-top:6px;}
+  .admin-link{text-align:center;margin-top:22px;font-size:12.5px;color:var(--ink-soft);}
+  .admin-link a{color:var(--ink-soft);text-decoration:underline;cursor:pointer;}
+  .success-wrap{text-align:center;padding:6px 0 0;}
+  .stub{background:var(--paper);border:1.5px dashed var(--gold);border-radius:var(--radius);padding:26px 24px;margin-top:18px;}
+  .stub .code{font-family:'Fraunces',serif;font-size:34px;color:var(--plum);letter-spacing:.03em;margin:10px 0;}
+  .stub .label{font-size:13px;color:var(--ink-soft);}
+  .again-btn{margin-top:20px;background:none;border:1.5px solid var(--plum);color:var(--plum);padding:10px 20px;border-radius:8px;font-weight:700;font-size:14px;}
+  .admin-wrap{background:var(--paper);border-radius:var(--radius);border:1px solid var(--line);overflow:hidden;box-shadow:0 12px 32px rgba(62,22,56,.08);}
+  .admin-header{background:var(--plum);color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  .admin-header h2{margin:0;font-size:19px;color:#fff;font-weight:600;}
+  .admin-header .sub{color:var(--gold-light);font-size:12.5px;margin-top:2px;}
+  .logout-btn{background:rgba(255,255,255,.14);color:#fff;border:none;padding:8px 14px;border-radius:7px;font-size:13px;}
+  .tabs{display:flex;border-bottom:1px solid var(--line);background:#fdf6ea;overflow-x:auto;}
+  .tab{padding:13px 18px;font-size:13.5px;font-weight:700;color:var(--ink-soft);border-bottom:3px solid transparent;white-space:nowrap;}
+  .tab.active{color:var(--plum);border-color:var(--gold);}
+  .admin-content{padding:22px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;color:var(--ink-soft);font-weight:700;font-size:12px;padding:8px 10px;border-bottom:1.5px solid var(--line);}
+  td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  .mini-thumb{width:38px;height:38px;border-radius:6px;object-fit:cover;cursor:pointer;border:1px solid var(--line);}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:700;background:#eee5d3;color:var(--plum);}
+  .pill.win{background:#e4f1e9;color:var(--success);}
+  .del-btn{background:none;border:none;color:var(--danger);font-size:12.5px;font-weight:700;}
+  .searchbar{width:100%;padding:10px 13px;border:1.5px solid var(--line);border-radius:9px;margin-bottom:14px;font-size:14px;}
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap;}
+  .small-btn{background:var(--plum);color:#fff;border:none;padding:9px 14px;border-radius:8px;font-size:13px;font-weight:700;}
+  .small-btn.ghost{background:none;border:1.5px solid var(--plum);color:var(--plum);}
+  .small-btn.danger{background:var(--danger);}
+  .empty-state{padding:30px 10px;text-align:center;color:var(--ink-soft);font-size:14px;}
+  .prize-card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;background:#fffdf8;}
+  .prize-card .pname{font-weight:700;color:var(--plum);}
+  .prize-card .pqty{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+  .add-prize-form{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+  .add-prize-form input{flex:1;min-width:140px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;}
+  .draw-stage{border:2px dashed var(--gold);border-radius:16px;background:linear-gradient(160deg,#fffaf0,#fdf1e0);padding:40px 20px;text-align:center;position:relative;overflow:hidden;}
+  .draw-prize-label{font-size:13px;color:var(--ink-soft);letter-spacing:.02em;margin-bottom:10px;}
+  .draw-name{font-family:'Fraunces',serif;font-size:32px;color:var(--plum);min-height:44px;font-weight:600;}
+  .draw-name.rolling{color:var(--ink-soft);}
+  .draw-sub{font-size:13px;color:var(--ink-soft);margin-top:8px;}
+  .draw-actions{margin-top:22px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+  .select-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;}
+  select{padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;}
+  .checkline{font-size:13.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px;}
+  .login-box{max-width:360px;margin:60px auto 0;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:30px;text-align:center;box-shadow:0 12px 32px rgba(62,22,56,.10);}
+  .login-box h2{margin:0 0 6px;color:var(--plum);font-size:20px;}
+  .login-box p{color:var(--ink-soft);font-size:13.5px;margin:0 0 20px;}
+  .login-box input{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:9px;font-size:15px;margin-bottom:12px;}
+  .lightbox{position:fixed;inset:0;background:rgba(36,28,36,.82);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .lightbox img{max-width:100%;max-height:90vh;border-radius:8px;}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--plum);color:#fff;padding:11px 20px;border-radius:30px;font-size:13.5px;z-index:60;box-shadow:0 8px 20px rgba(0,0,0,.25);}
+  .settings-note{background:#fdf1e0;border:1px solid var(--gold-light);border-radius:9px;padding:12px 14px;font-size:12.5px;color:var(--ink-soft);margin-bottom:16px;line-height:1.6;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function(){
+  "use strict";
+  const app = document.getElementById('app');
+  let toastTimer = null;
+
+  const state = {
+    view: 'entry',
+    adminTab: 'entries',
+    loggedIn: false,
+    token: localStorage.getItem('ld_admin_token') || null,
+    lastTicket: null,
+    entries: [], prizes: [], draws: [],
+    eventConfig: { title: '幸运抽奖登记', subtitle: '' },
+    adminPasswordSet: null,
+    form: { name:'', contact:'', orderId:'', amount:'', photo:null },
+    formErrors: {},
+    ocrBusy: false, ocrText: '',
+    search: '',
+    lightboxSrc: null,
+    drawing: false, drawSelectedPrize: '', excludePastWinners: true,
+    rollingName: '', revealedWinner: null
+  };
+
+  function showToast(msg){
+    let el = document.getElementById('toast');
+    if(!el){ el = document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
+    el.textContent = msg; el.style.display='block';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>{ el.style.display='none'; }, 2600);
+  }
+
+  async function api(path, opts){
+    opts = opts || {};
+    const headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
+    if(opts.auth && state.token) headers['Authorization'] = 'Bearer '+state.token;
+    const res = await fetch(path, {
+      method: opts.method||'GET',
+      headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+    let data = null;
+    try{ data = await res.json(); }catch(e){}
+    if(!res.ok){
+      const err = new Error((data&&data.error) || '请求失败');
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  }
+
+  /* ---------------- data loading ---------------- */
+  async function loadEventConfig(){
+    try{ state.eventConfig = await api('/api/config'); }catch(e){}
+  }
+  async function loadAdminStatus(){
+    try{ const r = await api('/api/admin/status'); state.adminPasswordSet = r.passwordSet; }catch(e){ state.adminPasswordSet = false; }
+  }
+  async function loadAdminData(){
+    const [entries, prizes, draws] = await Promise.all([
+      api('/api/entries', {auth:true}),
+      api('/api/prizes', {auth:true}),
+      api('/api/draws', {auth:true})
+    ]);
+    state.entries = entries; state.prizes = prizes; state.draws = draws;
+  }
+
+  /* ---------------- image compression ---------------- */
+  function compressImage(file){
+    return new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onload = function(e){
+        const img = new Image();
+        img.onload = function(){
+          const maxDim = 1100;
+          let w = img.width, h = img.height;
+          if(w>h && w>maxDim){ h = Math.round(h*maxDim/w); w = maxDim; }
+          else if(h>=w && h>maxDim){ w = Math.round(w*maxDim/h); h = maxDim; }
+          const canvas = document.createElement('canvas');
+          canvas.width=w; canvas.height=h;
+          canvas.getContext('2d').drawImage(img,0,0,w,h);
+          resolve(canvas.toDataURL('image/jpeg', 0.72));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function guessOrderIdAndAmount(text){
+    let orderId = '', amount = '';
+    const lines = text.split(/\n+/);
+    for(const line of lines){
+      if(/order|订单|单号|编号/i.test(line)){
+        const m = line.match(/[A-Za-z0-9]{8,25}/);
+        if(m){ orderId = m[0]; break; }
+      }
+    }
+    if(!orderId){
+      const all = text.match(/[A-Za-z0-9]{9,25}/g);
+      if(all && all.length){ all.sort((a,b)=>b.length-a.length); orderId = all[0]; }
+    }
+    const amtKeyword = text.match(/(?:RM|MYR|\$|合计|总额|total|amount)[^\d]{0,8}([\d,]+\.\d{1,2}|[\d,]+)/i);
+    if(amtKeyword){ amount = amtKeyword[1].replace(/,/g,''); }
+    else { const dec = text.match(/\d{1,6}\.\d{2}/); if(dec) amount = dec[0]; }
+    return { orderId, amount };
+  }
+
+  async function runOcr(){
+    if(!state.form.photo){ showToast('请先上传订单截图'); return; }
+    if(window.__ocrLoadFailed || typeof Tesseract === 'undefined'){ showToast('OCR识别暂不可用，请手动填写'); return; }
+    state.ocrBusy = true; render();
+    try{
+      const result = await new Promise((resolve, reject)=>{
+        Tesseract.recognize(state.form.photo).progress(()=>{}).then(resolve).catch(reject);
+      });
+      const text = (result && result.text) ? result.text : '';
+      state.ocrText = text.trim();
+      const guess = guessOrderIdAndAmount(text);
+      if(guess.orderId) state.form.orderId = guess.orderId;
+      if(guess.amount) state.form.amount = guess.amount;
+      showToast((guess.orderId||guess.amount) ? '已自动填入，请核对是否正确' : '未能自动识别，请手动填写并核对');
+    }catch(e){ showToast('OCR识别失败，请手动填写'); }
+    state.ocrBusy = false; render();
+  }
+
+  /* ---------------- public submit ---------------- */
+  function validateForm(){
+    const errs = {};
+    if(!state.form.name.trim()) errs.name = '请输入姓名';
+    if(!state.form.contact.trim()) errs.contact = '请输入联系方式';
+    if(!state.form.photo) errs.photo = '请上传订单截图';
+    if(!state.form.orderId.trim()) errs.orderId = '请输入订单号';
+    if(!state.form.amount.toString().trim()) errs.amount = '请输入金额';
+    state.formErrors = errs;
+    return Object.keys(errs).length === 0;
+  }
+  async function submitEntry(){
+    if(!validateForm()){ render(); return; }
+    try{
+      const r = await api('/api/entries', {method:'POST', body:{
+        name: state.form.name.trim(), contact: state.form.contact.trim(),
+        orderId: state.form.orderId.trim(), amount: state.form.amount.toString().trim(),
+        photo: state.form.photo
+      }});
+      state.lastTicket = { id: r.id, name: state.form.name.trim(), orderId: state.form.orderId.trim() };
+      state.form = { name:'', contact:'', orderId:'', amount:'', photo:null };
+      state.ocrText=''; state.view='success'; render();
+    }catch(e){ showToast(e.message||'提交失败，请重试'); }
+  }
+
+  /* ---------------- admin: entries ---------------- */
+  async function deleteEntry(id){
+    if(!confirm('确定要删除这条登记资料吗？此操作无法撤销。')) return;
+    try{ await api('/api/entries/'+id, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
+    catch(e){ showToast(e.message); }
+  }
+  function exportCsv(){
+    const rows = [['抽奖编号','姓名','联系方式','订单号','金额','提交时间']];
+    state.entries.forEach(en=> rows.push([en.id, en.name, en.contact, en.orderId, en.amount, new Date(en.submittedAt).toLocaleString()]));
+    const csv = rows.map(r=> r.map(c=> '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+    const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='抽奖名单.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /* ---------------- admin: prizes ---------------- */
+  async function addPrize(name, qty){
+    if(!name.trim()){ showToast('请输入奖品名称'); return; }
+    try{ await api('/api/prizes', {method:'POST', auth:true, body:{name:name.trim(), qty}}); await loadAdminData(); render(); }
+    catch(e){ showToast(e.message); }
+  }
+  async function deletePrize(id){
+    if(!confirm('确定删除该奖品吗？')) return;
+    try{ await api('/api/prizes/'+id, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
+    catch(e){ showToast(e.message); }
+  }
+
+  /* ---------------- admin: draw ---------------- */
+  function eligibleEntries(){
+    return state.entries.filter(en=> state.excludePastWinners ? !(en.wonPrizes && en.wonPrizes.length>0) : true);
+  }
+  let rollInterval = null;
+  function startDraw(){
+    if(!state.drawSelectedPrize){ showToast('请先选择奖品'); return; }
+    const pool = eligibleEntries();
+    if(pool.length===0){ showToast('没有符合条件的参与者'); return; }
+    state.drawing = true; state.revealedWinner = null; render();
+    let count = 0; const totalTicks = 26;
+    clearInterval(rollInterval);
+    rollInterval = setInterval(()=>{
+      const r = pool[Math.floor(Math.random()*pool.length)];
+      state.rollingName = r.name; count++;
+      const nameEl = document.getElementById('draw-name-el');
+      if(nameEl) nameEl.textContent = state.rollingName;
+      if(count>=totalTicks){
+        clearInterval(rollInterval);
+        state.revealedWinner = pool[Math.floor(Math.random()*pool.length)];
+        state.drawing = false;
+        render();
+      }
+    }, 90);
+  }
+  async function confirmWinner(){
+    const winner = state.revealedWinner;
+    if(!winner || !state.drawSelectedPrize) return;
+    try{
+      await api('/api/draws', {method:'POST', auth:true, body:{prizeId: state.drawSelectedPrize, entryId: winner.id}});
+      state.revealedWinner = null;
+      await loadAdminData();
+      showToast('中奖结果已保存');
+      render();
+    }catch(e){ showToast(e.message); }
+  }
+  function discardDraw(){ state.revealedWinner = null; render(); }
+  async function revokeDraw(drawId){
+    if(!confirm('确定撤销此中奖记录吗？奖品数量与中奖状态将会恢复。')) return;
+    try{ await api('/api/draws/'+drawId, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
+    catch(e){ showToast(e.message); }
+  }
+
+  /* ---------------- admin auth ---------------- */
+  async function setAdminPassword(pw){
+    if(!pw || pw.length<4){ showToast('密码至少4位'); return; }
+    try{
+      const r = await api('/api/admin/setup', {method:'POST', body:{password:pw}});
+      state.token = r.token; localStorage.setItem('ld_admin_token', r.token);
+      state.loggedIn = true; state.view = 'admin';
+      await loadAdminData(); render();
+    }catch(e){ showToast(e.message); }
+  }
+  async function tryLogin(pw){
+    try{
+      const r = await api('/api/admin/login', {method:'POST', body:{password:pw}});
+      state.token = r.token; localStorage.setItem('ld_admin_token', r.token);
+      state.loggedIn = true; state.view = 'admin';
+      await loadAdminData(); render();
+    }catch(e){ showToast(e.message||'密码不正确'); }
+  }
+  function logout(){
+    state.loggedIn = false; state.token = null; localStorage.removeItem('ld_admin_token');
+    state.view = 'entry'; render();
+  }
+  async function saveEventConfig(title, subtitle){
+    try{
+      await api('/api/config', {method:'PUT', auth:true, body:{title, subtitle}});
+      state.eventConfig = {title: title||'幸运抽奖登记', subtitle: subtitle||''};
+      showToast('活动信息已更新'); render();
+    }catch(e){ showToast(e.message); }
+  }
+
+  /* ---------------- render helpers ---------------- */
+  function el(html){ const d=document.createElement('div'); d.innerHTML=html; return d.firstElementChild; }
+  function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function escapeAttr(s){ return escapeHtml(s); }
+
+  function renderEntryView(){
+    const f = state.form, errs = state.formErrors;
+    app.innerHTML = `
+      <div class="ticket">
+        <div class="ticket-head">
+          <div class="eyebrow" style="color:var(--gold-light);opacity:.85;">LUCKY DRAW ENTRY</div>
+          <h1>${escapeHtml(state.eventConfig.title)}</h1>
+          <p>${escapeHtml(state.eventConfig.subtitle)}</p>
+        </div>
+        <div class="perforation"></div>
+        <div class="ticket-body">
+          <div class="field"><label>姓名</label>
+            <input type="text" id="f-name" value="${escapeAttr(f.name)}" placeholder="请输入您的姓名">
+            ${errs.name?`<div class="error-text">${errs.name}</div>`:''}
+          </div>
+          <div class="field"><label>联系方式 <span class="hint">电话 / WhatsApp</span></label>
+            <input type="text" id="f-contact" value="${escapeAttr(f.contact)}" placeholder="例如 012-3456789">
+            ${errs.contact?`<div class="error-text">${errs.contact}</div>`:''}
+          </div>
+          <div class="field"><label>上传订单截图</label>
+            <div class="upload-box">
+              <label class="upload-btn">选择照片<input type="file" id="f-photo" accept="image/*"></label>
+              ${f.photo?`<img class="thumb" src="${f.photo}">`:''}
+              ${f.photo?`<button class="ocr-btn" id="ocr-btn" ${state.ocrBusy?'disabled':''}>${state.ocrBusy?'识别中…':'OCR自动识别'}</button>`:''}
+            </div>
+            ${errs.photo?`<div class="error-text">${errs.photo}</div>`:''}
+            ${state.ocrText?`<div class="ocr-note">识别到的原始文字（供核对）：</div><div class="ocr-text">${escapeHtml(state.ocrText)}</div>`:''}
+          </div>
+          <div class="row2">
+            <div class="field"><label>订单号</label>
+              <input type="text" id="f-orderid" value="${escapeAttr(f.orderId)}" placeholder="请核对或手动输入">
+              ${errs.orderId?`<div class="error-text">${errs.orderId}</div>`:''}
+            </div>
+            <div class="field"><label>金额</label>
+              <input type="text" id="f-amount" value="${escapeAttr(f.amount)}" placeholder="例如 88.00">
+              ${errs.amount?`<div class="error-text">${errs.amount}</div>`:''}
+            </div>
+          </div>
+          <button class="submit-btn" id="submit-btn">提交登记</button>
+        </div>
+      </div>
+      <div class="admin-link"><a id="admin-entry-link">管理员入口</a></div>
+    `;
+    document.getElementById('f-name').oninput = e=>{ state.form.name = e.target.value; };
+    document.getElementById('f-contact').oninput = e=>{ state.form.contact = e.target.value; };
+    document.getElementById('f-orderid').oninput = e=>{ state.form.orderId = e.target.value; };
+    document.getElementById('f-amount').oninput = e=>{ state.form.amount = e.target.value; };
+    document.getElementById('f-photo').onchange = async (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      try{ state.form.photo = await compressImage(file); state.ocrText=''; render(); }
+      catch(err){ showToast('照片处理失败，请重试'); }
+    };
+    const ocrBtn = document.getElementById('ocr-btn'); if(ocrBtn) ocrBtn.onclick = runOcr;
+    document.getElementById('submit-btn').onclick = submitEntry;
+    document.getElementById('admin-entry-link').onclick = async ()=>{
+      await loadAdminStatus();
+      if(state.token){
+        try{ await loadAdminData(); state.loggedIn=true; state.view='admin'; render(); return; }
+        catch(e){ localStorage.removeItem('ld_admin_token'); state.token=null; }
+      }
+      state.view = 'adminLogin'; render();
+    };
+  }
+
+  function renderSuccessView(){
+    const t = state.lastTicket;
+    app.innerHTML = `
+      <div class="ticket">
+        <div class="ticket-head">
+          <div class="eyebrow" style="color:var(--gold-light);opacity:.85;">REGISTERED</div>
+          <h1>报名成功</h1>
+          <p>请保留您的抽奖编号，开奖时将用于核对身份</p>
+        </div>
+        <div class="perforation"></div>
+        <div class="ticket-body success-wrap">
+          <div class="stub">
+            <div class="label">您的抽奖编号</div>
+            <div class="code">${t.id}</div>
+            <div class="label">${escapeHtml(t.name)} · 订单号 ${escapeHtml(t.orderId)}</div>
+          </div>
+          <button class="again-btn" id="again-btn">再登记一位</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('again-btn').onclick = ()=>{ state.view='entry'; render(); };
+  }
+
+  function renderAdminLoginView(){
+    if(state.adminPasswordSet===false){
+      app.innerHTML = `
+        <div class="login-box">
+          <h2>设置管理员密码</h2>
+          <p>首次使用，请设置一个管理员密码用于进入后台。</p>
+          <input type="password" id="pw1" placeholder="设置密码（至少4位）">
+          <button class="submit-btn" id="setpw-btn">设置并进入</button>
+          <div class="admin-link" style="margin-top:16px;"><a id="back-link">返回登记页</a></div>
+        </div>`;
+      document.getElementById('setpw-btn').onclick = ()=> setAdminPassword(document.getElementById('pw1').value);
+      document.getElementById('back-link').onclick = ()=>{ state.view='entry'; render(); };
+      return;
+    }
+    app.innerHTML = `
+      <div class="login-box">
+        <h2>管理员登录</h2>
+        <p>请输入密码进入抽奖后台管理</p>
+        <input type="password" id="pw1" placeholder="密码">
+        <button class="submit-btn" id="login-btn">登录</button>
+        <div class="admin-link" style="margin-top:16px;"><a id="back-link">返回登记页</a></div>
+      </div>`;
+    document.getElementById('login-btn').onclick = ()=> tryLogin(document.getElementById('pw1').value);
+    document.getElementById('pw1').addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(e.target.value); });
+    document.getElementById('back-link').onclick = ()=>{ state.view='entry'; render(); };
+  }
+
+  function renderAdminEntriesTab(container){
+    const q = state.search.trim().toLowerCase();
+    const list = state.entries.filter(en=>{
+      if(!q) return true;
+      return en.name.toLowerCase().includes(q) || en.orderId.toLowerCase().includes(q) || en.contact.toLowerCase().includes(q) || en.id.toLowerCase().includes(q);
+    });
+    container.innerHTML = `
+      <div class="toolbar">
+        <div style="font-size:13.5px;color:var(--ink-soft);">共 ${state.entries.length} 位登记 ${q?`· 筛选出 ${list.length} 位`:''}</div>
+        <button class="small-btn ghost" id="export-btn">导出 CSV</button>
+      </div>
+      <input class="searchbar" id="search-input" placeholder="按姓名 / 订单号 / 联系方式 / 编号搜索" value="${escapeAttr(state.search)}">
+      ${list.length===0?`<div class="empty-state">暂无符合条件的登记资料</div>`:`
+      <table>
+        <thead><tr><th>编号</th><th>照片</th><th>姓名</th><th>联系方式</th><th>订单号</th><th>金额</th><th>状态</th><th>时间</th><th></th></tr></thead>
+        <tbody>
+          ${list.map(en=>`
+            <tr>
+              <td>${en.id}</td>
+              <td><img class="mini-thumb" data-src="${en.photo}" src="${en.photo}"></td>
+              <td>${escapeHtml(en.name)}</td>
+              <td>${escapeHtml(en.contact)}</td>
+              <td>${escapeHtml(en.orderId)}</td>
+              <td>${escapeHtml(String(en.amount))}</td>
+              <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">已中奖</span>`:`<span class="pill">未中奖</span>`}</td>
+              <td>${new Date(en.submittedAt).toLocaleDateString()}</td>
+              <td><button class="del-btn" data-del="${en.id}">删除</button></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`}
+    `;
+    container.querySelectorAll('.mini-thumb').forEach(img=>{ img.onclick = ()=>{ state.lightboxSrc = img.getAttribute('data-src'); render(); }; });
+    container.querySelectorAll('[data-del]').forEach(btn=>{ btn.onclick = ()=> deleteEntry(btn.getAttribute('data-del')); });
+    container.querySelector('#export-btn').onclick = exportCsv;
+    container.querySelector('#search-input').oninput = e=>{ state.search = e.target.value; renderAdminEntriesTab(container); };
+  }
+
+  function renderAdminPrizesTab(container){
+    container.innerHTML = `
+      <div class="add-prize-form">
+        <input type="text" id="new-prize-name" placeholder="奖品名称">
+        <input type="number" id="new-prize-qty" placeholder="数量" min="1" value="1" style="max-width:100px;">
+        <button class="small-btn" id="add-prize-btn">添加奖品</button>
+      </div>
+      ${state.prizes.length===0?`<div class="empty-state">还没有添加奖品</div>`:
+        state.prizes.map(p=>`
+          <div class="prize-card">
+            <div><div class="pname">${escapeHtml(p.name)}</div><div class="pqty">剩余数量：${p.qty}</div></div>
+            <button class="del-btn" data-del-prize="${p.id}">删除</button>
+          </div>`).join('')}
+    `;
+    container.querySelector('#add-prize-btn').onclick = ()=> addPrize(container.querySelector('#new-prize-name').value, container.querySelector('#new-prize-qty').value);
+    container.querySelectorAll('[data-del-prize]').forEach(btn=>{ btn.onclick = ()=> deletePrize(btn.getAttribute('data-del-prize')); });
+  }
+
+  function renderAdminDrawTab(container){
+    const availablePrizes = state.prizes.filter(p=>p.qty>0);
+    const eligibleCount = eligibleEntries().length;
+    container.innerHTML = `
+      <div class="select-row">
+        <select id="prize-select">
+          <option value="">选择要抽取的奖品</option>
+          ${availablePrizes.map(p=>`<option value="${p.id}" ${state.drawSelectedPrize===p.id?'selected':''}>${escapeHtml(p.name)}（剩余 ${p.qty}）</option>`).join('')}
+        </select>
+        <label class="checkline"><input type="checkbox" id="exclude-cb" ${state.excludePastWinners?'checked':''}> 排除已中过奖的人</label>
+      </div>
+      <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;">符合抽奖条件人数：${eligibleCount}</div>
+      <div class="draw-stage">
+        <div class="draw-prize-label">${state.drawSelectedPrize? '奖品：'+escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).name||'') : '请先选择奖品'}</div>
+        <div class="draw-name ${state.drawing?'rolling':''}" id="draw-name-el">${state.revealedWinner ? escapeHtml(state.revealedWinner.name) : (state.drawing ? escapeHtml(state.rollingName||'…') : '—')}</div>
+        ${state.revealedWinner?`<div class="draw-sub">联系方式：${escapeHtml(state.revealedWinner.contact)} · 订单号：${escapeHtml(state.revealedWinner.orderId)} · 编号：${state.revealedWinner.id}</div>`:''}
+        <div class="draw-actions">
+          ${!state.drawing && !state.revealedWinner? `<button class="small-btn" id="start-draw-btn">开始抽奖</button>`:''}
+          ${state.revealedWinner? `<button class="small-btn" id="confirm-winner-btn">保存中奖结果</button><button class="small-btn ghost" id="redraw-btn">重新抽一次</button>`:''}
+        </div>
+      </div>
+    `;
+    container.querySelector('#prize-select').onchange = e=>{ state.drawSelectedPrize = e.target.value; state.revealedWinner=null; renderAdminDrawTab(container); };
+    container.querySelector('#exclude-cb').onchange = e=>{ state.excludePastWinners = e.target.checked; renderAdminDrawTab(container); };
+    const startBtn = container.querySelector('#start-draw-btn'); if(startBtn) startBtn.onclick = startDraw;
+    const confirmBtn = container.querySelector('#confirm-winner-btn'); if(confirmBtn) confirmBtn.onclick = confirmWinner;
+    const redrawBtn = container.querySelector('#redraw-btn'); if(redrawBtn) redrawBtn.onclick = ()=>{ discardDraw(); startDraw(); };
+  }
+
+  function renderAdminHistoryTab(container){
+    container.innerHTML = state.draws.length===0? `<div class="empty-state">暂无中奖记录</div>` : `
+      <table>
+        <thead><tr><th>奖品</th><th>中奖者</th><th>联系方式</th><th>订单号</th><th>时间</th><th></th></tr></thead>
+        <tbody>
+          ${state.draws.map(d=>`
+            <tr>
+              <td>${escapeHtml(d.prizeName)}</td>
+              <td>${escapeHtml(d.winnerName)}</td>
+              <td>${escapeHtml(d.winnerContact)}</td>
+              <td>${escapeHtml(d.winnerOrderId)}</td>
+              <td>${new Date(d.timestamp).toLocaleString()}</td>
+              <td><button class="del-btn" data-revoke="${d.id}">撤销</button></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+    container.querySelectorAll('[data-revoke]').forEach(btn=>{ btn.onclick = ()=> revokeDraw(btn.getAttribute('data-revoke')); });
+  }
+
+  function renderAdminSettingsTab(container){
+    container.innerHTML = `
+      <div class="settings-note">提示：抽奖资料（含照片）保存在服务器的 data 目录里，只有知道管理员密码的人能查看，请勿将后台密码告诉参与者。</div>
+      <div class="field"><label>活动标题</label><input type="text" id="ev-title" value="${escapeAttr(state.eventConfig.title)}"></div>
+      <div class="field"><label>活动说明</label><input type="text" id="ev-subtitle" value="${escapeAttr(state.eventConfig.subtitle)}"></div>
+      <button class="small-btn" id="save-event-btn">保存</button>
+      <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">修改管理员密码</label>
+        <input type="password" id="new-pw" placeholder="新密码（至少4位）" style="width:100%;max-width:280px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
+        <br><button class="small-btn ghost" id="change-pw-btn">更新密码</button>
+      </div>
+    `;
+    container.querySelector('#save-event-btn').onclick = ()=> saveEventConfig(container.querySelector('#ev-title').value, container.querySelector('#ev-subtitle').value);
+    container.querySelector('#change-pw-btn').onclick = async ()=>{
+      const v = container.querySelector('#new-pw').value;
+      if(!v || v.length<4){ showToast('密码至少4位'); return; }
+      try{ await api('/api/admin/change-password', {method:'POST', auth:true, body:{password:v}}); showToast('密码已更新'); }
+      catch(e){ showToast(e.message); }
+    };
+  }
+
+  function renderAdminView(){
+    const tabs = [['entries','参与名单'],['prizes','奖品管理'],['draw','开始抽奖'],['history','中奖记录'],['settings','活动设置']];
+    app.innerHTML = `
+      <div class="admin-wrap">
+        <div class="admin-header">
+          <div><h2>抽奖后台管理</h2><div class="sub">${escapeHtml(state.eventConfig.title)}</div></div>
+          <button class="logout-btn" id="logout-btn">退出管理</button>
+        </div>
+        <div class="tabs">${tabs.map(t=>`<div class="tab ${state.adminTab===t[0]?'active':''}" data-tab="${t[0]}">${t[1]}</div>`).join('')}</div>
+        <div class="admin-content" id="admin-content"></div>
+      </div>`;
+    document.getElementById('logout-btn').onclick = logout;
+    app.querySelectorAll('.tab').forEach(tabEl=>{ tabEl.onclick = ()=>{ state.adminTab = tabEl.getAttribute('data-tab'); render(); }; });
+    const content = document.getElementById('admin-content');
+    if(state.adminTab==='entries') renderAdminEntriesTab(content);
+    else if(state.adminTab==='prizes') renderAdminPrizesTab(content);
+    else if(state.adminTab==='draw') renderAdminDrawTab(content);
+    else if(state.adminTab==='history') renderAdminHistoryTab(content);
+    else if(state.adminTab==='settings') renderAdminSettingsTab(content);
+    if(state.lightboxSrc){
+      const lb = el(`<div class="lightbox"><img src="${state.lightboxSrc}"></div>`);
+      lb.onclick = ()=>{ state.lightboxSrc=null; render(); };
+      document.body.appendChild(lb);
+    }
+  }
+
+  function render(){
+    if(state.view==='entry') renderEntryView();
+    else if(state.view==='success') renderSuccessView();
+    else if(state.view==='adminLogin') renderAdminLoginView();
+    else if(state.view==='admin') renderAdminView();
+  }
+
+  async function init(){
+    await loadEventConfig();
+    render();
+  }
+  init();
+})();
+</script>
+</body>
+</html>
