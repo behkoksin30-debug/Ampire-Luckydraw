@@ -119,8 +119,8 @@ app.post('/api/admin/change-password', requireAdmin, (req, res) => {
 
 /* ---------------- entries (public submits, admin manages) ---------------- */
 app.post('/api/entries', (req, res) => {
-  const { name, contact, orderId, amount, photo } = req.body || {};
-  if (!name || !contact || !orderId || !amount || !photo) {
+  const { name, contact, ddName, customerName, orderId, amount, photo } = req.body || {};
+  if (!name || !contact || !ddName || !customerName || !orderId || !amount || !photo) {
     return res.status(400).json({ error: '资料不完整，请填写全部字段并上传照片' });
   }
   const id = genId('LD-', 6);
@@ -128,6 +128,8 @@ app.post('/api/entries', (req, res) => {
     id,
     name: String(name).slice(0, 100),
     contact: String(contact).slice(0, 100),
+    ddName: String(ddName).slice(0, 100),
+    customerName: String(customerName).slice(0, 100),
     orderId: String(orderId).slice(0, 100),
     amount: String(amount).slice(0, 50),
     photo,
@@ -154,10 +156,10 @@ app.get('/api/prizes', requireAdmin, (req, res) => {
   res.json(readJson(PRIZES_FILE, []));
 });
 app.post('/api/prizes', requireAdmin, (req, res) => {
-  const { name, qty } = req.body || {};
+  const { name, qty, photo } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: '请输入奖品名称' });
   const prizes = readJson(PRIZES_FILE, []);
-  const prize = { id: genId('PZ-', 6), name: String(name).slice(0, 100), qty: Math.max(1, parseInt(qty, 10) || 1), createdAt: Date.now() };
+  const prize = { id: genId('PZ-', 6), name: String(name).slice(0, 100), qty: Math.max(1, parseInt(qty, 10) || 1), photo: photo || null, createdAt: Date.now() };
   prizes.push(prize);
   writeJson(PRIZES_FILE, prizes);
   res.json(prize);
@@ -185,7 +187,9 @@ app.post('/api/draws', requireAdmin, (req, res) => {
   const draw = {
     id: genId('DR-', 6),
     prizeId, prizeName: prize.name,
-    entryId, winnerName: entry.name, winnerContact: entry.contact, winnerOrderId: entry.orderId,
+    entryId, winnerName: entry.name, winnerContact: entry.contact,
+    winnerDdName: entry.ddName || '', winnerCustomerName: entry.customerName || '',
+    winnerOrderId: entry.orderId,
     timestamp: Date.now()
   };
   const draws = readJson(DRAWS_FILE, []);
