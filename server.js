@@ -18,7 +18,8 @@ function ensureDirs() {
     fs.writeFileSync(CONFIG_FILE, JSON.stringify({
       title: '幸运抽奖登记',
       subtitle: '上传订单截图，填写资料，登记您的抽奖资格',
-      conversionRate: 100
+      conversionRate: 100,
+      tiers: []
     }, null, 2));
   }
   if (!fs.existsSync(PRIZES_FILE)) fs.writeFileSync(PRIZES_FILE, '[]');
@@ -72,17 +73,25 @@ function genId(prefix, len) {
   return prefix + s;
 }
 
-function computeTicketCount(amount, rate) {
+function computeTicketCount(amount, rate, tiers) {
   const amt = parseFloat(amount) || 0;
   const r = parseFloat(rate) || 0;
-  if (r <= 0) return amt > 0 ? 1 : 0;
-  return Math.max(0, Math.floor(amt / r));
+  let base = 0;
+  if (r <= 0) base = amt > 0 ? 1 : 0;
+  else base = Math.max(0, Math.floor(amt / r));
+  let bonus = 0;
+  (tiers || []).forEach(t => {
+    const threshold = parseFloat(t.threshold) || 0;
+    const b = parseFloat(t.bonus) || 0;
+    if (threshold > 0 && amt >= threshold) bonus += b;
+  });
+  return base + bonus;
 }
 
 /* ---------------- event config ---------------- */
 app.get('/api/config', (req, res) => {
   const cfg = readConfig();
-  res.json({ title: cfg.title || '幸运抽奖登记', subtitle: cfg.subtitle || '', conversionRate: cfg.conversionRate || 100 });
+  res.json({ title: cfg.title || '幸运抽奖登记', subtitle: cfg.subtitle || '', conversionRate: cfg.conversionRate || 100, tiers: cfg.tiers || [] });
 });
 app.put('/api/config', requireAdmin, (req, res) => {
   const cfg = readConfig();
@@ -90,6 +99,12 @@ app.put('/api/config', requireAdmin, (req, res) => {
   cfg.subtitle = (req.body.subtitle || '').toString().slice(0, 140);
   const rate = parseFloat(req.body.conversionRate);
   cfg.conversionRate = (!isNaN(rate) && rate > 0) ? rate : (cfg.conversionRate || 100);
+  if (Array.isArray(req.body.tiers)) {
+    cfg.tiers = req.body.tiers
+      .map(t => ({ threshold: parseFloat(t.threshold), bonus: parseFloat(t.bonus) }))
+      .filter(t => !isNaN(t.threshold) && t.threshold > 0 && !isNaN(t.bonus) && t.bonus >= 0)
+      .sort((a, b) => a.threshold - b.threshold);
+  }
   writeConfig(cfg);
   res.json({ ok: true });
 });
@@ -161,10 +176,11 @@ app.post('/api/entries', (req, res) => {
 app.get('/api/entries', requireAdmin, (req, res) => {
   const cfg = readConfig();
   const rate = cfg.conversionRate || 100;
+  const tiers = cfg.tiers || [];
   const files = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
   const list = files.map(f => readJson(path.join(ENTRIES_DIR, f), null)).filter(Boolean);
   list.forEach(entry => {
-    const count = computeTicketCount(entry.amount, rate);
+    const count = computeTicketCount(entry.amount, rate, tiers);
     entry.ticketCount = count;
     entry.ticketIds = Array.from({ length: count }, (_, i) => entry.id + '-' + (i + 1));
   });
