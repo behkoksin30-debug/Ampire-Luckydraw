@@ -215,10 +215,10 @@ app.get('/api/prizes', requireAdmin, (req, res) => {
   res.json(readJson(PRIZES_FILE, []));
 });
 app.post('/api/prizes', requireAdmin, (req, res) => {
-  const { name, qty, photo, value } = req.body || {};
+  const { name, qty, photo, value, guaranteedEligible } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: '请输入奖品名称' });
   const prizes = readJson(PRIZES_FILE, []);
-  const prize = { id: genId('PZ-', 6), name: String(name).slice(0, 100), qty: Math.max(1, parseInt(qty, 10) || 1), photo: photo || null, value: value ? String(value).slice(0, 30) : '', createdAt: Date.now() };
+  const prize = { id: genId('PZ-', 6), name: String(name).slice(0, 100), qty: Math.max(1, parseInt(qty, 10) || 1), photo: photo || null, value: value ? String(value).slice(0, 30) : '', guaranteedEligible: !!guaranteedEligible, createdAt: Date.now() };
   prizes.push(prize);
   writeJson(PRIZES_FILE, prizes);
   res.json(prize);
@@ -233,11 +233,12 @@ app.put('/api/prizes/:id', requireAdmin, (req, res) => {
   const prizes = readJson(PRIZES_FILE, []);
   const prize = prizes.find(p => p.id === req.params.id);
   if (!prize) return res.status(404).json({ error: '奖品不存在' });
-  const { name, qty, photo, value } = req.body || {};
+  const { name, qty, photo, value, guaranteedEligible } = req.body || {};
   if (name && String(name).trim()) prize.name = String(name).slice(0, 100);
   if (qty !== undefined) prize.qty = Math.max(0, parseInt(qty, 10) || 0);
   if (value !== undefined) prize.value = value ? String(value).slice(0, 30) : '';
   if (photo !== undefined) prize.photo = photo || null;
+  if (guaranteedEligible !== undefined) prize.guaranteedEligible = !!guaranteedEligible;
   writeJson(PRIZES_FILE, prizes);
   res.json(prize);
 });
@@ -264,6 +265,9 @@ app.post('/api/draws', requireAdmin, (req, res) => {
     const threshold = cfg.guaranteedGiftThreshold || 0;
     if (threshold > 0 && (parseFloat(entry.amount) || 0) < threshold) {
       return res.status(400).json({ error: '该顾客金额未达到满额保证送礼门槛' });
+    }
+    if (!prize.guaranteedEligible) {
+      return res.status(400).json({ error: '该礼物未开放用于满额保证送礼' });
     }
   }
 
