@@ -128,13 +128,14 @@
     entries: [], prizes: [], draws: [],
     eventConfig: { title: '幸运抽奖登记', subtitle: '' },
     adminPasswordSet: null,
-    form: { name:'', contact:'', orderId:'', amount:'', photo:null },
+    form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null },
     formErrors: {},
     ocrBusy: false, ocrText: '',
     search: '',
     lightboxSrc: null,
     drawing: false, drawSelectedPrize: '', excludePastWinners: true,
-    rollingName: '', revealedWinner: null
+    rollingName: '', revealedWinner: null,
+    newPrizePhoto: null
   };
 
   function showToast(msg){
@@ -246,6 +247,8 @@
     const errs = {};
     if(!state.form.name.trim()) errs.name = '请输入姓名';
     if(!state.form.contact.trim()) errs.contact = '请输入联系方式';
+    if(!state.form.ddName.trim()) errs.ddName = '请输入DD名字';
+    if(!state.form.customerName.trim()) errs.customerName = '请输入顾客名字';
     if(!state.form.photo) errs.photo = '请上传订单截图';
     if(!state.form.orderId.trim()) errs.orderId = '请输入订单号';
     if(!state.form.amount.toString().trim()) errs.amount = '请输入金额';
@@ -257,11 +260,12 @@
     try{
       const r = await api('/api/entries', {method:'POST', body:{
         name: state.form.name.trim(), contact: state.form.contact.trim(),
+        ddName: state.form.ddName.trim(), customerName: state.form.customerName.trim(),
         orderId: state.form.orderId.trim(), amount: state.form.amount.toString().trim(),
         photo: state.form.photo
       }});
-      state.lastTicket = { id: r.id, name: state.form.name.trim(), orderId: state.form.orderId.trim() };
-      state.form = { name:'', contact:'', orderId:'', amount:'', photo:null };
+      state.lastTicket = { id: r.id, name: state.form.name.trim(), customerName: state.form.customerName.trim(), orderId: state.form.orderId.trim() };
+      state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null };
       state.ocrText=''; state.view='success'; render();
     }catch(e){ showToast(e.message||'提交失败，请重试'); }
   }
@@ -273,8 +277,8 @@
     catch(e){ showToast(e.message); }
   }
   function exportCsv(){
-    const rows = [['抽奖编号','姓名','联系方式','订单号','金额','提交时间']];
-    state.entries.forEach(en=> rows.push([en.id, en.name, en.contact, en.orderId, en.amount, new Date(en.submittedAt).toLocaleString()]));
+    const rows = [['抽奖编号','姓名','电话','DD名字','顾客名字','订单号','金额','提交时间']];
+    state.entries.forEach(en=> rows.push([en.id, en.name, en.contact, en.ddName||'', en.customerName||'', en.orderId, en.amount, new Date(en.submittedAt).toLocaleString()]));
     const csv = rows.map(r=> r.map(c=> '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
     const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
@@ -285,7 +289,11 @@
   /* ---------------- admin: prizes ---------------- */
   async function addPrize(name, qty){
     if(!name.trim()){ showToast('请输入奖品名称'); return; }
-    try{ await api('/api/prizes', {method:'POST', auth:true, body:{name:name.trim(), qty}}); await loadAdminData(); render(); }
+    try{
+      await api('/api/prizes', {method:'POST', auth:true, body:{name:name.trim(), qty, photo: state.newPrizePhoto}});
+      state.newPrizePhoto = null;
+      await loadAdminData(); render();
+    }
     catch(e){ showToast(e.message); }
   }
   async function deletePrize(id){
@@ -387,9 +395,17 @@
             <input type="text" id="f-name" value="${escapeAttr(f.name)}" placeholder="请输入您的姓名">
             ${errs.name?`<div class="error-text">${errs.name}</div>`:''}
           </div>
-          <div class="field"><label>联系方式 <span class="hint">电话 / WhatsApp</span></label>
+          <div class="field"><label>电话</label>
             <input type="text" id="f-contact" value="${escapeAttr(f.contact)}" placeholder="例如 012-3456789">
             ${errs.contact?`<div class="error-text">${errs.contact}</div>`:''}
+          </div>
+          <div class="field"><label>DD 名字</label>
+            <input type="text" id="f-ddname" value="${escapeAttr(f.ddName)}" placeholder="请输入DD名字">
+            ${errs.ddName?`<div class="error-text">${errs.ddName}</div>`:''}
+          </div>
+          <div class="field"><label>顾客名字</label>
+            <input type="text" id="f-customername" value="${escapeAttr(f.customerName)}" placeholder="订单持有人的名字">
+            ${errs.customerName?`<div class="error-text">${errs.customerName}</div>`:''}
           </div>
           <div class="field"><label>上传订单截图</label>
             <div class="upload-box">
@@ -417,6 +433,8 @@
     `;
     document.getElementById('f-name').oninput = e=>{ state.form.name = e.target.value; };
     document.getElementById('f-contact').oninput = e=>{ state.form.contact = e.target.value; };
+    document.getElementById('f-ddname').oninput = e=>{ state.form.ddName = e.target.value; };
+    document.getElementById('f-customername').oninput = e=>{ state.form.customerName = e.target.value; };
     document.getElementById('f-orderid').oninput = e=>{ state.form.orderId = e.target.value; };
     document.getElementById('f-amount').oninput = e=>{ state.form.amount = e.target.value; };
     document.getElementById('f-photo').onchange = async (e)=>{
@@ -450,7 +468,7 @@
           <div class="stub">
             <div class="label">您的抽奖编号</div>
             <div class="code">${t.id}</div>
-            <div class="label">${escapeHtml(t.name)} · 订单号 ${escapeHtml(t.orderId)}</div>
+            <div class="label">顾客：${escapeHtml(t.customerName)} · 订单号 ${escapeHtml(t.orderId)}</div>
           </div>
           <button class="again-btn" id="again-btn">再登记一位</button>
         </div>
@@ -490,7 +508,8 @@
     const q = state.search.trim().toLowerCase();
     const list = state.entries.filter(en=>{
       if(!q) return true;
-      return en.name.toLowerCase().includes(q) || en.orderId.toLowerCase().includes(q) || en.contact.toLowerCase().includes(q) || en.id.toLowerCase().includes(q);
+      return en.name.toLowerCase().includes(q) || en.orderId.toLowerCase().includes(q) || en.contact.toLowerCase().includes(q) || en.id.toLowerCase().includes(q)
+        || (en.ddName||'').toLowerCase().includes(q) || (en.customerName||'').toLowerCase().includes(q);
     });
     container.innerHTML = `
       <div class="toolbar">
@@ -499,8 +518,9 @@
       </div>
       <input class="searchbar" id="search-input" placeholder="按姓名 / 订单号 / 联系方式 / 编号搜索" value="${escapeAttr(state.search)}">
       ${list.length===0?`<div class="empty-state">暂无符合条件的登记资料</div>`:`
+      <div style="overflow-x:auto;">
       <table>
-        <thead><tr><th>编号</th><th>照片</th><th>姓名</th><th>联系方式</th><th>订单号</th><th>金额</th><th>状态</th><th>时间</th><th></th></tr></thead>
+        <thead><tr><th>编号</th><th>照片</th><th>姓名</th><th>电话</th><th>DD名字</th><th>顾客名字</th><th>订单号</th><th>金额</th><th>状态</th><th>时间</th><th></th></tr></thead>
         <tbody>
           ${list.map(en=>`
             <tr>
@@ -508,6 +528,8 @@
               <td><img class="mini-thumb" data-src="${en.photo}" src="${en.photo}"></td>
               <td>${escapeHtml(en.name)}</td>
               <td>${escapeHtml(en.contact)}</td>
+              <td>${escapeHtml(en.ddName||'—')}</td>
+              <td>${escapeHtml(en.customerName||'—')}</td>
               <td>${escapeHtml(en.orderId)}</td>
               <td>${escapeHtml(String(en.amount))}</td>
               <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">已中奖</span>`:`<span class="pill">未中奖</span>`}</td>
@@ -515,7 +537,8 @@
               <td><button class="del-btn" data-del="${en.id}">删除</button></td>
             </tr>`).join('')}
         </tbody>
-      </table>`}
+      </table>
+      </div>`}
     `;
     container.querySelectorAll('.mini-thumb').forEach(img=>{ img.onclick = ()=>{ state.lightboxSrc = img.getAttribute('data-src'); render(); }; });
     container.querySelectorAll('[data-del]').forEach(btn=>{ btn.onclick = ()=> deleteEntry(btn.getAttribute('data-del')); });
@@ -525,6 +548,10 @@
 
   function renderAdminPrizesTab(container){
     container.innerHTML = `
+      <div class="upload-box" style="margin-bottom:12px;">
+        <label class="upload-btn">选择产品图片<input type="file" id="new-prize-photo" accept="image/*"></label>
+        ${state.newPrizePhoto?`<img class="thumb" src="${state.newPrizePhoto}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">可选，不上传也可以添加奖品</span>`}
+      </div>
       <div class="add-prize-form">
         <input type="text" id="new-prize-name" placeholder="奖品名称">
         <input type="number" id="new-prize-qty" placeholder="数量" min="1" value="1" style="max-width:100px;">
@@ -533,10 +560,18 @@
       ${state.prizes.length===0?`<div class="empty-state">还没有添加奖品</div>`:
         state.prizes.map(p=>`
           <div class="prize-card">
-            <div><div class="pname">${escapeHtml(p.name)}</div><div class="pqty">剩余数量：${p.qty}</div></div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              ${p.photo?`<img class="thumb" src="${p.photo}">`:''}
+              <div><div class="pname">${escapeHtml(p.name)}</div><div class="pqty">剩余数量：${p.qty}</div></div>
+            </div>
             <button class="del-btn" data-del-prize="${p.id}">删除</button>
           </div>`).join('')}
     `;
+    container.querySelector('#new-prize-photo').onchange = async (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      try{ state.newPrizePhoto = await compressImage(file); renderAdminPrizesTab(container); }
+      catch(err){ showToast('照片处理失败，请重试'); }
+    };
     container.querySelector('#add-prize-btn').onclick = ()=> addPrize(container.querySelector('#new-prize-name').value, container.querySelector('#new-prize-qty').value);
     container.querySelectorAll('[data-del-prize]').forEach(btn=>{ btn.onclick = ()=> deletePrize(btn.getAttribute('data-del-prize')); });
   }
@@ -554,9 +589,10 @@
       </div>
       <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;">符合抽奖条件人数：${eligibleCount}</div>
       <div class="draw-stage">
+        ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); return pz && pz.photo ? `<img class="thumb" style="width:64px;height:64px;margin-bottom:10px;" src="${pz.photo}">` : ''; })()}
         <div class="draw-prize-label">${state.drawSelectedPrize? '奖品：'+escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).name||'') : '请先选择奖品'}</div>
         <div class="draw-name ${state.drawing?'rolling':''}" id="draw-name-el">${state.revealedWinner ? escapeHtml(state.revealedWinner.name) : (state.drawing ? escapeHtml(state.rollingName||'…') : '—')}</div>
-        ${state.revealedWinner?`<div class="draw-sub">联系方式：${escapeHtml(state.revealedWinner.contact)} · 订单号：${escapeHtml(state.revealedWinner.orderId)} · 编号：${state.revealedWinner.id}</div>`:''}
+        ${state.revealedWinner?`<div class="draw-sub">顾客：${escapeHtml(state.revealedWinner.customerName||'—')} · DD名字：${escapeHtml(state.revealedWinner.ddName||'—')} · 联系方式：${escapeHtml(state.revealedWinner.contact)} · 订单号：${escapeHtml(state.revealedWinner.orderId)} · 编号：${state.revealedWinner.id}</div>`:''}
         <div class="draw-actions">
           ${!state.drawing && !state.revealedWinner? `<button class="small-btn" id="start-draw-btn">开始抽奖</button>`:''}
           ${state.revealedWinner? `<button class="small-btn" id="confirm-winner-btn">保存中奖结果</button><button class="small-btn ghost" id="redraw-btn">重新抽一次</button>`:''}
@@ -572,20 +608,24 @@
 
   function renderAdminHistoryTab(container){
     container.innerHTML = state.draws.length===0? `<div class="empty-state">暂无中奖记录</div>` : `
+      <div style="overflow-x:auto;">
       <table>
-        <thead><tr><th>奖品</th><th>中奖者</th><th>联系方式</th><th>订单号</th><th>时间</th><th></th></tr></thead>
+        <thead><tr><th>奖品</th><th>姓名</th><th>DD名字</th><th>顾客名字</th><th>联系方式</th><th>订单号</th><th>时间</th><th></th></tr></thead>
         <tbody>
           ${state.draws.map(d=>`
             <tr>
               <td>${escapeHtml(d.prizeName)}</td>
               <td>${escapeHtml(d.winnerName)}</td>
+              <td>${escapeHtml(d.winnerDdName||'—')}</td>
+              <td>${escapeHtml(d.winnerCustomerName||'—')}</td>
               <td>${escapeHtml(d.winnerContact)}</td>
               <td>${escapeHtml(d.winnerOrderId)}</td>
               <td>${new Date(d.timestamp).toLocaleString()}</td>
               <td><button class="del-btn" data-revoke="${d.id}">撤销</button></td>
             </tr>`).join('')}
         </tbody>
-      </table>`;
+      </table>
+      </div>`;
     container.querySelectorAll('[data-revoke]').forEach(btn=>{ btn.onclick = ()=> revokeDraw(btn.getAttribute('data-revoke')); });
   }
 
