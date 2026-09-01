@@ -146,7 +146,7 @@ app.post('/api/admin/change-password', requireAdmin, (req, res) => {
 app.post('/api/entries', (req, res) => {
   const { name, contact, ddName, customerName, orderId, amount, photo } = req.body || {};
   if (!name || !contact || !ddName || !customerName || !orderId || !amount || !photo) {
-    return res.status(400).json({ error: '资料不完整，请填写全部字段并上传照片' });
+    return res.status(400).json({ error: '资料不完整，请填写全部字段并上传照片 / Missing information, please fill in all fields and upload a photo' });
   }
   const orderIdNorm = String(orderId).trim().toLowerCase();
   const existingFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
@@ -155,7 +155,7 @@ app.post('/api/entries', (req, res) => {
     return existing && String(existing.orderId || '').trim().toLowerCase() === orderIdNorm;
   });
   if (isDuplicate) {
-    return res.status(400).json({ error: '该订单号已经登记过' });
+    return res.status(400).json({ error: '该订单号已经登记过 / This Order ID has already been registered' });
   }
   const id = genId('LD-', 6);
   const entry = {
