@@ -106,6 +106,7 @@
   .login-box p{color:var(--ink-soft);font-size:13.5px;margin:0 0 20px;}
   .login-box input{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:9px;font-size:15px;margin-bottom:12px;}
   .lightbox{position:fixed;inset:0;background:rgba(36,28,36,.82);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .lightbox-close{position:fixed;top:18px;right:18px;background:rgba(255,255,255,.14);color:#fff;border:1.5px solid rgba(255,255,255,.4);padding:9px 16px;border-radius:8px;font-size:14px;font-weight:700;z-index:51;}
   .lightbox img{max-width:100%;max-height:90vh;border-radius:8px;}
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--plum);color:#fff;padding:11px 20px;border-radius:30px;font-size:13.5px;z-index:60;box-shadow:0 8px 20px rgba(0,0,0,.25);}
   .settings-note{background:#fdf1e0;border:1px solid var(--gold-light);border-radius:9px;padding:12px 14px;font-size:12.5px;color:var(--ink-soft);margin-bottom:16px;line-height:1.6;}
@@ -560,11 +561,10 @@
       ${list.length===0?`<div class="empty-state">暂无符合条件的登记资料</div>`:`
       <div style="overflow-x:auto;">
       <table>
-        <thead><tr><th>编号</th><th>照片</th><th>姓名</th><th>电话</th><th>DD名字</th><th>顾客名字</th><th>订单号</th><th>金额</th><th>抽奖次数</th><th>状态</th><th>时间</th><th></th></tr></thead>
+        <thead><tr><th>照片</th><th>姓名</th><th>电话</th><th>DD名字</th><th>顾客名字</th><th>订单号</th><th>金额</th><th>抽奖次数</th><th>状态</th><th>时间</th><th></th></tr></thead>
         <tbody>
           ${list.map(en=>`
             <tr>
-              <td>${en.id}</td>
               <td><img class="mini-thumb" data-src="${en.photo}" src="${en.photo}"></td>
               <td>${escapeHtml(en.name)}</td>
               <td>${escapeHtml(en.contact)}</td>
@@ -895,8 +895,8 @@
     else if(state.adminTab==='history') renderAdminHistoryTab(content);
     else if(state.adminTab==='settings') renderAdminSettingsTab(content);
     if(state.lightboxSrc){
-      const lb = el(`<div class="lightbox"><img src="${state.lightboxSrc}"></div>`);
-      lb.onclick = ()=>{ state.lightboxSrc=null; render(); };
+      const lb = el(`<div class="lightbox"><button class="lightbox-close" type="button">✕ 关闭</button><img src="${state.lightboxSrc}"></div>`);
+      lb.onclick = (e)=>{ if(e.target===lb || e.target.closest('.lightbox-close')){ state.lightboxSrc=null; render(); } };
       document.body.appendChild(lb);
     }
   }
