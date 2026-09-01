@@ -553,7 +553,7 @@
     });
     container.innerHTML = `
       <div class="toolbar">
-        <div style="font-size:13.5px;color:var(--ink-soft);">共 ${state.entries.length} 位登记 · 共 ${state.entries.reduce((sum,en)=>sum+(en.ticketCount||0),0)} 次抽奖资格 ${q?`· 筛选出 ${list.length} 位`:''}</div>
+        <div style="font-size:13.5px;color:var(--ink-soft);">共 ${state.entries.length} 位登记 · 共 ${state.entries.reduce((sum,en)=>sum+(en.ticketCount||0),0)} 次抽奖资格 ${state.eventConfig.guaranteedGiftThreshold>0?`· 满额保证送礼门槛达标 ${state.entries.filter(en=>(parseFloat(en.amount)||0) >= state.eventConfig.guaranteedGiftThreshold).length} 位`:''} ${q?`· 筛选出 ${list.length} 位`:''}</div>
         <button class="small-btn ghost" id="export-btn">导出 CSV</button>
       </div>
       <input class="searchbar" id="search-input" placeholder="按姓名 / 订单号 / 联系方式 / 编号搜索" value="${escapeAttr(state.search)}">
@@ -572,7 +572,7 @@
               <td>${escapeHtml(en.customerName||'—')}</td>
               <td>${escapeHtml(en.orderId)}</td>
               <td>${escapeHtml(String(en.amount))}</td>
-              <td>${(en.ticketCount>0) ? `${en.ticketCount} 次<br><span style="font-size:11px;color:var(--ink-soft);">${(en.ticketIds||[]).join(', ')}</span>` : `<span style="color:var(--ink-soft);">0次</span>`}</td>
+              <td>${(en.ticketCount>0) ? `${en.ticketCount} 次` : `<span style="color:var(--ink-soft);">0次</span>`}</td>
               <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">已中奖</span>`:`<span class="pill">未中奖</span>`}</td>
               <td>${new Date(en.submittedAt).toLocaleDateString()}</td>
               <td><button class="del-btn" data-del="${en.id}">删除</button></td>
