@@ -227,8 +227,8 @@
   }
 
   async function runOcr(){
-    if(!state.form.photo){ showToast('请先上传订单截图'); return; }
-    if(window.__ocrLoadFailed || typeof Tesseract === 'undefined'){ showToast('OCR识别暂不可用，请手动填写'); return; }
+    if(!state.form.photo){ showToast('请先上传订单截图 / Please upload the order screenshot first'); return; }
+    if(window.__ocrLoadFailed || typeof Tesseract === 'undefined'){ showToast('OCR识别暂不可用，请手动填写 / OCR unavailable, please fill in manually'); return; }
     state.ocrBusy = true; render();
     try{
       const result = await new Promise((resolve, reject)=>{
@@ -239,28 +239,28 @@
       const guess = guessOrderIdAndAmount(text);
       if(guess.orderId) state.form.orderId = guess.orderId;
       if(guess.amount) state.form.amount = guess.amount;
-      showToast((guess.orderId||guess.amount) ? '已自动填入，请核对是否正确' : '未能自动识别，请手动填写并核对');
-    }catch(e){ showToast('OCR识别失败，请手动填写'); }
+      showToast((guess.orderId||guess.amount) ? '已自动填入，请核对是否正确 / Auto-filled, please verify' : '未能自动识别，请手动填写并核对 / Could not auto-detect, please fill in and check manually');
+    }catch(e){ showToast('OCR识别失败，请手动填写 / OCR failed, please fill in manually'); }
     state.ocrBusy = false; render();
   }
 
   /* ---------------- public submit ---------------- */
   function validateForm(){
     const errs = {};
-    if(!state.form.name.trim()) errs.name = '请输入姓名';
-    if(!state.form.contact.trim()) errs.contact = '请输入联系方式';
-    if(!state.form.ddName.trim()) errs.ddName = '请输入DD名字';
-    if(!state.form.customerName.trim()) errs.customerName = '请输入顾客名字';
-    if(!state.form.photo) errs.photo = '请上传订单截图';
-    if(!state.form.orderId.trim()) errs.orderId = '请输入订单号';
-    if(!state.form.amount.toString().trim()) errs.amount = '请输入金额';
+    if(!state.form.name.trim()) errs.name = '请输入姓名 / Please enter your name';
+    if(!state.form.contact.trim()) errs.contact = '请输入联系方式 / Please enter your contact number';
+    if(!state.form.ddName.trim()) errs.ddName = '请输入DD名字 / Please enter DD name';
+    if(!state.form.customerName.trim()) errs.customerName = '请输入顾客名字 / Please enter customer name';
+    if(!state.form.photo) errs.photo = '请上传订单截图 / Please upload the order screenshot';
+    if(!state.form.orderId.trim()) errs.orderId = '请输入订单号 / Please enter the Order ID';
+    if(!state.form.amount.toString().trim()) errs.amount = '请输入金额 / Please enter the amount';
     if(state.form.photo && state.form.orderId.trim() && state.form.amount.toString().trim()){
       const ocrText = state.ocrText || '';
       if(!ocrText.trim()){
-        errs.ocr = '请先点击「OCR自动识别」核对照片内容，再提交';
+        errs.ocr = '请先点击「OCR自动识别」核对照片内容，再提交 / Please click "OCR Auto-Detect" to verify the photo before submitting';
       } else {
-        if(!ocrText.includes(state.form.orderId.trim())) errs.orderId = '订单号与照片识别内容不符，请核对或重新上传清晰照片';
-        if(!ocrText.includes(state.form.amount.toString().trim())) errs.amount = '金额与照片识别内容不符，请核对或重新上传清晰照片';
+        if(!ocrText.includes(state.form.orderId.trim())) errs.orderId = '订单号与照片识别内容不符，请核对或重新上传清晰照片 / Order ID does not match the photo, please check or re-upload a clearer photo';
+        if(!ocrText.includes(state.form.amount.toString().trim())) errs.amount = '金额与照片识别内容不符，请核对或重新上传清晰照片 / Amount does not match the photo, please check or re-upload a clearer photo';
       }
     }
     state.formErrors = errs;
@@ -278,7 +278,7 @@
       state.lastTicket = { id: r.id, name: state.form.name.trim(), customerName: state.form.customerName.trim(), orderId: state.form.orderId.trim() };
       state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null };
       state.ocrText=''; state.view='success'; render();
-    }catch(e){ showToast(e.message||'提交失败，请重试'); }
+    }catch(e){ showToast(e.message||'提交失败，请重试 / Submission failed, please try again'); }
   }
 
   /* ---------------- admin: entries ---------------- */
@@ -422,46 +422,46 @@
         </div>
         <div class="perforation"></div>
         <div class="ticket-body">
-          <div class="field"><label>姓名</label>
-            <input type="text" id="f-name" value="${escapeAttr(f.name)}" placeholder="请输入您的姓名">
+          <div class="field"><label>姓名 / Name</label>
+            <input type="text" id="f-name" value="${escapeAttr(f.name)}" placeholder="请输入您的姓名 / Enter your name">
             ${errs.name?`<div class="error-text">${errs.name}</div>`:''}
           </div>
-          <div class="field"><label>电话</label>
-            <input type="text" id="f-contact" value="${escapeAttr(f.contact)}" placeholder="例如 012-3456789">
+          <div class="field"><label>电话 / Phone</label>
+            <input type="text" id="f-contact" value="${escapeAttr(f.contact)}" placeholder="例如 012-3456789 / e.g. 012-3456789">
             ${errs.contact?`<div class="error-text">${errs.contact}</div>`:''}
           </div>
-          <div class="field"><label>DD 名字</label>
-            <input type="text" id="f-ddname" value="${escapeAttr(f.ddName)}" placeholder="请输入DD名字">
+          <div class="field"><label>DD 名字 / DD Name</label>
+            <input type="text" id="f-ddname" value="${escapeAttr(f.ddName)}" placeholder="请输入DD名字 / Enter DD name">
             ${errs.ddName?`<div class="error-text">${errs.ddName}</div>`:''}
           </div>
-          <div class="field"><label>顾客名字</label>
-            <input type="text" id="f-customername" value="${escapeAttr(f.customerName)}" placeholder="订单持有人的名字">
+          <div class="field"><label>顾客名字 / Customer Name</label>
+            <input type="text" id="f-customername" value="${escapeAttr(f.customerName)}" placeholder="订单持有人的名字 / Name on the order">
             ${errs.customerName?`<div class="error-text">${errs.customerName}</div>`:''}
           </div>
-          <div class="field"><label>上传订单截图</label>
+          <div class="field"><label>上传订单截图 / Upload Order Screenshot</label>
             <div class="upload-box">
-              <label class="upload-btn">选择照片<input type="file" id="f-photo" accept="image/*"></label>
+              <label class="upload-btn">选择照片 / Choose Photo<input type="file" id="f-photo" accept="image/*"></label>
               ${f.photo?`<img class="thumb" src="${f.photo}">`:''}
-              ${f.photo?`<button class="ocr-btn" id="ocr-btn" ${state.ocrBusy?'disabled':''}>${state.ocrBusy?'识别中…':'OCR自动识别'}</button>`:''}
+              ${f.photo?`<button class="ocr-btn" id="ocr-btn" ${state.ocrBusy?'disabled':''}>${state.ocrBusy?'识别中… / Recognizing…':'OCR自动识别 / OCR Auto-Detect'}</button>`:''}
             </div>
             ${errs.photo?`<div class="error-text">${errs.photo}</div>`:''}
             ${errs.ocr?`<div class="error-text">${errs.ocr}</div>`:''}
-            ${state.ocrText?`<div class="ocr-note">识别到的原始文字（供核对）：</div><div class="ocr-text">${escapeHtml(state.ocrText)}</div>`:''}
+            ${state.ocrText?`<div class="ocr-note">识别到的原始文字（供核对）：/ Recognized text (for checking):</div><div class="ocr-text">${escapeHtml(state.ocrText)}</div>`:''}
           </div>
           <div class="row2">
-            <div class="field"><label>订单号</label>
-              <input type="text" id="f-orderid" value="${escapeAttr(f.orderId)}" placeholder="请核对或手动输入">
+            <div class="field"><label>订单号 / Order ID</label>
+              <input type="text" id="f-orderid" value="${escapeAttr(f.orderId)}" placeholder="请核对或手动输入 / Check or enter manually">
               ${errs.orderId?`<div class="error-text">${errs.orderId}</div>`:''}
             </div>
-            <div class="field"><label>金额</label>
-              <input type="text" id="f-amount" value="${escapeAttr(f.amount)}" placeholder="例如 88.00">
+            <div class="field"><label>金额 / Amount (RM)</label>
+              <input type="text" id="f-amount" value="${escapeAttr(f.amount)}" placeholder="例如 88.00 / e.g. 88.00">
               ${errs.amount?`<div class="error-text">${errs.amount}</div>`:''}
             </div>
           </div>
-          <button class="submit-btn" id="submit-btn">提交登记</button>
+          <button class="submit-btn" id="submit-btn">提交登记 / Submit</button>
         </div>
       </div>
-      <div class="admin-link"><a id="admin-entry-link">管理员入口</a></div>
+      <div class="admin-link"><a id="admin-entry-link">管理员入口 / Admin</a></div>
     `;
     document.getElementById('f-name').oninput = e=>{ state.form.name = e.target.value; };
     document.getElementById('f-contact').oninput = e=>{ state.form.contact = e.target.value; };
@@ -472,7 +472,7 @@
     document.getElementById('f-photo').onchange = async (e)=>{
       const file = e.target.files[0]; if(!file) return;
       try{ state.form.photo = await compressImage(file); state.ocrText=''; render(); }
-      catch(err){ showToast('照片处理失败，请重试'); }
+      catch(err){ showToast('照片处理失败，请重试 / Photo processing failed, please try again'); }
     };
     const ocrBtn = document.getElementById('ocr-btn'); if(ocrBtn) ocrBtn.onclick = runOcr;
     document.getElementById('submit-btn').onclick = submitEntry;
@@ -492,17 +492,17 @@
       <div class="ticket">
         <div class="ticket-head">
           <div class="eyebrow" style="color:var(--gold-light);opacity:.85;">REGISTERED</div>
-          <h1>报名成功</h1>
-          <p>请保留您的抽奖编号，开奖时将用于核对身份</p>
+          <h1>报名成功 / Registered Successfully</h1>
+          <p>请保留您的抽奖编号，开奖时将用于核对身份 / Please keep your entry number, it will be used to verify you when the draw is held</p>
         </div>
         <div class="perforation"></div>
         <div class="ticket-body success-wrap">
           <div class="stub">
-            <div class="label">您的抽奖编号</div>
+            <div class="label">您的抽奖编号 / Your Entry Number</div>
             <div class="code">${t.id}</div>
-            <div class="label">顾客：${escapeHtml(t.customerName)} · 订单号 ${escapeHtml(t.orderId)}</div>
+            <div class="label">顾客 / Customer：${escapeHtml(t.customerName)} · 订单号 / Order ID ${escapeHtml(t.orderId)}</div>
           </div>
-          <button class="again-btn" id="again-btn">再登记一位</button>
+          <button class="again-btn" id="again-btn">再登记一位 / Register Another</button>
         </div>
       </div>
     `;
