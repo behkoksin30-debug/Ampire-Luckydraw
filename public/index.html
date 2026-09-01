@@ -253,6 +253,15 @@
     if(!state.form.photo) errs.photo = '请上传订单截图';
     if(!state.form.orderId.trim()) errs.orderId = '请输入订单号';
     if(!state.form.amount.toString().trim()) errs.amount = '请输入金额';
+    if(state.form.photo && state.form.orderId.trim() && state.form.amount.toString().trim()){
+      const ocrText = state.ocrText || '';
+      if(!ocrText.trim()){
+        errs.ocr = '请先点击「OCR自动识别」核对照片内容，再提交';
+      } else {
+        if(!ocrText.includes(state.form.orderId.trim())) errs.orderId = '订单号与照片识别内容不符，请核对或重新上传清晰照片';
+        if(!ocrText.includes(state.form.amount.toString().trim())) errs.amount = '金额与照片识别内容不符，请核对或重新上传清晰照片';
+      }
+    }
     state.formErrors = errs;
     return Object.keys(errs).length === 0;
   }
@@ -433,6 +442,7 @@
               ${f.photo?`<button class="ocr-btn" id="ocr-btn" ${state.ocrBusy?'disabled':''}>${state.ocrBusy?'识别中…':'OCR自动识别'}</button>`:''}
             </div>
             ${errs.photo?`<div class="error-text">${errs.photo}</div>`:''}
+            ${errs.ocr?`<div class="error-text">${errs.ocr}</div>`:''}
             ${state.ocrText?`<div class="ocr-note">识别到的原始文字（供核对）：</div><div class="ocr-text">${escapeHtml(state.ocrText)}</div>`:''}
           </div>
           <div class="row2">
