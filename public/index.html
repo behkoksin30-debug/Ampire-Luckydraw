@@ -399,11 +399,12 @@
     state.loggedIn = false; state.token = null; localStorage.removeItem('ld_admin_token');
     state.view = 'entry'; render();
   }
-  async function saveEventConfig(title, subtitle, tiers, maxWinsPerPerson, guaranteedGiftThreshold){
+  async function saveEventConfig(title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold){
     try{
-      await api('/api/config', {method:'PUT', auth:true, body:{title, subtitle, tiers, maxWinsPerPerson, guaranteedGiftThreshold}});
+      await api('/api/config', {method:'PUT', auth:true, body:{title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold}});
       state.eventConfig = {
         title: title||'幸运抽奖登记', subtitle: subtitle||'',
+        conversionRate: parseFloat(conversionRate)||state.eventConfig.conversionRate,
         tiers: tiers||[],
         maxWinsPerPerson: parseInt(maxWinsPerPerson,10)||0,
         guaranteedGiftThreshold: parseFloat(guaranteedGiftThreshold)||0
@@ -825,14 +826,15 @@
       <div class="settings-note">提示：抽奖资料（含照片）保存在服务器的 data 目录里，只有知道管理员密码的人能查看，请勿将后台密码告诉参与者。</div>
       <div class="field"><label>活动标题</label><input type="text" id="ev-title" value="${escapeAttr(state.eventConfig.title)}"></div>
       <div class="field"><label>活动说明</label><input type="text" id="ev-subtitle" value="${escapeAttr(state.eventConfig.subtitle)}"></div>
+      <div class="field"><label>换算比例 <span class="hint">每 RM 多少 = 1次抽奖机会（取整数向下），这是基础次数</span></label><input type="text" id="ev-rate" value="${escapeAttr(state.eventConfig.conversionRate)}"></div>
       <div class="field">
-        <label>满 RM 多少 = 多少次抽奖机会 <span class="hint">达到门槛的人才有抽奖次数，没达到任何一档的算0次；同时达到多档会叠加相加</span></label>
+        <label>奖励门槛 <span class="hint">金额达到门槛时，在基础次数上额外加送次数（可叠加多档，跟基础次数相加）</span></label>
         <div id="tiers-list">
           ${state.draftTiers.length===0?`<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">还没有设置门槛</div>`:
             state.draftTiers.map((t,i)=>`
               <div class="add-prize-form" style="margin-bottom:8px;" data-tier-row="${i}">
                 <input type="text" class="tier-threshold" placeholder="满 RM 多少" value="${escapeAttr(t.threshold)}">
-                <input type="text" class="tier-bonus" placeholder="抽奖次数" value="${escapeAttr(t.bonus)}" style="max-width:140px;">
+                <input type="text" class="tier-bonus" placeholder="额外加送次数" value="${escapeAttr(t.bonus)}" style="max-width:140px;">
                 <button class="del-btn" data-del-tier="${i}">删除</button>
               </div>
             `).join('')}
@@ -860,6 +862,7 @@
     container.querySelector('#save-event-btn').onclick = ()=> saveEventConfig(
       container.querySelector('#ev-title').value,
       container.querySelector('#ev-subtitle').value,
+      container.querySelector('#ev-rate').value,
       state.draftTiers.filter(t=> t.threshold.toString().trim() && t.bonus.toString().trim()),
       container.querySelector('#ev-maxwins').value,
       container.querySelector('#ev-giftthreshold').value
