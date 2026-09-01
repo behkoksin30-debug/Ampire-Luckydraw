@@ -19,7 +19,9 @@ function ensureDirs() {
       title: '幸运抽奖登记',
       subtitle: '上传订单截图，填写资料，登记您的抽奖资格',
       conversionRate: 100,
-      tiers: []
+      tiers: [],
+      maxWinsPerPerson: 0,
+      guaranteedGiftThreshold: 0
     }, null, 2));
   }
   if (!fs.existsSync(PRIZES_FILE)) fs.writeFileSync(PRIZES_FILE, '[]');
@@ -91,7 +93,14 @@ function computeTicketCount(amount, rate, tiers) {
 /* ---------------- event config ---------------- */
 app.get('/api/config', (req, res) => {
   const cfg = readConfig();
-  res.json({ title: cfg.title || '幸运抽奖登记', subtitle: cfg.subtitle || '', conversionRate: cfg.conversionRate || 100, tiers: cfg.tiers || [] });
+  res.json({
+    title: cfg.title || '幸运抽奖登记',
+    subtitle: cfg.subtitle || '',
+    conversionRate: cfg.conversionRate || 100,
+    tiers: cfg.tiers || [],
+    maxWinsPerPerson: cfg.maxWinsPerPerson || 0,
+    guaranteedGiftThreshold: cfg.guaranteedGiftThreshold || 0
+  });
 });
 app.put('/api/config', requireAdmin, (req, res) => {
   const cfg = readConfig();
@@ -104,6 +113,14 @@ app.put('/api/config', requireAdmin, (req, res) => {
       .map(t => ({ threshold: parseFloat(t.threshold), bonus: parseFloat(t.bonus) }))
       .filter(t => !isNaN(t.threshold) && t.threshold > 0 && !isNaN(t.bonus) && t.bonus >= 0)
       .sort((a, b) => a.threshold - b.threshold);
+  }
+  if (req.body.maxWinsPerPerson !== undefined) {
+    const m = parseInt(req.body.maxWinsPerPerson, 10);
+    cfg.maxWinsPerPerson = (!isNaN(m) && m >= 0) ? m : (cfg.maxWinsPerPerson || 0);
+  }
+  if (req.body.guaranteedGiftThreshold !== undefined) {
+    const g = parseFloat(req.body.guaranteedGiftThreshold);
+    cfg.guaranteedGiftThreshold = (!isNaN(g) && g >= 0) ? g : (cfg.guaranteedGiftThreshold || 0);
   }
   writeConfig(cfg);
   res.json({ ok: true });
@@ -229,7 +246,8 @@ app.get('/api/draws', requireAdmin, (req, res) => {
   res.json(readJson(DRAWS_FILE, []));
 });
 app.post('/api/draws', requireAdmin, (req, res) => {
-  const { prizeId, entryId } = req.body || {};
+  const { prizeId, entryId, guaranteed } = req.body || {};
+  const cfg = readConfig();
   const prizes = readJson(PRIZES_FILE, []);
   const prize = prizes.find(p => p.id === prizeId);
   if (!prize || prize.qty < 1) return res.status(400).json({ error: '奖品无效或数量不足' });
@@ -237,12 +255,25 @@ app.post('/api/draws', requireAdmin, (req, res) => {
   const entry = readJson(entryFile, null);
   if (!entry) return res.status(400).json({ error: '参与者不存在，可能已被删除' });
 
+  const maxWins = cfg.maxWinsPerPerson || 0;
+  const currentWins = (entry.wonPrizes || []).length;
+  if (maxWins > 0 && currentWins >= maxWins) {
+    return res.status(400).json({ error: '该顾客已达到最多中奖次数上限' });
+  }
+  if (guaranteed) {
+    const threshold = cfg.guaranteedGiftThreshold || 0;
+    if (threshold > 0 && (parseFloat(entry.amount) || 0) < threshold) {
+      return res.status(400).json({ error: '该顾客金额未达到满额保证送礼门槛' });
+    }
+  }
+
   const draw = {
     id: genId('DR-', 6),
     prizeId, prizeName: prize.name, prizeValue: prize.value || '',
     entryId, winnerName: entry.name, winnerContact: entry.contact,
     winnerDdName: entry.ddName || '', winnerCustomerName: entry.customerName || '',
     winnerOrderId: entry.orderId,
+    guaranteed: !!guaranteed,
     timestamp: Date.now()
   };
   const draws = readJson(DRAWS_FILE, []);
