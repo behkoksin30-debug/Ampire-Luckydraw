@@ -126,7 +126,7 @@
     token: localStorage.getItem('ld_admin_token') || null,
     lastTicket: null,
     entries: [], prizes: [], draws: [],
-    eventConfig: { title: '幸运抽奖登记', subtitle: '' },
+    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100 },
     adminPasswordSet: null,
     form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null },
     formErrors: {},
@@ -135,7 +135,8 @@
     lightboxSrc: null,
     drawing: false, drawSelectedPrize: '', excludePastWinners: true,
     rollingName: '', revealedWinner: null,
-    newPrizePhoto: null
+    newPrizePhoto: null,
+    editingPrizeId: null, editPrizePhoto: null
   };
 
   function showToast(msg){
@@ -287,10 +288,10 @@
   }
 
   /* ---------------- admin: prizes ---------------- */
-  async function addPrize(name, qty){
+  async function addPrize(name, qty, value){
     if(!name.trim()){ showToast('请输入奖品名称'); return; }
     try{
-      await api('/api/prizes', {method:'POST', auth:true, body:{name:name.trim(), qty, photo: state.newPrizePhoto}});
+      await api('/api/prizes', {method:'POST', auth:true, body:{name:name.trim(), qty, photo: state.newPrizePhoto, value: (value||'').toString().trim()}});
       state.newPrizePhoto = null;
       await loadAdminData(); render();
     }
@@ -301,15 +302,33 @@
     try{ await api('/api/prizes/'+id, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
     catch(e){ showToast(e.message); }
   }
+  async function updatePrize(id, name, qty, value){
+    if(!name.trim()){ showToast('请输入奖品名称'); return; }
+    try{
+      const body = {name:name.trim(), qty, value:(value||'').toString().trim()};
+      if(state.editPrizePhoto !== null) body.photo = state.editPrizePhoto;
+      await api('/api/prizes/'+id, {method:'PUT', auth:true, body});
+      state.editingPrizeId = null; state.editPrizePhoto = null;
+      await loadAdminData(); render();
+    }catch(e){ showToast(e.message); }
+  }
 
   /* ---------------- admin: draw ---------------- */
   function eligibleEntries(){
-    return state.entries.filter(en=> state.excludePastWinners ? !(en.wonPrizes && en.wonPrizes.length>0) : true);
+    return state.entries.filter(en=> state.excludePastWinners ? !(en.wonPrizes && en.wonPrizes.length>0) : true).filter(en=> (en.ticketCount||0) > 0);
+  }
+  function eligibleTicketPool(){
+    const pool = [];
+    eligibleEntries().forEach(en=>{
+      const count = en.ticketCount || 0;
+      for(let i=0;i<count;i++) pool.push(en);
+    });
+    return pool;
   }
   let rollInterval = null;
   function startDraw(){
     if(!state.drawSelectedPrize){ showToast('请先选择奖品'); return; }
-    const pool = eligibleEntries();
+    const pool = eligibleTicketPool();
     if(pool.length===0){ showToast('没有符合条件的参与者'); return; }
     state.drawing = true; state.revealedWinner = null; render();
     let count = 0; const totalTicks = 26;
@@ -367,10 +386,10 @@
     state.loggedIn = false; state.token = null; localStorage.removeItem('ld_admin_token');
     state.view = 'entry'; render();
   }
-  async function saveEventConfig(title, subtitle){
+  async function saveEventConfig(title, subtitle, conversionRate){
     try{
-      await api('/api/config', {method:'PUT', auth:true, body:{title, subtitle}});
-      state.eventConfig = {title: title||'幸运抽奖登记', subtitle: subtitle||''};
+      await api('/api/config', {method:'PUT', auth:true, body:{title, subtitle, conversionRate}});
+      state.eventConfig = {title: title||'幸运抽奖登记', subtitle: subtitle||'', conversionRate: parseFloat(conversionRate)||state.eventConfig.conversionRate};
       showToast('活动信息已更新'); render();
     }catch(e){ showToast(e.message); }
   }
@@ -513,14 +532,14 @@
     });
     container.innerHTML = `
       <div class="toolbar">
-        <div style="font-size:13.5px;color:var(--ink-soft);">共 ${state.entries.length} 位登记 ${q?`· 筛选出 ${list.length} 位`:''}</div>
+        <div style="font-size:13.5px;color:var(--ink-soft);">共 ${state.entries.length} 位登记 · 共 ${state.entries.reduce((sum,en)=>sum+(en.ticketCount||0),0)} 次抽奖资格 ${q?`· 筛选出 ${list.length} 位`:''}</div>
         <button class="small-btn ghost" id="export-btn">导出 CSV</button>
       </div>
       <input class="searchbar" id="search-input" placeholder="按姓名 / 订单号 / 联系方式 / 编号搜索" value="${escapeAttr(state.search)}">
       ${list.length===0?`<div class="empty-state">暂无符合条件的登记资料</div>`:`
       <div style="overflow-x:auto;">
       <table>
-        <thead><tr><th>编号</th><th>照片</th><th>姓名</th><th>电话</th><th>DD名字</th><th>顾客名字</th><th>订单号</th><th>金额</th><th>状态</th><th>时间</th><th></th></tr></thead>
+        <thead><tr><th>编号</th><th>照片</th><th>姓名</th><th>电话</th><th>DD名字</th><th>顾客名字</th><th>订单号</th><th>金额</th><th>抽奖次数</th><th>状态</th><th>时间</th><th></th></tr></thead>
         <tbody>
           ${list.map(en=>`
             <tr>
@@ -532,6 +551,7 @@
               <td>${escapeHtml(en.customerName||'—')}</td>
               <td>${escapeHtml(en.orderId)}</td>
               <td>${escapeHtml(String(en.amount))}</td>
+              <td>${(en.ticketCount>0) ? `${en.ticketCount} 次<br><span style="font-size:11px;color:var(--ink-soft);">${(en.ticketIds||[]).join(', ')}</span>` : `<span style="color:var(--ink-soft);">0次</span>`}</td>
               <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">已中奖</span>`:`<span class="pill">未中奖</span>`}</td>
               <td>${new Date(en.submittedAt).toLocaleDateString()}</td>
               <td><button class="del-btn" data-del="${en.id}">删除</button></td>
@@ -554,17 +574,37 @@
       </div>
       <div class="add-prize-form">
         <input type="text" id="new-prize-name" placeholder="奖品名称">
+        <input type="text" id="new-prize-value" placeholder="产品价值 (RM)" style="max-width:140px;">
         <input type="number" id="new-prize-qty" placeholder="数量" min="1" value="1" style="max-width:100px;">
         <button class="small-btn" id="add-prize-btn">添加奖品</button>
       </div>
       ${state.prizes.length===0?`<div class="empty-state">还没有添加奖品</div>`:
-        state.prizes.map(p=>`
+        state.prizes.map(p=> p.id===state.editingPrizeId ? `
+          <div class="prize-card" style="flex-direction:column;align-items:stretch;gap:10px;">
+            <div class="upload-box">
+              <label class="upload-btn">更换图片<input type="file" class="edit-prize-photo" data-id="${p.id}" accept="image/*"></label>
+              ${(state.editPrizePhoto!==null ? state.editPrizePhoto : p.photo) ? `<img class="thumb" src="${state.editPrizePhoto!==null?state.editPrizePhoto:p.photo}">` : `<span style="font-size:12.5px;color:var(--ink-soft);">没有图片</span>`}
+            </div>
+            <div class="add-prize-form">
+              <input type="text" class="edit-name" value="${escapeAttr(p.name)}" placeholder="奖品名称">
+              <input type="text" class="edit-value" value="${escapeAttr(p.value||'')}" placeholder="产品价值 (RM)" style="max-width:140px;">
+              <input type="number" class="edit-qty" value="${p.qty}" min="0" style="max-width:100px;">
+            </div>
+            <div style="display:flex;gap:10px;">
+              <button class="small-btn" data-save-prize="${p.id}">保存</button>
+              <button class="small-btn ghost" data-cancel-prize="${p.id}">取消</button>
+            </div>
+          </div>
+        ` : `
           <div class="prize-card">
             <div style="display:flex;align-items:center;gap:12px;">
               ${p.photo?`<img class="thumb" src="${p.photo}">`:''}
-              <div><div class="pname">${escapeHtml(p.name)}</div><div class="pqty">剩余数量：${p.qty}</div></div>
+              <div><div class="pname">${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}</div><div class="pqty">剩余数量：${p.qty}</div></div>
             </div>
-            <button class="del-btn" data-del-prize="${p.id}">删除</button>
+            <div style="display:flex;gap:14px;align-items:center;">
+              <button class="del-btn" data-edit-prize="${p.id}" style="color:var(--plum);">编辑</button>
+              <button class="del-btn" data-del-prize="${p.id}">删除</button>
+            </div>
           </div>`).join('')}
     `;
     container.querySelector('#new-prize-photo').onchange = async (e)=>{
@@ -572,25 +612,49 @@
       try{ state.newPrizePhoto = await compressImage(file); renderAdminPrizesTab(container); }
       catch(err){ showToast('照片处理失败，请重试'); }
     };
-    container.querySelector('#add-prize-btn').onclick = ()=> addPrize(container.querySelector('#new-prize-name').value, container.querySelector('#new-prize-qty').value);
+    container.querySelector('#add-prize-btn').onclick = ()=> addPrize(container.querySelector('#new-prize-name').value, container.querySelector('#new-prize-qty').value, container.querySelector('#new-prize-value').value);
     container.querySelectorAll('[data-del-prize]').forEach(btn=>{ btn.onclick = ()=> deletePrize(btn.getAttribute('data-del-prize')); });
+    container.querySelectorAll('[data-edit-prize]').forEach(btn=>{
+      btn.onclick = ()=>{ state.editingPrizeId = btn.getAttribute('data-edit-prize'); state.editPrizePhoto = null; renderAdminPrizesTab(container); };
+    });
+    container.querySelectorAll('[data-cancel-prize]').forEach(btn=>{
+      btn.onclick = ()=>{ state.editingPrizeId = null; state.editPrizePhoto = null; renderAdminPrizesTab(container); };
+    });
+    container.querySelectorAll('.edit-prize-photo').forEach(input=>{
+      input.onchange = async (e)=>{
+        const file = e.target.files[0]; if(!file) return;
+        try{ state.editPrizePhoto = await compressImage(file); renderAdminPrizesTab(container); }
+        catch(err){ showToast('照片处理失败，请重试'); }
+      };
+    });
+    container.querySelectorAll('[data-save-prize]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const id = btn.getAttribute('data-save-prize');
+        const card = btn.closest('.prize-card');
+        const name = card.querySelector('.edit-name').value;
+        const qty = card.querySelector('.edit-qty').value;
+        const value = card.querySelector('.edit-value').value;
+        updatePrize(id, name, qty, value);
+      };
+    });
   }
 
   function renderAdminDrawTab(container){
     const availablePrizes = state.prizes.filter(p=>p.qty>0);
     const eligibleCount = eligibleEntries().length;
+    const ticketCount = eligibleTicketPool().length;
     container.innerHTML = `
       <div class="select-row">
         <select id="prize-select">
           <option value="">选择要抽取的奖品</option>
-          ${availablePrizes.map(p=>`<option value="${p.id}" ${state.drawSelectedPrize===p.id?'selected':''}>${escapeHtml(p.name)}（剩余 ${p.qty}）</option>`).join('')}
+          ${availablePrizes.map(p=>`<option value="${p.id}" ${state.drawSelectedPrize===p.id?'selected':''}>${escapeHtml(p.name)}${p.value?` (RM${escapeHtml(p.value)})`:''}（剩余 ${p.qty}）</option>`).join('')}
         </select>
         <label class="checkline"><input type="checkbox" id="exclude-cb" ${state.excludePastWinners?'checked':''}> 排除已中过奖的人</label>
       </div>
-      <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;">符合抽奖条件人数：${eligibleCount}</div>
+      <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;">符合抽奖条件人数：${eligibleCount} 人 · 共 ${ticketCount} 次机会</div>
       <div class="draw-stage">
         ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); return pz && pz.photo ? `<img class="thumb" style="width:64px;height:64px;margin-bottom:10px;" src="${pz.photo}">` : ''; })()}
-        <div class="draw-prize-label">${state.drawSelectedPrize? '奖品：'+escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).name||'') : '请先选择奖品'}</div>
+        <div class="draw-prize-label">${state.drawSelectedPrize? '奖品：'+escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).name||'')+((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).value?` (RM${escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).value)})`:'') : '请先选择奖品'}</div>
         <div class="draw-name ${state.drawing?'rolling':''}" id="draw-name-el">${state.revealedWinner ? escapeHtml(state.revealedWinner.name) : (state.drawing ? escapeHtml(state.rollingName||'…') : '—')}</div>
         ${state.revealedWinner?`<div class="draw-sub">顾客：${escapeHtml(state.revealedWinner.customerName||'—')} · DD名字：${escapeHtml(state.revealedWinner.ddName||'—')} · 联系方式：${escapeHtml(state.revealedWinner.contact)} · 订单号：${escapeHtml(state.revealedWinner.orderId)} · 编号：${state.revealedWinner.id}</div>`:''}
         <div class="draw-actions">
@@ -610,11 +674,12 @@
     container.innerHTML = state.draws.length===0? `<div class="empty-state">暂无中奖记录</div>` : `
       <div style="overflow-x:auto;">
       <table>
-        <thead><tr><th>奖品</th><th>姓名</th><th>DD名字</th><th>顾客名字</th><th>联系方式</th><th>订单号</th><th>时间</th><th></th></tr></thead>
+        <thead><tr><th>奖品</th><th>价值</th><th>姓名</th><th>DD名字</th><th>顾客名字</th><th>联系方式</th><th>订单号</th><th>时间</th><th></th></tr></thead>
         <tbody>
           ${state.draws.map(d=>`
             <tr>
               <td>${escapeHtml(d.prizeName)}</td>
+              <td>${d.prizeValue?('RM'+escapeHtml(d.prizeValue)):'—'}</td>
               <td>${escapeHtml(d.winnerName)}</td>
               <td>${escapeHtml(d.winnerDdName||'—')}</td>
               <td>${escapeHtml(d.winnerCustomerName||'—')}</td>
@@ -634,6 +699,7 @@
       <div class="settings-note">提示：抽奖资料（含照片）保存在服务器的 data 目录里，只有知道管理员密码的人能查看，请勿将后台密码告诉参与者。</div>
       <div class="field"><label>活动标题</label><input type="text" id="ev-title" value="${escapeAttr(state.eventConfig.title)}"></div>
       <div class="field"><label>活动说明</label><input type="text" id="ev-subtitle" value="${escapeAttr(state.eventConfig.subtitle)}"></div>
+      <div class="field"><label>换算比例 <span class="hint">每 RM 多少 = 1次抽奖机会（取整数向下）</span></label><input type="text" id="ev-rate" value="${escapeAttr(state.eventConfig.conversionRate)}"></div>
       <button class="small-btn" id="save-event-btn">保存</button>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
         <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">修改管理员密码</label>
@@ -641,7 +707,7 @@
         <br><button class="small-btn ghost" id="change-pw-btn">更新密码</button>
       </div>
     `;
-    container.querySelector('#save-event-btn').onclick = ()=> saveEventConfig(container.querySelector('#ev-title').value, container.querySelector('#ev-subtitle').value);
+    container.querySelector('#save-event-btn').onclick = ()=> saveEventConfig(container.querySelector('#ev-title').value, container.querySelector('#ev-subtitle').value, container.querySelector('#ev-rate').value);
     container.querySelector('#change-pw-btn').onclick = async ()=>{
       const v = container.querySelector('#new-pw').value;
       if(!v || v.length<4){ showToast('密码至少4位'); return; }
