@@ -17,7 +17,8 @@ function ensureDirs() {
   if (!fs.existsSync(CONFIG_FILE)) {
     fs.writeFileSync(CONFIG_FILE, JSON.stringify({
       title: '幸运抽奖登记',
-      subtitle: '上传订单截图，填写资料，登记您的抽奖资格'
+      subtitle: '上传订单截图，填写资料，登记您的抽奖资格',
+      conversionRate: 100
     }, null, 2));
   }
   if (!fs.existsSync(PRIZES_FILE)) fs.writeFileSync(PRIZES_FILE, '[]');
@@ -71,15 +72,24 @@ function genId(prefix, len) {
   return prefix + s;
 }
 
+function computeTicketCount(amount, rate) {
+  const amt = parseFloat(amount) || 0;
+  const r = parseFloat(rate) || 0;
+  if (r <= 0) return amt > 0 ? 1 : 0;
+  return Math.max(0, Math.floor(amt / r));
+}
+
 /* ---------------- event config ---------------- */
 app.get('/api/config', (req, res) => {
   const cfg = readConfig();
-  res.json({ title: cfg.title || '幸运抽奖登记', subtitle: cfg.subtitle || '' });
+  res.json({ title: cfg.title || '幸运抽奖登记', subtitle: cfg.subtitle || '', conversionRate: cfg.conversionRate || 100 });
 });
 app.put('/api/config', requireAdmin, (req, res) => {
   const cfg = readConfig();
   cfg.title = (req.body.title || cfg.title || '幸运抽奖登记').toString().slice(0, 60);
   cfg.subtitle = (req.body.subtitle || '').toString().slice(0, 140);
+  const rate = parseFloat(req.body.conversionRate);
+  cfg.conversionRate = (!isNaN(rate) && rate > 0) ? rate : (cfg.conversionRate || 100);
   writeConfig(cfg);
   res.json({ ok: true });
 });
@@ -123,6 +133,15 @@ app.post('/api/entries', (req, res) => {
   if (!name || !contact || !ddName || !customerName || !orderId || !amount || !photo) {
     return res.status(400).json({ error: '资料不完整，请填写全部字段并上传照片' });
   }
+  const orderIdNorm = String(orderId).trim().toLowerCase();
+  const existingFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
+  const isDuplicate = existingFiles.some(f => {
+    const existing = readJson(path.join(ENTRIES_DIR, f), null);
+    return existing && String(existing.orderId || '').trim().toLowerCase() === orderIdNorm;
+  });
+  if (isDuplicate) {
+    return res.status(400).json({ error: '该订单号已经登记过' });
+  }
   const id = genId('LD-', 6);
   const entry = {
     id,
@@ -140,8 +159,15 @@ app.post('/api/entries', (req, res) => {
   res.json({ id });
 });
 app.get('/api/entries', requireAdmin, (req, res) => {
+  const cfg = readConfig();
+  const rate = cfg.conversionRate || 100;
   const files = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
   const list = files.map(f => readJson(path.join(ENTRIES_DIR, f), null)).filter(Boolean);
+  list.forEach(entry => {
+    const count = computeTicketCount(entry.amount, rate);
+    entry.ticketCount = count;
+    entry.ticketIds = Array.from({ length: count }, (_, i) => entry.id + '-' + (i + 1));
+  });
   list.sort((a, b) => b.submittedAt - a.submittedAt);
   res.json(list);
 });
@@ -156,10 +182,10 @@ app.get('/api/prizes', requireAdmin, (req, res) => {
   res.json(readJson(PRIZES_FILE, []));
 });
 app.post('/api/prizes', requireAdmin, (req, res) => {
-  const { name, qty, photo } = req.body || {};
+  const { name, qty, photo, value } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: '请输入奖品名称' });
   const prizes = readJson(PRIZES_FILE, []);
-  const prize = { id: genId('PZ-', 6), name: String(name).slice(0, 100), qty: Math.max(1, parseInt(qty, 10) || 1), photo: photo || null, createdAt: Date.now() };
+  const prize = { id: genId('PZ-', 6), name: String(name).slice(0, 100), qty: Math.max(1, parseInt(qty, 10) || 1), photo: photo || null, value: value ? String(value).slice(0, 30) : '', createdAt: Date.now() };
   prizes.push(prize);
   writeJson(PRIZES_FILE, prizes);
   res.json(prize);
@@ -170,7 +196,18 @@ app.delete('/api/prizes/:id', requireAdmin, (req, res) => {
   writeJson(PRIZES_FILE, prizes);
   res.json({ ok: true });
 });
-
+app.put('/api/prizes/:id', requireAdmin, (req, res) => {
+  const prizes = readJson(PRIZES_FILE, []);
+  const prize = prizes.find(p => p.id === req.params.id);
+  if (!prize) return res.status(404).json({ error: '奖品不存在' });
+  const { name, qty, photo, value } = req.body || {};
+  if (name && String(name).trim()) prize.name = String(name).slice(0, 100);
+  if (qty !== undefined) prize.qty = Math.max(0, parseInt(qty, 10) || 0);
+  if (value !== undefined) prize.value = value ? String(value).slice(0, 30) : '';
+  if (photo !== undefined) prize.photo = photo || null;
+  writeJson(PRIZES_FILE, prizes);
+  res.json(prize);
+});
 /* ---------------- draws ---------------- */
 app.get('/api/draws', requireAdmin, (req, res) => {
   res.json(readJson(DRAWS_FILE, []));
@@ -186,7 +223,7 @@ app.post('/api/draws', requireAdmin, (req, res) => {
 
   const draw = {
     id: genId('DR-', 6),
-    prizeId, prizeName: prize.name,
+    prizeId, prizeName: prize.name, prizeValue: prize.value || '',
     entryId, winnerName: entry.name, winnerContact: entry.contact,
     winnerDdName: entry.ddName || '', winnerCustomerName: entry.customerName || '',
     winnerOrderId: entry.orderId,
