@@ -75,15 +75,19 @@ function genId(prefix, len) {
   return prefix + s;
 }
 
-function computeTicketCount(amount, tiers) {
+function computeTicketCount(amount, rate, tiers) {
   const amt = parseFloat(amount) || 0;
-  let total = 0;
+  const r = parseFloat(rate) || 0;
+  let base = 0;
+  if (r <= 0) base = amt > 0 ? 1 : 0;
+  else base = Math.max(0, Math.floor(amt / r));
+  let bonus = 0;
   (tiers || []).forEach(t => {
     const threshold = parseFloat(t.threshold) || 0;
     const b = parseFloat(t.bonus) || 0;
-    if (threshold > 0 && amt >= threshold) total += b;
+    if (threshold > 0 && amt >= threshold) bonus += b;
   });
-  return total;
+  return base + bonus;
 }
 
 /* ---------------- event config ---------------- */
@@ -188,11 +192,12 @@ app.post('/api/entries', (req, res) => {
 });
 app.get('/api/entries', requireAdmin, (req, res) => {
   const cfg = readConfig();
+  const rate = cfg.conversionRate || 100;
   const tiers = cfg.tiers || [];
   const files = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
   const list = files.map(f => readJson(path.join(ENTRIES_DIR, f), null)).filter(Boolean);
   list.forEach(entry => {
-    const count = computeTicketCount(entry.amount, tiers);
+    const count = computeTicketCount(entry.amount, rate, tiers);
     entry.ticketCount = count;
     entry.ticketIds = Array.from({ length: count }, (_, i) => entry.id + '-' + (i + 1));
   });
