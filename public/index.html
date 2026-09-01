@@ -126,7 +126,7 @@
     token: localStorage.getItem('ld_admin_token') || null,
     lastTicket: null,
     entries: [], prizes: [], draws: [],
-    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100 },
+    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [] },
     adminPasswordSet: null,
     form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null },
     formErrors: {},
@@ -136,7 +136,8 @@
     drawing: false, drawSelectedPrize: '', excludePastWinners: true,
     rollingName: '', revealedWinner: null,
     newPrizePhoto: null,
-    editingPrizeId: null, editPrizePhoto: null
+    editingPrizeId: null, editPrizePhoto: null,
+    draftTiers: null
   };
 
   function showToast(msg){
@@ -395,10 +396,12 @@
     state.loggedIn = false; state.token = null; localStorage.removeItem('ld_admin_token');
     state.view = 'entry'; render();
   }
-  async function saveEventConfig(title, subtitle, conversionRate){
+  async function saveEventConfig(title, subtitle, conversionRate, tiers){
     try{
-      await api('/api/config', {method:'PUT', auth:true, body:{title, subtitle, conversionRate}});
-      state.eventConfig = {title: title||'幸运抽奖登记', subtitle: subtitle||'', conversionRate: parseFloat(conversionRate)||state.eventConfig.conversionRate};
+      await api('/api/config', {method:'PUT', auth:true, body:{title, subtitle, conversionRate, tiers}});
+      state.eventConfig = {title: title||'幸运抽奖登记', subtitle: subtitle||'', conversionRate: parseFloat(conversionRate)||state.eventConfig.conversionRate, tiers: tiers||[]};
+      state.draftTiers = null;
+      await loadAdminData();
       showToast('活动信息已更新'); render();
     }catch(e){ showToast(e.message); }
   }
@@ -705,11 +708,28 @@
   }
 
   function renderAdminSettingsTab(container){
+    if(state.draftTiers === null){
+      state.draftTiers = (state.eventConfig.tiers||[]).map(t=>({threshold: String(t.threshold), bonus: String(t.bonus)}));
+    }
     container.innerHTML = `
       <div class="settings-note">提示：抽奖资料（含照片）保存在服务器的 data 目录里，只有知道管理员密码的人能查看，请勿将后台密码告诉参与者。</div>
       <div class="field"><label>活动标题</label><input type="text" id="ev-title" value="${escapeAttr(state.eventConfig.title)}"></div>
       <div class="field"><label>活动说明</label><input type="text" id="ev-subtitle" value="${escapeAttr(state.eventConfig.subtitle)}"></div>
       <div class="field"><label>换算比例 <span class="hint">每 RM 多少 = 1次抽奖机会（取整数向下）</span></label><input type="text" id="ev-rate" value="${escapeAttr(state.eventConfig.conversionRate)}"></div>
+      <div class="field">
+        <label>奖励门槛 <span class="hint">金额达到门槛时，额外加送次数（可叠加多档，跟基础次数相加）</span></label>
+        <div id="tiers-list">
+          ${state.draftTiers.length===0?`<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">还没有设置门槛</div>`:
+            state.draftTiers.map((t,i)=>`
+              <div class="add-prize-form" style="margin-bottom:8px;" data-tier-row="${i}">
+                <input type="text" class="tier-threshold" placeholder="满 RM 多少" value="${escapeAttr(t.threshold)}">
+                <input type="text" class="tier-bonus" placeholder="额外加送次数" value="${escapeAttr(t.bonus)}" style="max-width:140px;">
+                <button class="del-btn" data-del-tier="${i}">删除</button>
+              </div>
+            `).join('')}
+        </div>
+        <button class="small-btn ghost" id="add-tier-btn" type="button">+ 添加门槛</button>
+      </div>
       <button class="small-btn" id="save-event-btn">保存</button>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
         <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">修改管理员密码</label>
@@ -717,7 +737,21 @@
         <br><button class="small-btn ghost" id="change-pw-btn">更新密码</button>
       </div>
     `;
-    container.querySelector('#save-event-btn').onclick = ()=> saveEventConfig(container.querySelector('#ev-title').value, container.querySelector('#ev-subtitle').value, container.querySelector('#ev-rate').value);
+    container.querySelectorAll('[data-tier-row]').forEach(row=>{
+      const i = parseInt(row.getAttribute('data-tier-row'), 10);
+      row.querySelector('.tier-threshold').oninput = e=>{ state.draftTiers[i].threshold = e.target.value; };
+      row.querySelector('.tier-bonus').oninput = e=>{ state.draftTiers[i].bonus = e.target.value; };
+    });
+    container.querySelectorAll('[data-del-tier]').forEach(btn=>{
+      btn.onclick = ()=>{ state.draftTiers.splice(parseInt(btn.getAttribute('data-del-tier'),10), 1); renderAdminSettingsTab(container); };
+    });
+    container.querySelector('#add-tier-btn').onclick = ()=>{ state.draftTiers.push({threshold:'', bonus:''}); renderAdminSettingsTab(container); };
+    container.querySelector('#save-event-btn').onclick = ()=> saveEventConfig(
+      container.querySelector('#ev-title').value,
+      container.querySelector('#ev-subtitle').value,
+      container.querySelector('#ev-rate').value,
+      state.draftTiers.filter(t=> t.threshold.toString().trim() && t.bonus.toString().trim())
+    );
     container.querySelector('#change-pw-btn').onclick = async ()=>{
       const v = container.querySelector('#new-pw').value;
       if(!v || v.length<4){ showToast('密码至少4位'); return; }
