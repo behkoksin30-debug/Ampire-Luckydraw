@@ -26,8 +26,20 @@ function defaultConfig() {
     regStartDate: '',
     regEndDate: '',
     posterImage: null,
-    drawDurationSeconds: 5
+    drawDurationSeconds: 5,
+    registrationDeadline: ''
   };
+}
+function enforceDeadline(cfg){
+  if(cfg.registrationDeadline){
+    const deadlineMs = new Date(cfg.registrationDeadline).getTime();
+    if(!isNaN(deadlineMs) && Date.now() >= deadlineMs && cfg.registrationOpen !== false){
+      cfg.registrationOpen = false;
+      cfg.registrationDeadline = '';
+      writeConfig(cfg);
+    }
+  }
+  return cfg;
 }
 
 function ensureDirs() {
@@ -108,7 +120,7 @@ function computeTicketCount(amount, rate, tiers, maxTicketsPerPerson) {
 /* ---------------- event config ---------------- */
 function isDateStr(s){ return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s); }
 app.get('/api/config', (req, res) => {
-  const cfg = readConfig();
+  const cfg = enforceDeadline(readConfig());
   res.json({
     title: cfg.title || '幸运抽奖登记',
     subtitle: cfg.subtitle || '',
@@ -121,7 +133,8 @@ app.get('/api/config', (req, res) => {
     regStartDate: cfg.regStartDate || '',
     regEndDate: cfg.regEndDate || '',
     posterImage: cfg.posterImage || null,
-    drawDurationSeconds: cfg.drawDurationSeconds || 5
+    drawDurationSeconds: cfg.drawDurationSeconds || 5,
+    registrationDeadline: cfg.registrationDeadline || ''
   });
 });
 app.put('/api/config', requireAdmin, (req, res) => {
@@ -164,6 +177,14 @@ app.put('/api/config', requireAdmin, (req, res) => {
     const ds = parseFloat(req.body.drawDurationSeconds);
     cfg.drawDurationSeconds = (!isNaN(ds) && ds >= 3 && ds <= 10) ? ds : (cfg.drawDurationSeconds || 5);
   }
+  if (req.body.registrationDeadline !== undefined) {
+    const dl = req.body.registrationDeadline;
+    if (!dl) { cfg.registrationDeadline = ''; }
+    else {
+      const ms = new Date(dl).getTime();
+      cfg.registrationDeadline = !isNaN(ms) ? dl : '';
+    }
+  }
   writeConfig(cfg);
   res.json({ ok: true });
 });
@@ -203,7 +224,7 @@ app.post('/api/admin/change-password', requireAdmin, (req, res) => {
 
 /* ---------------- entries (public submits, admin manages) ---------------- */
 app.post('/api/entries', (req, res) => {
-  const cfg = readConfig();
+  const cfg = enforceDeadline(readConfig());
   if (cfg.registrationOpen === false) {
     return res.status(400).json({ error: '报名已结束 / Registration is closed' });
   }
