@@ -140,6 +140,7 @@
     editingPrizeId: null, editPrizePhoto: null,
     draftTiers: null,
     draftPosterImage: undefined,
+    archives: [], archiveDetail: null, newEventLabel: '',
     guaranteedDrawEntryId: null, guaranteedRolling: '', guaranteedRevealedPrize: null, guaranteedSending: false
   };
 
@@ -184,6 +185,46 @@
       api('/api/draws', {auth:true})
     ]);
     state.entries = entries; state.prizes = prizes; state.draws = draws;
+  }
+  async function loadArchives(){
+    try{ state.archives = await api('/api/archives', {auth:true}); }catch(e){ state.archives = []; }
+  }
+  async function startNewEvent(label){
+    if(!confirm('确定要开始新一场吗？目前所有资料（参与名单、奖品、中奖记录）和活动设置都会被存档保存，然后整个系统会重置成全新状态。管理员密码不受影响。')) return;
+    try{
+      await api('/api/archives', {method:'POST', auth:true, body:{label: (label||'').trim()}});
+      state.newEventLabel = '';
+      state.draftTiers = null; state.draftPosterImage = undefined;
+      await loadEventConfig();
+      await loadAdminData();
+      await loadArchives();
+      showToast('已存档，系统已重置，可以开始新一场了');
+      render();
+    }catch(e){ showToast(e.message); }
+  }
+  async function viewArchive(id){
+    try{
+      state.archiveDetail = await api('/api/archives/'+id, {auth:true});
+      render();
+    }catch(e){ showToast(e.message); }
+  }
+  function closeArchiveDetail(){
+    state.archiveDetail = null;
+    render();
+  }
+  async function restoreArchive(id){
+    if(!confirm('确定要恢复这一场存档吗？目前使用中的资料会先自动存档保存，然后换成这一场的资料继续使用。')) return;
+    try{
+      await api('/api/archives/'+id+'/restore', {method:'POST', auth:true});
+      state.archiveDetail = null;
+      state.draftTiers = null; state.draftPosterImage = undefined;
+      await loadEventConfig();
+      await loadAdminData();
+      await loadArchives();
+      showToast('已恢复，现在使用的是这一场的资料');
+      state.adminTab = 'entries';
+      render();
+    }catch(e){ showToast(e.message); }
   }
 
   /* ---------------- image compression ---------------- */
@@ -898,12 +939,93 @@
     container.querySelectorAll('[data-revoke]').forEach(btn=>{ btn.onclick = ()=> revokeDraw(btn.getAttribute('data-revoke')); });
   }
 
+  function renderAdminArchivesTab(container){
+    if(state.archiveDetail){
+      const d = state.archiveDetail;
+      container.innerHTML = `
+        <button class="small-btn ghost" id="back-to-archives-btn" style="margin-bottom:16px;">← 返回存档列表</button>
+        <div style="font-size:16px;font-weight:700;color:var(--plum);margin-bottom:4px;">${escapeHtml(d.meta.label)}</div>
+        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:18px;">存档时间：${new Date(d.meta.createdAt).toLocaleString()} · 活动标题：${escapeHtml(d.config.title||'')}</div>
+        <button class="small-btn" data-restore-archive="${d.meta.id}" style="margin-bottom:20px;">恢复这一场为使用中</button>
+
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin:18px 0 8px;">参与名单（共 ${d.entries.length} 位）</label>
+        ${d.entries.length===0?`<div class="empty-state">没有资料</div>`:`
+        <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>姓名</th><th>电话</th><th>DD名字</th><th>顾客名字</th><th>订单号</th><th>金额</th><th>抽奖次数</th><th>状态</th></tr></thead>
+          <tbody>
+            ${d.entries.map(en=>`
+              <tr>
+                <td>${escapeHtml(en.name)}</td>
+                <td>${escapeHtml(en.contact)}</td>
+                <td>${escapeHtml(en.ddName||'—')}</td>
+                <td>${escapeHtml(en.customerName||'—')}</td>
+                <td>${escapeHtml(en.orderId)}</td>
+                <td>${escapeHtml(String(en.amount))}</td>
+                <td>${en.ticketCount||0} 次</td>
+                <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">已中奖</span>`:`<span class="pill">未中奖</span>`}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+        </div>`}
+
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin:22px 0 8px;">奖品（共 ${d.prizes.length} 项）</label>
+        ${d.prizes.length===0?`<div class="empty-state">没有资料</div>`:
+          d.prizes.map(p=>`<div class="prize-card"><div><div class="pname">${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}</div><div class="pqty">剩余数量：${p.qty}</div></div></div>`).join('')}
+
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin:22px 0 8px;">中奖记录（共 ${d.draws.length} 笔）</label>
+        ${d.draws.length===0?`<div class="empty-state">没有资料</div>`:`
+        <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>方式</th><th>奖品</th><th>姓名</th><th>顾客名字</th><th>订单号</th><th>时间</th></tr></thead>
+          <tbody>
+            ${d.draws.map(dr=>`
+              <tr>
+                <td>${dr.guaranteed?`<span class="pill win">满额保证</span>`:`<span class="pill">大抽奖</span>`}</td>
+                <td>${escapeHtml(dr.prizeName)}</td>
+                <td>${escapeHtml(dr.winnerName)}</td>
+                <td>${escapeHtml(dr.winnerCustomerName||'—')}</td>
+                <td>${escapeHtml(dr.winnerOrderId)}</td>
+                <td>${new Date(dr.timestamp).toLocaleString()}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+        </div>`}
+      `;
+      container.querySelector('#back-to-archives-btn').onclick = closeArchiveDetail;
+      container.querySelector('[data-restore-archive]').onclick = ()=> restoreArchive(d.meta.id);
+      return;
+    }
+    container.innerHTML = state.archives.length===0? `<div class="empty-state">还没有任何存档，去「活动设置」用「开始新一场」可以把目前的资料存档</div>` : `
+      ${state.archives.map(a=>`
+        <div class="prize-card">
+          <div>
+            <div class="pname">${escapeHtml(a.label)}</div>
+            <div class="pqty">${new Date(a.createdAt).toLocaleString()} · ${a.entryCount} 位登记 · ${a.drawCount} 笔中奖</div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button class="small-btn ghost" data-view-archive="${a.id}">查看</button>
+            <button class="small-btn" data-restore-archive="${a.id}">恢复使用</button>
+          </div>
+        </div>
+      `).join('')}
+    `;
+    container.querySelectorAll('[data-view-archive]').forEach(btn=>{ btn.onclick = ()=> viewArchive(btn.getAttribute('data-view-archive')); });
+    container.querySelectorAll('[data-restore-archive]').forEach(btn=>{ btn.onclick = ()=> restoreArchive(btn.getAttribute('data-restore-archive')); });
+  }
+
   function renderAdminSettingsTab(container){
     if(state.draftTiers === null){
       state.draftTiers = (state.eventConfig.tiers||[]).map(t=>({threshold: String(t.threshold), bonus: String(t.bonus)}));
     }
     container.innerHTML = `
       <div class="settings-note">提示：抽奖资料（含照片）保存在服务器的 data 目录里，只有知道管理员密码的人能查看，请勿将后台密码告诉参与者。</div>
+      <div style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:16px;margin-bottom:22px;">
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">开始新一场活动</label>
+        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">会把目前所有资料（参与名单、奖品、中奖记录）和活动设置整个存档保存，然后系统重置成全新状态。管理员密码不受影响，存档之后可以在「历史存档」查看或恢复。</div>
+        <input type="text" id="new-event-label" placeholder="给这次存档取个名字（选填，比如「9月场次」）" style="width:100%;max-width:400px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
+        <br><button class="small-btn" id="start-new-event-btn">开始新一场</button>
+      </div>
       <div class="field"><label>活动标题</label><input type="text" id="ev-title" value="${escapeAttr(state.eventConfig.title)}"></div>
       <div class="field"><label>活动说明</label><input type="text" id="ev-subtitle" value="${escapeAttr(state.eventConfig.subtitle)}"></div>
       <div class="field"><label>换算比例 <span class="hint">每 RM 多少 = 1次抽奖机会（取整数向下），这是基础次数</span></label><input type="text" id="ev-rate" value="${escapeAttr(state.eventConfig.conversionRate)}"></div>
@@ -959,6 +1081,7 @@
       btn.onclick = ()=>{ state.draftTiers.splice(parseInt(btn.getAttribute('data-del-tier'),10), 1); renderAdminSettingsTab(container); };
     });
     container.querySelector('#add-tier-btn').onclick = ()=>{ state.draftTiers.push({threshold:'', bonus:''}); renderAdminSettingsTab(container); };
+    container.querySelector('#start-new-event-btn').onclick = ()=> startNewEvent(container.querySelector('#new-event-label').value);
     container.querySelector('#poster-upload').onchange = async (e)=>{
       const file = e.target.files[0]; if(!file) return;
       try{ state.draftPosterImage = await compressImage(file); renderAdminSettingsTab(container); }
@@ -987,7 +1110,7 @@
   }
 
   function renderAdminView(){
-    const tabs = [['entries','参与名单'],['prizes','奖品管理'],['draw','开始抽奖'],['history','中奖记录'],['settings','活动设置']];
+    const tabs = [['entries','参与名单'],['prizes','奖品管理'],['draw','开始抽奖'],['history','中奖记录'],['archives','历史存档'],['settings','活动设置']];
     app.innerHTML = `
       <div class="admin-wrap">
         <div class="admin-header">
@@ -998,12 +1121,21 @@
         <div class="admin-content" id="admin-content"></div>
       </div>`;
     document.getElementById('logout-btn').onclick = logout;
-    app.querySelectorAll('.tab').forEach(tabEl=>{ tabEl.onclick = ()=>{ state.adminTab = tabEl.getAttribute('data-tab'); render(); }; });
+    app.querySelectorAll('.tab').forEach(tabEl=>{
+      tabEl.onclick = ()=>{
+        const newTab = tabEl.getAttribute('data-tab');
+        if(newTab==='archives' && state.adminTab!=='archives'){ state.archiveDetail = null; }
+        state.adminTab = newTab;
+        if(state.adminTab==='archives' && state.archives.length===0){ loadArchives().then(render); }
+        render();
+      };
+    });
     const content = document.getElementById('admin-content');
     if(state.adminTab==='entries') renderAdminEntriesTab(content);
     else if(state.adminTab==='prizes') renderAdminPrizesTab(content);
     else if(state.adminTab==='draw') renderAdminDrawTab(content);
     else if(state.adminTab==='history') renderAdminHistoryTab(content);
+    else if(state.adminTab==='archives') renderAdminArchivesTab(content);
     else if(state.adminTab==='settings') renderAdminSettingsTab(content);
     document.querySelectorAll('.lightbox').forEach(el=> el.remove());
     if(state.lightboxSrc){
