@@ -266,11 +266,12 @@ app.delete('/api/entries', requireAdmin, (req, res) => {
 app.get('/api/prizes', requireAdmin, (req, res) => {
   res.json(readJson(PRIZES_FILE, []));
 });
+const VALID_TIERS = ['', '大奖', '二奖', '三奖'];
 app.post('/api/prizes', requireAdmin, (req, res) => {
-  const { name, qty, photo, value, guaranteedEligible, guaranteedQty } = req.body || {};
+  const { name, qty, photo, value, guaranteedEligible, guaranteedQty, tier } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: '请输入奖品名称' });
   const prizes = readJson(PRIZES_FILE, []);
-  const prize = { id: genId('PZ-', 6), name: String(name).slice(0, 100), qty: Math.max(1, parseInt(qty, 10) || 1), photo: photo || null, value: value ? String(value).slice(0, 30) : '', guaranteedEligible: !!guaranteedEligible, guaranteedQty: Math.max(0, parseInt(guaranteedQty, 10) || 0), createdAt: Date.now() };
+  const prize = { id: genId('PZ-', 6), name: String(name).slice(0, 100), qty: Math.max(1, parseInt(qty, 10) || 1), photo: photo || null, value: value ? String(value).slice(0, 30) : '', guaranteedEligible: !!guaranteedEligible, guaranteedQty: Math.max(0, parseInt(guaranteedQty, 10) || 0), tier: VALID_TIERS.includes(tier) ? tier : '', createdAt: Date.now() };
   prizes.push(prize);
   writeJson(PRIZES_FILE, prizes);
   res.json(prize);
@@ -285,13 +286,14 @@ app.put('/api/prizes/:id', requireAdmin, (req, res) => {
   const prizes = readJson(PRIZES_FILE, []);
   const prize = prizes.find(p => p.id === req.params.id);
   if (!prize) return res.status(404).json({ error: '奖品不存在' });
-  const { name, qty, photo, value, guaranteedEligible, guaranteedQty } = req.body || {};
+  const { name, qty, photo, value, guaranteedEligible, guaranteedQty, tier } = req.body || {};
   if (name && String(name).trim()) prize.name = String(name).slice(0, 100);
   if (qty !== undefined) prize.qty = Math.max(0, parseInt(qty, 10) || 0);
   if (value !== undefined) prize.value = value ? String(value).slice(0, 30) : '';
   if (photo !== undefined) prize.photo = photo || null;
   if (guaranteedEligible !== undefined) prize.guaranteedEligible = !!guaranteedEligible;
   if (guaranteedQty !== undefined) prize.guaranteedQty = Math.max(0, parseInt(guaranteedQty, 10) || 0);
+  if (tier !== undefined) prize.tier = VALID_TIERS.includes(tier) ? tier : '';
   writeJson(PRIZES_FILE, prizes);
   res.json(prize);
 });
