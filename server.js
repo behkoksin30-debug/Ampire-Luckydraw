@@ -334,7 +334,7 @@ app.post('/api/draws', requireAdmin, (req, res) => {
   const prize = prizes.find(p => p.id === prizeId);
   if (!prize) return res.status(400).json({ error: '奖品无效' });
   if (guaranteed) {
-    if ((prize.guaranteedQty || 0) < 1) return res.status(400).json({ error: '该礼物满额保证送礼预留数量不足' });
+    if ((prize.guaranteedQty || 0) < 1) return res.status(400).json({ error: '该礼物幸运轮盘预留数量不足' });
   } else {
     if (prize.qty < 1) return res.status(400).json({ error: '奖品无效或数量不足' });
   }
@@ -350,15 +350,15 @@ app.post('/api/draws', requireAdmin, (req, res) => {
   if (guaranteed) {
     const threshold = cfg.guaranteedGiftThreshold || 0;
     if (threshold > 0 && (parseFloat(entry.amount) || 0) < threshold) {
-      return res.status(400).json({ error: '该顾客金额未达到满额保证送礼门槛' });
+      return res.status(400).json({ error: '该顾客金额未达到幸运轮盘门槛' });
     }
     if (!prize.guaranteedEligible) {
-      return res.status(400).json({ error: '该礼物未开放用于满额保证送礼' });
+      return res.status(400).json({ error: '该礼物未开放用于幸运轮盘' });
     }
     const allDraws = readJson(DRAWS_FILE, []);
     const alreadyGuaranteed = allDraws.some(d => d.entryId === entryId && d.guaranteed);
     if (alreadyGuaranteed) {
-      return res.status(400).json({ error: '该顾客已经领取过满额保证礼物，每人限领一次' });
+      return res.status(400).json({ error: '该顾客已经领取过幸运轮盘礼物，每人限领一次' });
     }
   }
 
