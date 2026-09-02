@@ -127,7 +127,7 @@
     token: localStorage.getItem('ld_admin_token') || null,
     lastTicket: null,
     entries: [], prizes: [], draws: [],
-    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0 },
+    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0 },
     adminPasswordSet: null,
     form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null },
     formErrors: {},
@@ -399,15 +399,16 @@
     state.loggedIn = false; state.token = null; localStorage.removeItem('ld_admin_token');
     state.view = 'entry'; render();
   }
-  async function saveEventConfig(title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold){
+  async function saveEventConfig(title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson){
     try{
-      await api('/api/config', {method:'PUT', auth:true, body:{title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold}});
+      await api('/api/config', {method:'PUT', auth:true, body:{title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson}});
       state.eventConfig = {
         title: title||'幸运抽奖登记', subtitle: subtitle||'',
         conversionRate: parseFloat(conversionRate)||state.eventConfig.conversionRate,
         tiers: tiers||[],
         maxWinsPerPerson: parseInt(maxWinsPerPerson,10)||0,
-        guaranteedGiftThreshold: parseFloat(guaranteedGiftThreshold)||0
+        guaranteedGiftThreshold: parseFloat(guaranteedGiftThreshold)||0,
+        maxTicketsPerPerson: parseInt(maxTicketsPerPerson,10)||0
       };
       state.draftTiers = null;
       await loadAdminData();
@@ -842,6 +843,7 @@
         <button class="small-btn ghost" id="add-tier-btn" type="button">+ 添加门槛</button>
       </div>
       <div class="field"><label>每人最多可中奖次数 <span class="hint">大抽奖 + 满额保证送礼加起来算，填0代表不限制</span></label><input type="text" id="ev-maxwins" value="${escapeAttr(state.eventConfig.maxWinsPerPerson)}"></div>
+      <div class="field"><label>每人抽奖机会上限 <span class="hint">不管基础次数+门槛加起来算出多少票，最多不能超过这个数字；填0代表不限制</span></label><input type="text" id="ev-maxtickets" value="${escapeAttr(state.eventConfig.maxTicketsPerPerson)}"></div>
       <div class="field"><label>满额保证送礼门槛 <span class="hint">金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物；填0代表不启用</span></label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
       <button class="small-btn" id="save-event-btn">保存</button>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
@@ -865,7 +867,8 @@
       container.querySelector('#ev-rate').value,
       state.draftTiers.filter(t=> t.threshold.toString().trim() && t.bonus.toString().trim()),
       container.querySelector('#ev-maxwins').value,
-      container.querySelector('#ev-giftthreshold').value
+      container.querySelector('#ev-giftthreshold').value,
+      container.querySelector('#ev-maxtickets').value
     );
     container.querySelector('#change-pw-btn').onclick = async ()=>{
       const v = container.querySelector('#new-pw').value;
