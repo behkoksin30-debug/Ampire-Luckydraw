@@ -135,6 +135,7 @@
   const state = {
     view: 'entry',
     adminTab: 'entries',
+    adminLang: localStorage.getItem('ld_admin_lang') || 'zh',
     loggedIn: false,
     token: localStorage.getItem('ld_admin_token') || null,
     lastTicket: null,
@@ -203,7 +204,7 @@
     try{ state.archives = await api('/api/archives', {auth:true}); }catch(e){ state.archives = []; }
   }
   async function startNewEvent(label){
-    if(!confirm('确定要开始新一场吗？目前所有资料（参与名单、奖品、中奖记录）和活动设置都会被存档保存，然后整个系统会重置成全新状态。管理员密码不受影响。')) return;
+    if(!confirm(t('确定要开始新一场吗？目前所有资料（参与名单、奖品、中奖记录）和活动设置都会被存档保存，然后整个系统会重置成全新状态。管理员密码不受影响。','Start a new event? All current data (entries, prizes, draw history) and settings will be archived, then the system will reset to a fresh state. Your admin password will not be affected.'))) return;
     try{
       await api('/api/archives', {method:'POST', auth:true, body:{label: (label||'').trim()}});
       state.newEventLabel = '';
@@ -211,7 +212,7 @@
       await loadEventConfig();
       await loadAdminData();
       await loadArchives();
-      showToast('已存档，系统已重置，可以开始新一场了');
+      showToast(t('已存档，系统已重置，可以开始新一场了','Archived. The system has been reset — ready for a new event.'));
       render();
     }catch(e){ showToast(e.message); }
   }
@@ -226,7 +227,7 @@
     render();
   }
   async function restoreArchive(id){
-    if(!confirm('确定要恢复这一场存档吗？目前使用中的资料会先自动存档保存，然后换成这一场的资料继续使用。')) return;
+    if(!confirm(t('确定要恢复这一场存档吗？目前使用中的资料会先自动存档保存，然后换成这一场的资料继续使用。','Restore this archive? Your current data will be auto-archived first, then replaced with this archive\'s data.'))) return;
     try{
       await api('/api/archives/'+id+'/restore', {method:'POST', auth:true});
       state.archiveDetail = null;
@@ -234,18 +235,18 @@
       await loadEventConfig();
       await loadAdminData();
       await loadArchives();
-      showToast('已恢复，现在使用的是这一场的资料');
+      showToast(t('已恢复，现在使用的是这一场的资料','Restored — this archive\'s data is now active.'));
       state.adminTab = 'entries';
       render();
     }catch(e){ showToast(e.message); }
   }
   async function deleteArchive(id){
-    if(!confirm('确定要永久删除这份存档吗？此操作无法撤销。')) return;
+    if(!confirm(t('确定要永久删除这份存档吗？此操作无法撤销。','Permanently delete this archive? This cannot be undone.'))) return;
     try{
       await api('/api/archives/'+id, {method:'DELETE', auth:true});
       if(state.archiveDetail && state.archiveDetail.meta.id===id) state.archiveDetail = null;
       await loadArchives();
-      showToast('存档已删除');
+      showToast(t('存档已删除','Archive deleted'));
       render();
     }catch(e){ showToast(e.message); }
   }
@@ -397,43 +398,43 @@
 
   /* ---------------- admin: entries ---------------- */
   async function deleteEntry(id){
-    if(!confirm('确定要删除这条登记资料吗？此操作无法撤销。')) return;
+    if(!confirm(t('确定要删除这条登记资料吗？此操作无法撤销。','Delete this registration? This cannot be undone.'))) return;
     try{ await api('/api/entries/'+id, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
     catch(e){ showToast(e.message); }
   }
   async function deleteAllEntries(){
-    if(state.entries.length===0){ showToast('目前没有资料'); return; }
-    if(!confirm('确定要删除全部 '+state.entries.length+' 位参与者的登记资料吗？此操作直接永久删除，不会存档，无法恢复！')) return;
-    if(!confirm('再次确认：真的要永久删除全部登记资料吗？这个动作无法撤销。')) return;
-    try{ await api('/api/entries', {method:'DELETE', auth:true}); await loadAdminData(); showToast('已全部删除'); render(); }
+    if(state.entries.length===0){ showToast(t('目前没有资料','No entries yet')); return; }
+    if(!confirm(t('确定要删除全部 '+state.entries.length+' 位参与者的登记资料吗？此操作直接永久删除，不会存档，无法恢复！','Delete all '+state.entries.length+' registrations? This is permanent, not archived, and cannot be undone!'))) return;
+    if(!confirm(t('再次确认：真的要永久删除全部登记资料吗？这个动作无法撤销。','Please confirm again: permanently delete all registrations? This cannot be undone.'))) return;
+    try{ await api('/api/entries', {method:'DELETE', auth:true}); await loadAdminData(); showToast(t('已全部删除','All deleted')); render(); }
     catch(e){ showToast(e.message); }
   }
   function exportCsv(){
-    const rows = [['抽奖编号','姓名','电话','DD名字','顾客名字','订单号','金额','提交时间']];
+    const rows = [[t('抽奖编号','Entry ID'),t('姓名','Name'),t('电话','Phone'),t('DD名字','DD Name'),t('顾客名字','Customer Name'),t('订单号','Order ID'),t('金额','Amount'),t('提交时间','Submitted At')]];
     state.entries.forEach(en=> rows.push([en.id, en.name, en.contact, en.ddName||'', en.customerName||'', en.orderId, en.amount, new Date(en.submittedAt).toLocaleString()]));
     const csv = rows.map(r=> r.map(c=> '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
     const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href=url; a.download='抽奖名单.csv'; a.click();
+    const a = document.createElement('a'); a.href=url; a.download=t('抽奖名单.csv','entries.csv'); a.click();
     URL.revokeObjectURL(url);
   }
   function exportDrawsCsv(){
-    const rows = [['方式','奖品','价值','姓名','DD名字','顾客名字','联系方式','订单号','时间']];
+    const rows = [[t('方式','Method'),t('奖品','Prize'),t('价值','Value'),t('姓名','Name'),t('DD名字','DD Name'),t('顾客名字','Customer Name'),t('联系方式','Contact'),t('订单号','Order ID'),t('时间','Time')]];
     state.draws.forEach(d=> rows.push([
-      d.guaranteed?'幸运轮盘':'大抽奖',
+      d.guaranteed?t('幸运轮盘','Lucky Wheel'):t('大抽奖','Main Draw'),
       d.prizeName, d.prizeValue||'', d.winnerName, d.winnerDdName||'', d.winnerCustomerName||'',
       d.winnerContact, d.winnerOrderId, new Date(d.timestamp).toLocaleString()
     ]));
     const csv = rows.map(r=> r.map(c=> '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
     const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href=url; a.download='中奖记录.csv'; a.click();
+    const a = document.createElement('a'); a.href=url; a.download=t('中奖记录.csv','draw-history.csv'); a.click();
     URL.revokeObjectURL(url);
   }
 
   /* ---------------- admin: prizes ---------------- */
   async function addPrize(name, qty, value, guaranteedEligible, guaranteedQty, tier){
-    if(!name.trim()){ showToast('请输入奖品名称'); return; }
+    if(!name.trim()){ showToast(t('请输入奖品名称','Please enter a prize name')); return; }
     try{
       await api('/api/prizes', {method:'POST', auth:true, body:{name:name.trim(), qty, photo: state.newPrizePhoto, value: (value||'').toString().trim(), guaranteedEligible: !!guaranteedEligible, guaranteedQty, tier: tier||''}});
       state.newPrizePhoto = null;
@@ -442,12 +443,12 @@
     catch(e){ showToast(e.message); }
   }
   async function deletePrize(id){
-    if(!confirm('确定删除该奖品吗？')) return;
+    if(!confirm(t('确定删除该奖品吗？','Delete this prize?'))) return;
     try{ await api('/api/prizes/'+id, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
     catch(e){ showToast(e.message); }
   }
   async function updatePrize(id, name, qty, value, guaranteedEligible, guaranteedQty, tier){
-    if(!name.trim()){ showToast('请输入奖品名称'); return; }
+    if(!name.trim()){ showToast(t('请输入奖品名称','Please enter a prize name')); return; }
     try{
       const body = {name:name.trim(), qty, value:(value||'').toString().trim(), guaranteedEligible: !!guaranteedEligible, guaranteedQty, tier: tier||''};
       if(state.editPrizePhoto !== null) body.photo = state.editPrizePhoto;
@@ -668,9 +669,9 @@
   }
   let rollInterval = null;
   function startDraw(){
-    if(!state.drawSelectedPrize){ showToast('请先选择奖品'); return; }
+    if(!state.drawSelectedPrize){ showToast(t('请先选择奖品','Please select a prize first')); return; }
     const pool = eligibleTicketPool();
-    if(pool.length===0){ showToast('没有符合条件的参与者'); return; }
+    if(pool.length===0){ showToast(t('没有符合条件的参与者','No eligible participants')); return; }
     state.drawing = true; state.revealedWinner = null; render();
     let count = 0; const totalTicks = drawTickCount();
     clearInterval(rollInterval);
@@ -697,27 +698,27 @@
       await api('/api/draws', {method:'POST', auth:true, body:{prizeId: state.drawSelectedPrize, entryId: winner.id}});
       state.revealedWinner = null;
       await loadAdminData();
-      showToast('中奖结果已保存');
+      showToast(t('中奖结果已保存','Result saved'));
       render();
     }catch(e){ showToast(e.message); }
   }
   function discardDraw(){ state.revealedWinner = null; render(); }
   async function revokeDraw(drawId){
-    if(!confirm('确定撤销此中奖记录吗？奖品数量与中奖状态将会恢复。')) return;
+    if(!confirm(t('确定撤销此中奖记录吗？奖品数量与中奖状态将会恢复。','Revoke this draw record? The prize quantity and win status will be restored.'))) return;
     try{ await api('/api/draws/'+drawId, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
     catch(e){ showToast(e.message); }
   }
   async function resetAllDraws(){
-    if(state.draws.length===0){ showToast('目前没有中奖记录'); return; }
-    if(!confirm('确定要重置全部 '+state.draws.length+' 笔中奖记录吗？参与名单会保留，但每个人的「已中奖」状态会清除，奖品数量会恢复回抽奖前的数字，可以重新开始抽奖。此操作不会存档，无法撤销。')) return;
-    if(!confirm('再次确认：真的要重置全部中奖记录吗？这个动作无法撤销。')) return;
-    try{ await api('/api/draws', {method:'DELETE', auth:true}); await loadAdminData(); showToast('中奖记录已重置，可以重新开始抽奖'); render(); }
+    if(state.draws.length===0){ showToast(t('目前没有中奖记录','No draw records yet')); return; }
+    if(!confirm(t('确定要重置全部 '+state.draws.length+' 笔中奖记录吗？参与名单会保留，但每个人的「已中奖」状态会清除，奖品数量会恢复回抽奖前的数字，可以重新开始抽奖。此操作不会存档，无法撤销。','Reset all '+state.draws.length+' draw records? Entries stay, but everyone\'s "won" status will be cleared and prize quantities restored, so you can draw again. This is not archived and cannot be undone.'))) return;
+    if(!confirm(t('再次确认：真的要重置全部中奖记录吗？这个动作无法撤销。','Please confirm again: reset all draw records? This cannot be undone.'))) return;
+    try{ await api('/api/draws', {method:'DELETE', auth:true}); await loadAdminData(); showToast(t('中奖记录已重置，可以重新开始抽奖','Draw records reset — ready to draw again')); render(); }
     catch(e){ showToast(e.message); }
   }
 
   /* ---------------- admin auth ---------------- */
   async function setAdminPassword(pw){
-    if(!pw || pw.length<4){ showToast('密码至少4位'); return; }
+    if(!pw || pw.length<4){ showToast(t('密码至少4位','Password must be at least 4 characters')); return; }
     try{
       const r = await api('/api/admin/setup', {method:'POST', body:{password:pw}});
       state.token = r.token; localStorage.setItem('ld_admin_token', r.token);
@@ -731,7 +732,7 @@
       state.token = r.token; localStorage.setItem('ld_admin_token', r.token);
       state.loggedIn = true; state.view = 'admin';
       await loadAdminData(); render();
-    }catch(e){ showToast(e.message||'密码不正确'); }
+    }catch(e){ showToast(e.message||t('密码不正确','Incorrect password')); }
   }
   function logout(){
     state.loggedIn = false; state.token = null; localStorage.removeItem('ld_admin_token');
@@ -761,12 +762,13 @@
       state.draftTiers = null;
       state.draftPosterImage = undefined;
       await loadAdminData();
-      showToast('活动信息已更新'); render();
+      showToast(t('活动信息已更新','Settings updated')); render();
     }catch(e){ showToast(e.message); }
   }
 
   /* ---------------- render helpers ---------------- */
   function el(html){ const d=document.createElement('div'); d.innerHTML=html; return d.firstElementChild; }
+  function t(zh, en){ return state.adminLang==='en' ? en : zh; }
   function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function escapeAttr(s){ return escapeHtml(s); }
 
@@ -957,11 +959,11 @@
     if(state.adminPasswordSet===false){
       app.innerHTML = `
         <div class="login-box">
-          <h2>设置管理员密码</h2>
-          <p>首次使用，请设置一个管理员密码用于进入后台。</p>
-          <input type="password" id="pw1" placeholder="设置密码（至少4位）">
-          <button class="submit-btn" id="setpw-btn">设置并进入</button>
-          <div class="admin-link" style="margin-top:16px;"><a id="back-link">返回登记页</a></div>
+          <h2>${t('设置管理员密码','Set Admin Password')}</h2>
+          <p>${t('首次使用，请设置一个管理员密码用于进入后台。','First time here — set an admin password to access the backend.')}</p>
+          <input type="password" id="pw1" placeholder="${t('设置密码（至少4位）','Set password (at least 4 characters)')}">
+          <button class="submit-btn" id="setpw-btn">${t('设置并进入','Set & Enter')}</button>
+          <div class="admin-link" style="margin-top:16px;"><a id="back-link">${t('返回登记页','Back to registration')}</a></div>
         </div>`;
       document.getElementById('setpw-btn').onclick = ()=> setAdminPassword(document.getElementById('pw1').value);
       document.getElementById('back-link').onclick = ()=>{ state.view='entry'; render(); };
@@ -969,11 +971,11 @@
     }
     app.innerHTML = `
       <div class="login-box">
-        <h2>管理员登录</h2>
-        <p>请输入密码进入抽奖后台管理</p>
-        <input type="password" id="pw1" placeholder="密码">
-        <button class="submit-btn" id="login-btn">登录</button>
-        <div class="admin-link" style="margin-top:16px;"><a id="back-link">返回登记页</a></div>
+        <h2>${t('管理员登录','Admin Login')}</h2>
+        <p>${t('请输入密码进入抽奖后台管理','Enter the password to access the admin panel')}</p>
+        <input type="password" id="pw1" placeholder="${t('密码','Password')}">
+        <button class="submit-btn" id="login-btn">${t('登录','Log In')}</button>
+        <div class="admin-link" style="margin-top:16px;"><a id="back-link">${t('返回登记页','Back to registration')}</a></div>
       </div>`;
     document.getElementById('login-btn').onclick = ()=> tryLogin(document.getElementById('pw1').value);
     document.getElementById('pw1').addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(e.target.value); });
@@ -993,28 +995,28 @@
     const qualifiedCount = giftThreshold>0 ? state.entries.filter(en=>(parseFloat(en.amount)||0) >= giftThreshold).length : null;
     container.innerHTML = `
       <div class="stat-row">
-        <div class="stat-card"><div class="stat-num">${state.entries.length}</div><div class="stat-label">位登记</div></div>
-        <div class="stat-card"><div class="stat-num gold">${totalTickets}</div><div class="stat-label">次抽奖资格</div></div>
+        <div class="stat-card"><div class="stat-num">${state.entries.length}</div><div class="stat-label">${t('位登记','registered')}</div></div>
+        <div class="stat-card"><div class="stat-num gold">${totalTickets}</div><div class="stat-label">${t('次抽奖资格','draw chances')}</div></div>
         <div class="stat-card" style="position:relative;">
-          <button id="toggle-total-amount-btn" type="button" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:13px;color:var(--ink-soft);cursor:pointer;padding:0;">${state.showTotalAmount?'隐藏':'显示'}</button>
+          <button id="toggle-total-amount-btn" type="button" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:13px;color:var(--ink-soft);cursor:pointer;padding:0;">${state.showTotalAmount?t('隐藏','Hide'):t('显示','Show')}</button>
           <div class="stat-num gold">${state.showTotalAmount?('RM'+totalAmount.toLocaleString(undefined,{maximumFractionDigits:2})):'••••••'}</div>
-          <div class="stat-label">总金额</div>
+          <div class="stat-label">${t('总金额','Total Amount')}</div>
         </div>
-        ${qualifiedCount!==null?`<div class="stat-card"><div class="stat-num gold">${qualifiedCount}</div><div class="stat-label">幸运轮盘门槛达标</div></div>`:''}
+        ${qualifiedCount!==null?`<div class="stat-card"><div class="stat-num gold">${qualifiedCount}</div><div class="stat-label">${t('幸运轮盘门槛达标','Lucky Wheel eligible')}</div></div>`:''}
       </div>
-      ${q?`<div class="stat-filter-note">筛选出 ${list.length} 位</div>`:''}
+      ${q?`<div class="stat-filter-note">${t('筛选出','Filtered:')} ${list.length} ${t('位',' entries')}</div>`:''}
       <div class="toolbar">
         <div></div>
         <div style="display:flex;gap:10px;">
-          <button class="small-btn ghost" id="export-btn">导出 CSV</button>
-          <button class="small-btn danger" id="delete-all-btn">全部删除</button>
+          <button class="small-btn ghost" id="export-btn">${t('导出 CSV','Export CSV')}</button>
+          <button class="small-btn danger" id="delete-all-btn">${t('全部删除','Delete All')}</button>
         </div>
       </div>
-      <input class="searchbar" id="search-input" placeholder="按姓名 / 订单号 / 联系方式 / 编号搜索" value="${escapeAttr(state.search)}">
-      ${list.length===0?`<div class="empty-state">暂无符合条件的登记资料</div>`:`
+      <input class="searchbar" id="search-input" placeholder="${t('按姓名 / 订单号 / 联系方式 / 编号搜索','Search by name / order ID / contact / entry ID')}" value="${escapeAttr(state.search)}">
+      ${list.length===0?`<div class="empty-state">${t('暂无符合条件的登记资料','No matching entries')}</div>`:`
       <div style="overflow-x:auto;">
       <table>
-        <thead><tr><th>照片</th><th>姓名</th><th>电话</th><th>DD名字</th><th>顾客名字</th><th>订单号</th><th>金额</th><th>抽奖次数</th><th>状态</th><th>时间</th><th></th></tr></thead>
+        <thead><tr><th>${t('照片','Photo')}</th><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th><th>${t('时间','Time')}</th><th></th></tr></thead>
         <tbody>
           ${list.map(en=>`
             <tr>
@@ -1025,10 +1027,10 @@
               <td>${escapeHtml(en.customerName||'—')}</td>
               <td>${escapeHtml(en.orderId)}</td>
               <td>${escapeHtml(String(en.amount))}</td>
-              <td>${(en.ticketCount>0) ? `${en.ticketCount} 次` : `<span style="color:var(--ink-soft);">0次</span>`}</td>
-              <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">已中奖</span>`:`<span class="pill">未中奖</span>`}</td>
+              <td>${(en.ticketCount>0) ? `${en.ticketCount} ${t('次','')}` : `<span style="color:var(--ink-soft);">${t('0次','0')}</span>`}</td>
+              <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">${t('已中奖','Won')}</span>`:`<span class="pill">${t('未中奖','No win')}</span>`}</td>
               <td>${new Date(en.submittedAt).toLocaleDateString()}</td>
-              <td><button class="del-btn" data-del="${en.id}">删除</button></td>
+              <td><button class="del-btn" data-del="${en.id}">${t('删除','Delete')}</button></td>
             </tr>`).join('')}
         </tbody>
       </table>
@@ -1045,73 +1047,79 @@
   function sortPrizesByValue(prizes){
     return [...prizes].sort((a,b)=> (parseFloat(a.value)||0) - (parseFloat(b.value)||0));
   }
+  function tierLabel(tier){
+    if(tier==='大奖') return t('大奖','Grand Prize');
+    if(tier==='二奖') return t('二奖','2nd Prize');
+    if(tier==='三奖') return t('三奖','3rd Prize');
+    return tier;
+  }
   function renderAdminPrizesTab(container){
     const totalQty = state.prizes.reduce((sum,p)=> sum + (p.qty||0) + (p.guaranteedQty||0), 0);
     const totalValue = state.prizes.reduce((sum,p)=> sum + ((parseFloat(p.value)||0) * ((p.qty||0)+(p.guaranteedQty||0))), 0);
     container.innerHTML = `
       <div class="stat-row">
-        <div class="stat-card"><div class="stat-num">${totalQty}</div><div class="stat-label">总奖品数量</div></div>
-        <div class="stat-card"><div class="stat-num gold">RM${totalValue.toLocaleString(undefined,{maximumFractionDigits:2})}</div><div class="stat-label">总价值</div></div>
+        <div class="stat-card"><div class="stat-num">${totalQty}</div><div class="stat-label">${t('总奖品数量','Total prize qty')}</div></div>
+        <div class="stat-card"><div class="stat-num gold">RM${totalValue.toLocaleString(undefined,{maximumFractionDigits:2})}</div><div class="stat-label">${t('总价值','Total value')}</div></div>
       </div>
       <div class="upload-box" style="margin-bottom:12px;">
-        <label class="upload-btn">选择产品图片<input type="file" id="new-prize-photo" accept="image/*"></label>
-        ${state.newPrizePhoto?`<img class="thumb" src="${state.newPrizePhoto}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">可选，不上传也可以添加奖品</span>`}
+        <label class="upload-btn">${t('选择产品图片','Choose product photo')}<input type="file" id="new-prize-photo" accept="image/*"></label>
+        ${state.newPrizePhoto?`<img class="thumb" src="${state.newPrizePhoto}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('可选，不上传也可以添加奖品','Optional — you can add a prize without a photo')}</span>`}
       </div>
       <div class="add-prize-form">
-        <input type="text" id="new-prize-name" placeholder="奖品名称">
-        <div class="mini-field"><label>价值 (RM)</label><input type="text" id="new-prize-value" style="max-width:140px;"></div>
-        <div class="mini-field"><label>数量</label><input type="number" id="new-prize-qty" min="1" value="1" style="max-width:100px;"></div>
+        <input type="text" id="new-prize-name" placeholder="${t('奖品名称','Prize name')}">
+        <div class="mini-field"><label>${t('价值 (RM)','Value (RM)')}</label><input type="text" id="new-prize-value" style="max-width:140px;"></div>
+        <div class="mini-field"><label>${t('数量','Quantity')}</label><input type="number" id="new-prize-qty" min="1" value="1" style="max-width:100px;"></div>
         <select id="new-prize-tier" style="max-width:120px;">
-          <option value="">不设等级</option>
-          <option value="大奖">大奖</option>
-          <option value="二奖">二奖</option>
-          <option value="三奖">三奖</option>
+          <option value="">${t('不设等级','No tier')}</option>
+          <option value="大奖">${t('大奖','Grand Prize')}</option>
+          <option value="二奖">${t('二奖','2nd Prize')}</option>
+          <option value="三奖">${t('三奖','3rd Prize')}</option>
         </select>
-        <button class="small-btn" id="add-prize-btn">添加奖品</button>
+        <button class="small-btn" id="add-prize-btn">${t('添加奖品','Add Prize')}</button>
       </div>
-      <label class="checkline" style="margin-bottom:8px;"><input type="checkbox" id="new-prize-guaranteed"> 可用于幸运轮盘</label>
-      <div class="field" style="margin-bottom:16px;"><label style="font-size:12.5px;">幸运轮盘预留数量 <span class="hint">从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存</span></label><input type="number" id="new-prize-guaranteed-qty" min="0" value="0" style="max-width:140px;"></div>
-      ${state.prizes.length===0?`<div class="empty-state">还没有添加奖品</div>`:
+      <label class="checkline" style="margin-bottom:8px;"><input type="checkbox" id="new-prize-guaranteed"> ${t('可用于幸运轮盘','Usable for Lucky Wheel')}</label>
+      <div class="field" style="margin-bottom:16px;"><label style="font-size:12.5px;">${t('幸运轮盘预留数量','Reserved for Lucky Wheel')} <span class="hint">${t('从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存','Reserve a portion of stock exclusively for Lucky Wheel, separate from the Main Draw stock')}</span></label><input type="number" id="new-prize-guaranteed-qty" min="0" value="0" style="max-width:140px;"></div>
+      ${state.prizes.length===0?`<div class="empty-state">${t('还没有添加奖品','No prizes added yet')}</div>`:
         sortPrizesByValue(state.prizes).map(p=> p.id===state.editingPrizeId ? `
           <div class="prize-card" style="flex-direction:column;align-items:stretch;gap:10px;">
             <div class="upload-box">
-              <label class="upload-btn">更换图片<input type="file" class="edit-prize-photo" data-id="${p.id}" accept="image/*"></label>
-              ${(state.editPrizePhoto!==null ? state.editPrizePhoto : p.photo) ? `<img class="thumb" src="${state.editPrizePhoto!==null?state.editPrizePhoto:p.photo}">` : `<span style="font-size:12.5px;color:var(--ink-soft);">没有图片</span>`}
+              <label class="upload-btn">${t('更换图片','Change photo')}<input type="file" class="edit-prize-photo" data-id="${p.id}" accept="image/*"></label>
+              ${(state.editPrizePhoto!==null ? state.editPrizePhoto : p.photo) ? `<img class="thumb" src="${state.editPrizePhoto!==null?state.editPrizePhoto:p.photo}">` : `<span style="font-size:12.5px;color:var(--ink-soft);">${t('没有图片','No photo')}</span>`}
             </div>
             <div class="add-prize-form">
-              <input type="text" class="edit-name" value="${escapeAttr(p.name)}" placeholder="奖品名称">
-              <div class="mini-field"><label>价值 (RM)</label><input type="text" class="edit-value" value="${escapeAttr(p.value||'')}" style="max-width:140px;"></div>
-              <div class="mini-field"><label>数量</label><input type="number" class="edit-qty" value="${p.qty}" min="0" style="max-width:100px;"></div>
+              <input type="text" class="edit-name" value="${escapeAttr(p.name)}" placeholder="${t('奖品名称','Prize name')}">
+              <div class="mini-field"><label>${t('价值 (RM)','Value (RM)')}</label><input type="text" class="edit-value" value="${escapeAttr(p.value||'')}" style="max-width:140px;"></div>
+              <div class="mini-field"><label>${t('数量','Quantity')}</label><input type="number" class="edit-qty" value="${p.qty}" min="0" style="max-width:100px;"></div>
               <select class="edit-tier" style="max-width:120px;">
-                <option value="" ${!p.tier?'selected':''}>不设等级</option>
-                <option value="大奖" ${p.tier==='大奖'?'selected':''}>大奖</option>
-                <option value="二奖" ${p.tier==='二奖'?'selected':''}>二奖</option>
-                <option value="三奖" ${p.tier==='三奖'?'selected':''}>三奖</option>
+                <option value="" ${!p.tier?'selected':''}>${t('不设等级','No tier')}</option>
+                <option value="大奖" ${p.tier==='大奖'?'selected':''}>${t('大奖','Grand Prize')}</option>
+                <option value="二奖" ${p.tier==='二奖'?'selected':''}>${t('二奖','2nd Prize')}</option>
+                <option value="三奖" ${p.tier==='三奖'?'selected':''}>${t('三奖','3rd Prize')}</option>
               </select>
             </div>
-            <label class="checkline"><input type="checkbox" class="edit-guaranteed" ${p.guaranteedEligible?'checked':''}> 可用于幸运轮盘</label>
-            <div class="field"><label style="font-size:12.5px;">幸运轮盘预留数量 <span class="hint">从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存</span></label><input type="number" class="edit-guaranteed-qty" min="0" value="${p.guaranteedQty||0}" style="max-width:140px;"></div>
+            <label class="checkline"><input type="checkbox" class="edit-guaranteed" ${p.guaranteedEligible?'checked':''}> ${t('可用于幸运轮盘','Usable for Lucky Wheel')}</label>
+            <div class="field"><label style="font-size:12.5px;">${t('幸运轮盘预留数量','Reserved for Lucky Wheel')} <span class="hint">${t('从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存','Reserve a portion of stock exclusively for Lucky Wheel, separate from the Main Draw stock')}</span></label><input type="number" class="edit-guaranteed-qty" min="0" value="${p.guaranteedQty||0}" style="max-width:140px;"></div>
             <div style="display:flex;gap:10px;">
-              <button class="small-btn" data-save-prize="${p.id}">保存</button>
-              <button class="small-btn ghost" data-cancel-prize="${p.id}">取消</button>
+              <button class="small-btn" data-save-prize="${p.id}">${t('保存','Save')}</button>
+              <button class="small-btn ghost" data-cancel-prize="${p.id}">${t('取消','Cancel')}</button>
             </div>
           </div>
         ` : `
           <div class="prize-card">
             <div style="display:flex;align-items:center;gap:12px;">
               ${p.photo?`<img class="thumb" src="${p.photo}">`:''}
-              <div><div class="pname">${p.tier?`<span class="pill" style="background:var(--gold);color:var(--plum);">${escapeHtml(p.tier)}</span> `:''}${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}${p.guaranteedEligible?` <span class="pill win">幸运轮盘</span>`:''}</div><div class="pqty">大抽奖剩余：${p.qty}${p.guaranteedEligible?` · 幸运轮盘预留剩余：${p.guaranteedQty||0}`:''}</div></div>
+              <div><div class="pname">${p.tier?`<span class="pill" style="background:var(--gold);color:var(--plum);">${escapeHtml(tierLabel(p.tier))}</span> `:''}${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}${p.guaranteedEligible?` <span class="pill win">${t('幸运轮盘','Lucky Wheel')}</span>`:''}</div><div class="pqty">${t('大抽奖剩余','Main Draw left')}：${p.qty}${p.guaranteedEligible?` · ${t('幸运轮盘预留剩余','Lucky Wheel reserved left')}：${p.guaranteedQty||0}`:''}</div></div>
             </div>
             <div style="display:flex;gap:14px;align-items:center;">
-              <button class="del-btn" data-edit-prize="${p.id}" style="color:var(--plum);">编辑</button>
-              <button class="del-btn" data-del-prize="${p.id}">删除</button>
+              <button class="del-btn" data-edit-prize="${p.id}" style="color:var(--plum);">${t('编辑','Edit')}</button>
+              <button class="del-btn" data-del-prize="${p.id}">${t('删除','Delete')}</button>
             </div>
           </div>`).join('')}
     `;
     container.querySelector('#new-prize-photo').onchange = async (e)=>{
       const file = e.target.files[0]; if(!file) return;
       try{ state.newPrizePhoto = await compressImage(file); renderAdminPrizesTab(container); }
-      catch(err){ showToast('照片处理失败，请重试'); }
+      catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
     };
     container.querySelector('#add-prize-btn').onclick = ()=> addPrize(container.querySelector('#new-prize-name').value, container.querySelector('#new-prize-qty').value, container.querySelector('#new-prize-value').value, container.querySelector('#new-prize-guaranteed').checked, container.querySelector('#new-prize-guaranteed-qty').value, container.querySelector('#new-prize-tier').value);
     container.querySelectorAll('[data-del-prize]').forEach(btn=>{ btn.onclick = ()=> deletePrize(btn.getAttribute('data-del-prize')); });
@@ -1125,7 +1133,7 @@
       input.onchange = async (e)=>{
         const file = e.target.files[0]; if(!file) return;
         try{ state.editPrizePhoto = await compressImage(file); renderAdminPrizesTab(container); }
-        catch(err){ showToast('照片处理失败，请重试'); }
+        catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
       };
     });
     container.querySelectorAll('[data-save-prize]').forEach(btn=>{
@@ -1187,7 +1195,7 @@
   let wheelSpinTimeout = null;
   function startGuaranteedDraw(entryId){
     const pool = guaranteedPrizePool();
-    if(pool.length===0){ showToast('还没有奖品被设为「可用于幸运轮盘」，请先到奖品管理勾选'); return; }
+    if(pool.length===0){ showToast(t('还没有奖品被设为「可用于幸运轮盘」，请先到奖品管理勾选','No prizes are set as "usable for Lucky Wheel" yet — please enable this in Prize Management first')); return; }
     const seg = 360/pool.length;
     const winnerIndex = Math.floor(Math.random()*pool.length);
     const winner = pool[winnerIndex];
@@ -1233,7 +1241,7 @@
       state.guaranteedDrawEntryId = null;
       state.guaranteedRevealedPrize = null;
       await loadAdminData();
-      showToast('礼物已送出');
+      showToast(t('礼物已送出','Gift sent'));
     }catch(e){ showToast(e.message); }
     state.guaranteedSending = false; render();
   }
@@ -1251,42 +1259,42 @@
     container.innerHTML = `
       <div class="select-row">
         <select id="prize-select">
-          <option value="">选择要抽取的奖品</option>
-          ${availablePrizes.map(p=>`<option value="${p.id}" ${state.drawSelectedPrize===p.id?'selected':''}>${p.tier?`【${escapeHtml(p.tier)}】`:''}${escapeHtml(p.name)}${p.value?` (RM${escapeHtml(p.value)})`:''}（剩余 ${p.qty}）</option>`).join('')}
+          <option value="">${t('选择要抽取的奖品','Select a prize to draw')}</option>
+          ${availablePrizes.map(p=>`<option value="${p.id}" ${state.drawSelectedPrize===p.id?'selected':''}>${p.tier?`【${escapeHtml(tierLabel(p.tier))}】`:''}${escapeHtml(p.name)}${p.value?` (RM${escapeHtml(p.value)})`:''}（${t('剩余','left')} ${p.qty}）</option>`).join('')}
         </select>
       </div>
       <div class="stat-row">
-        <div class="stat-card"><div class="stat-num">${eligibleCount}</div><div class="stat-label">符合抽奖条件人数</div></div>
-        <div class="stat-card"><div class="stat-num gold">${ticketCount}</div><div class="stat-label">共有机会次数</div></div>
-        <div class="stat-card"><div class="stat-num gold">${maxWins>0?maxWins:'不限'}</div><div class="stat-label">每人最多中奖次数</div></div>
-        ${selectedPrize?`<div class="stat-card"><div class="stat-num gold">${selectedTotalQty}</div><div class="stat-label">${escapeHtml(selectedPrize.name)} 总剩余数量</div></div>`:''}
+        <div class="stat-card"><div class="stat-num">${eligibleCount}</div><div class="stat-label">${t('符合抽奖条件人数','Eligible participants')}</div></div>
+        <div class="stat-card"><div class="stat-num gold">${ticketCount}</div><div class="stat-label">${t('共有机会次数','Total chances')}</div></div>
+        <div class="stat-card"><div class="stat-num gold">${maxWins>0?maxWins:t('不限','Unlimited')}</div><div class="stat-label">${t('每人最多中奖次数','Max wins per person')}</div></div>
+        ${selectedPrize?`<div class="stat-card"><div class="stat-num gold">${selectedTotalQty}</div><div class="stat-label">${escapeHtml(selectedPrize.name)} ${t('总剩余数量','total remaining')}</div></div>`:''}
       </div>
       <div class="draw-stage">
         ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); return pz && pz.photo ? `<img class="thumb" style="width:140px;height:140px;margin-bottom:14px;" src="${pz.photo}">` : ''; })()}
-        <div class="draw-prize-label">${state.drawSelectedPrize? '奖品：'+escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).name||'')+((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).value?` (RM${escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).value)})`:'') : '请先选择奖品'}</div>
+        <div class="draw-prize-label">${state.drawSelectedPrize? t('奖品','Prize')+'：'+escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).name||'')+((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).value?` (RM${escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).value)})`:'') : t('请先选择奖品','Please select a prize first')}</div>
         <div class="draw-name ${state.drawing?'rolling':''}" id="draw-name-el">${state.revealedWinner ? escapeHtml(state.revealedWinner.name) : (state.drawing ? escapeHtml(state.rollingName||'…') : '—')}</div>
-        ${state.revealedWinner?`<div class="draw-sub">顾客：${escapeHtml(state.revealedWinner.customerName||'—')} · DD名字：${escapeHtml(state.revealedWinner.ddName||'—')} · 联系方式：${escapeHtml(state.revealedWinner.contact)}</div>`:''}
+        ${state.revealedWinner?`<div class="draw-sub">${t('顾客','Customer')}：${escapeHtml(state.revealedWinner.customerName||'—')} · ${t('DD名字','DD Name')}：${escapeHtml(state.revealedWinner.ddName||'—')} · ${t('联系方式','Contact')}：${escapeHtml(state.revealedWinner.contact)}</div>`:''}
         <div class="draw-actions">
-          ${!state.drawing && !state.revealedWinner? `<button class="small-btn" id="start-draw-btn">开始抽奖</button>`:''}
-          ${state.revealedWinner? `<button class="small-btn" id="confirm-winner-btn">保存中奖结果</button><button class="small-btn ghost" id="redraw-btn">重新抽一次</button><button class="small-btn ghost" id="cancel-draw-btn">取消</button>`:''}
+          ${!state.drawing && !state.revealedWinner? `<button class="small-btn" id="start-draw-btn">${t('开始抽奖','Start Draw')}</button>`:''}
+          ${state.revealedWinner? `<button class="small-btn" id="confirm-winner-btn">${t('保存中奖结果','Save Result')}</button><button class="small-btn ghost" id="redraw-btn">${t('重新抽一次','Redraw')}</button><button class="small-btn ghost" id="cancel-draw-btn">${t('取消','Cancel')}</button>`:''}
         </div>
       </div>
       <div style="margin-top:30px;border-top:1px solid var(--line);padding-top:20px;">
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">幸运轮盘</label>
-        ${guaranteedThreshold<=0?`<div style="font-size:12.5px;color:var(--ink-soft);">还没有设置门槛，去「活动设置」填「幸运轮盘门槛」后才会显示名单</div>`:
-          guaranteedPool.length===0?`<div style="font-size:12.5px;color:var(--ink-soft);">还没有奖品被勾选「可用于幸运轮盘」，请先到「奖品管理」设置</div>`:`
-          <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;">金额达到 RM${guaranteedThreshold} 以上、且未达最多中奖次数的顾客：共 ${guaranteedList.length} 人 · 礼物池：${guaranteedPool.map(p=>escapeHtml(p.name)).join('、')}</div>
-          ${guaranteedList.length===0?`<div class="empty-state">暂时没有符合条件的顾客</div>`:
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">${t('幸运轮盘','Lucky Wheel')}</label>
+        ${guaranteedThreshold<=0?`<div style="font-size:12.5px;color:var(--ink-soft);">${t('还没有设置门槛，去「活动设置」填「幸运轮盘门槛」后才会显示名单','No threshold set yet — go to Event Settings and fill in the "Lucky Wheel Threshold" to see the list here')}</div>`:
+          guaranteedPool.length===0?`<div style="font-size:12.5px;color:var(--ink-soft);">${t('还没有奖品被勾选「可用于幸运轮盘」，请先到「奖品管理」设置','No prizes are checked as "usable for Lucky Wheel" yet — please set this up in Prize Management first')}</div>`:`
+          <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;">${t('金额达到','Amount reached')} RM${guaranteedThreshold} ${t('以上、且未达最多中奖次数的顾客：共','and under the max win limit: ')} ${guaranteedList.length} ${t('人 · 礼物池：','· Gift pool: ')}${guaranteedPool.map(p=>escapeHtml(p.name)).join('、')}</div>
+          ${guaranteedList.length===0?`<div class="empty-state">${t('暂时没有符合条件的顾客','No eligible customers yet')}</div>`:
             guaranteedList.map(en=>{
               const isActive = state.guaranteedDrawEntryId === en.id;
               return `
               <div class="prize-card" style="${isActive?'flex-direction:column;align-items:stretch;':''}">
                 <div>
-                  <div class="pname">${escapeHtml(en.name)} <span style="font-weight:400;color:var(--ink-soft);">· 顾客 ${escapeHtml(en.customerName||'—')}</span></div>
-                  <div class="pqty">金额 RM${escapeHtml(String(en.amount))} · 已中 ${(en.wonPrizes||[]).length} 次 · 编号 ${en.id}</div>
+                  <div class="pname">${escapeHtml(en.name)} <span style="font-weight:400;color:var(--ink-soft);">· ${t('顾客','Customer')} ${escapeHtml(en.customerName||'—')}</span></div>
+                  <div class="pqty">${t('金额','Amount')} RM${escapeHtml(String(en.amount))} · ${t('已中','Won')} ${(en.wonPrizes||[]).length} ${t('次','x')} · ${t('编号','ID')} ${en.id}</div>
                 </div>
                 ${!isActive?`
-                <button class="small-btn" data-draw-guaranteed="${en.id}">抽礼物</button>
+                <button class="small-btn" data-draw-guaranteed="${en.id}">${t('抽礼物','Spin Wheel')}</button>
                 `:`
                 <div class="draw-stage" style="padding:22px 14px;margin-top:10px;">
                   ${!state.guaranteedRevealedPrize?`
@@ -1295,18 +1303,18 @@
                       <div class="wheel-hub"></div>
                       <div class="wheel" id="wheel-${en.id}">${buildWheelSvg(state.guaranteedWheelPool||[])}</div>
                     </div>
-                    <div class="draw-sub">转盘转动中…</div>
+                    <div class="draw-sub">${t('转盘转动中…','Spinning…')}</div>
                   `:`
                     ${state.guaranteedRevealedPrize.photo?`<img class="thumb" style="width:140px;height:140px;margin-bottom:14px;" src="${state.guaranteedRevealedPrize.photo}">`:''}
                     <div class="draw-name" style="font-size:24px;">${escapeHtml(state.guaranteedRevealedPrize.name)}</div>
-                    <div class="draw-sub">${state.guaranteedRevealedPrize.value?('价值 RM'+escapeHtml(state.guaranteedRevealedPrize.value)):''}</div>
+                    <div class="draw-sub">${state.guaranteedRevealedPrize.value?(t('价值','Value')+' RM'+escapeHtml(state.guaranteedRevealedPrize.value)):''}</div>
                   `}
                   <div class="draw-actions">
                     ${state.guaranteedRevealedPrize?`
-                      <button class="small-btn" data-confirm-guaranteed="${en.id}" ${state.guaranteedSending?'disabled':''}>${state.guaranteedSending?'送出中…':'确认送出'}</button>
-                      <button class="small-btn ghost" data-redraw-guaranteed="${en.id}">重新抽</button>
+                      <button class="small-btn" data-confirm-guaranteed="${en.id}" ${state.guaranteedSending?'disabled':''}>${state.guaranteedSending?t('送出中…','Sending…'):t('确认送出','Confirm & Send')}</button>
+                      <button class="small-btn ghost" data-redraw-guaranteed="${en.id}">${t('重新抽','Spin Again')}</button>
                     `:''}
-                    ${!state.guaranteedSpinning?`<button class="small-btn ghost" data-cancel-guaranteed="${en.id}">取消</button>`:''}
+                    ${!state.guaranteedSpinning?`<button class="small-btn ghost" data-cancel-guaranteed="${en.id}">${t('取消','Cancel')}</button>`:''}
                   </div>
                 </div>
                 `}
@@ -1352,23 +1360,23 @@
     return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
   }
   function renderAdminHistoryTab(container){
-    container.innerHTML = state.draws.length===0? `<div class="empty-state">暂无中奖记录</div>` : `
+    container.innerHTML = state.draws.length===0? `<div class="empty-state">${t('暂无中奖记录','No draw records yet')}</div>` : `
       <div class="toolbar">
-        <div style="font-size:13.5px;color:var(--ink-soft);">共 ${state.draws.length} 笔中奖记录</div>
+        <div style="font-size:13.5px;color:var(--ink-soft);">${t('共','Total:')} ${state.draws.length} ${t('笔中奖记录','draw records')}</div>
         <div style="display:flex;gap:10px;">
-          <button class="small-btn ghost" id="export-draws-btn">导出 CSV</button>
-          <button class="small-btn danger" id="reset-draws-btn">重置全部</button>
+          <button class="small-btn ghost" id="export-draws-btn">${t('导出 CSV','Export CSV')}</button>
+          <button class="small-btn danger" id="reset-draws-btn">${t('重置全部','Reset All')}</button>
         </div>
       </div>
       <div style="overflow-x:auto;">
       <table>
-        <thead><tr><th>方式</th><th>奖品</th><th>价值</th><th>姓名</th><th>DD名字</th><th>顾客名字</th><th>联系方式</th><th>订单号</th><th>时间</th><th></th></tr></thead>
+        <thead><tr><th>${t('方式','Method')}</th><th>${t('奖品','Prize')}</th><th>${t('价值','Value')}</th><th>${t('姓名','Name')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('联系方式','Contact')}</th><th>${t('订单号','Order ID')}</th><th>${t('时间','Time')}</th><th></th></tr></thead>
         <tbody>
           ${state.draws.map(d=>{
             const waLink = buildWhatsAppLink(d);
             return `
             <tr>
-              <td>${d.guaranteed?`<span class="pill win">幸运轮盘</span>`:`<span class="pill">大抽奖</span>`}</td>
+              <td>${d.guaranteed?`<span class="pill win">${t('幸运轮盘','Lucky Wheel')}</span>`:`<span class="pill">${t('大抽奖','Main Draw')}</span>`}</td>
               <td>${escapeHtml(d.prizeName)}</td>
               <td>${d.prizeValue?('RM'+escapeHtml(d.prizeValue)):'—'}</td>
               <td>${escapeHtml(d.winnerName)}</td>
@@ -1377,7 +1385,7 @@
               <td>${waLink?`<a href="${waLink}" target="_blank" rel="noopener" style="color:var(--success);font-weight:700;text-decoration:none;">${escapeHtml(d.winnerContact)} 📲</a>`:escapeHtml(d.winnerContact)}</td>
               <td>${escapeHtml(d.winnerOrderId)}</td>
               <td>${new Date(d.timestamp).toLocaleString()}</td>
-              <td><button class="del-btn" data-revoke="${d.id}">撤销</button></td>
+              <td><button class="del-btn" data-revoke="${d.id}">${t('撤销','Revoke')}</button></td>
             </tr>`;}).join('')}
         </tbody>
       </table>
@@ -1393,16 +1401,16 @@
     if(state.archiveDetail){
       const d = state.archiveDetail;
       container.innerHTML = `
-        <button class="small-btn ghost" id="back-to-archives-btn" style="margin-bottom:16px;">← 返回存档列表</button>
+        <button class="small-btn ghost" id="back-to-archives-btn" style="margin-bottom:16px;">${t('← 返回存档列表','← Back to archive list')}</button>
         <div style="font-size:16px;font-weight:700;color:var(--plum);margin-bottom:4px;">${escapeHtml(d.meta.label)}</div>
-        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:18px;">存档时间：${new Date(d.meta.createdAt).toLocaleString()} · 活动标题：${escapeHtml(d.config.title||'')}</div>
-        <button class="small-btn" data-restore-archive="${d.meta.id}" style="margin-bottom:20px;">恢复这一场为使用中</button>
+        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:18px;">${t('存档时间','Archived at')}：${new Date(d.meta.createdAt).toLocaleString()} · ${t('活动标题','Event title')}：${escapeHtml(d.config.title||'')}</div>
+        <button class="small-btn" data-restore-archive="${d.meta.id}" style="margin-bottom:20px;">${t('恢复这一场为使用中','Restore this as active')}</button>
 
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin:18px 0 8px;">参与名单（共 ${d.entries.length} 位）</label>
-        ${d.entries.length===0?`<div class="empty-state">没有资料</div>`:`
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin:18px 0 8px;">${t('参与名单','Entries')}（${t('共','total')} ${d.entries.length} ${t('位',' ')}）</label>
+        ${d.entries.length===0?`<div class="empty-state">${t('没有资料','No data')}</div>`:`
         <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>姓名</th><th>电话</th><th>DD名字</th><th>顾客名字</th><th>订单号</th><th>金额</th><th>抽奖次数</th><th>状态</th></tr></thead>
+          <thead><tr><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th></tr></thead>
           <tbody>
             ${d.entries.map(en=>`
               <tr>
@@ -1412,26 +1420,26 @@
                 <td>${escapeHtml(en.customerName||'—')}</td>
                 <td>${escapeHtml(en.orderId)}</td>
                 <td>${escapeHtml(String(en.amount))}</td>
-                <td>${en.ticketCount||0} 次</td>
-                <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">已中奖</span>`:`<span class="pill">未中奖</span>`}</td>
+                <td>${en.ticketCount||0} ${t('次','x')}</td>
+                <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">${t('已中奖','Won')}</span>`:`<span class="pill">${t('未中奖','No win')}</span>`}</td>
               </tr>`).join('')}
           </tbody>
         </table>
         </div>`}
 
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin:22px 0 8px;">奖品（共 ${d.prizes.length} 项）</label>
-        ${d.prizes.length===0?`<div class="empty-state">没有资料</div>`:
-          d.prizes.map(p=>`<div class="prize-card"><div><div class="pname">${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}</div><div class="pqty">剩余数量：${p.qty}</div></div></div>`).join('')}
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin:22px 0 8px;">${t('奖品','Prizes')}（${t('共','total')} ${d.prizes.length} ${t('项','items')}）</label>
+        ${d.prizes.length===0?`<div class="empty-state">${t('没有资料','No data')}</div>`:
+          d.prizes.map(p=>`<div class="prize-card"><div><div class="pname">${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}</div><div class="pqty">${t('剩余数量','Remaining')}：${p.qty}</div></div></div>`).join('')}
 
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin:22px 0 8px;">中奖记录（共 ${d.draws.length} 笔）</label>
-        ${d.draws.length===0?`<div class="empty-state">没有资料</div>`:`
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin:22px 0 8px;">${t('中奖记录','Draw History')}（${t('共','total')} ${d.draws.length} ${t('笔','records')}）</label>
+        ${d.draws.length===0?`<div class="empty-state">${t('没有资料','No data')}</div>`:`
         <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>方式</th><th>奖品</th><th>姓名</th><th>顾客名字</th><th>订单号</th><th>时间</th></tr></thead>
+          <thead><tr><th>${t('方式','Method')}</th><th>${t('奖品','Prize')}</th><th>${t('姓名','Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('时间','Time')}</th></tr></thead>
           <tbody>
             ${d.draws.map(dr=>`
               <tr>
-                <td>${dr.guaranteed?`<span class="pill win">幸运轮盘</span>`:`<span class="pill">大抽奖</span>`}</td>
+                <td>${dr.guaranteed?`<span class="pill win">${t('幸运轮盘','Lucky Wheel')}</span>`:`<span class="pill">${t('大抽奖','Main Draw')}</span>`}</td>
                 <td>${escapeHtml(dr.prizeName)}</td>
                 <td>${escapeHtml(dr.winnerName)}</td>
                 <td>${escapeHtml(dr.winnerCustomerName||'—')}</td>
@@ -1446,17 +1454,17 @@
       container.querySelector('[data-restore-archive]').onclick = ()=> restoreArchive(d.meta.id);
       return;
     }
-    container.innerHTML = state.archives.length===0? `<div class="empty-state">还没有任何存档，去「活动设置」用「开始新一场」可以把目前的资料存档</div>` : `
+    container.innerHTML = state.archives.length===0? `<div class="empty-state">${t('还没有任何存档，去「活动设置」用「开始新一场」可以把目前的资料存档','No archives yet — use "Start New Event" in Event Settings to archive your current data')}</div>` : `
       ${state.archives.map(a=>`
         <div class="prize-card">
           <div>
             <div class="pname">${escapeHtml(a.label)}</div>
-            <div class="pqty">${new Date(a.createdAt).toLocaleString()} · ${a.entryCount} 位登记 · ${a.drawCount} 笔中奖</div>
+            <div class="pqty">${new Date(a.createdAt).toLocaleString()} · ${a.entryCount} ${t('位登记','entries')} · ${a.drawCount} ${t('笔中奖','wins')}</div>
           </div>
           <div style="display:flex;gap:10px;">
-            <button class="small-btn ghost" data-view-archive="${a.id}">查看</button>
-            <button class="small-btn" data-restore-archive="${a.id}">恢复使用</button>
-            <button class="small-btn danger" data-delete-archive="${a.id}">删除</button>
+            <button class="small-btn ghost" data-view-archive="${a.id}">${t('查看','View')}</button>
+            <button class="small-btn" data-restore-archive="${a.id}">${t('恢复使用','Restore')}</button>
+            <button class="small-btn danger" data-delete-archive="${a.id}">${t('删除','Delete')}</button>
           </div>
         </div>
       `).join('')}
@@ -1468,69 +1476,76 @@
 
   function renderAdminSettingsTab(container){
     if(state.draftTiers === null){
-      state.draftTiers = (state.eventConfig.tiers||[]).map(t=>({threshold: String(t.threshold), bonus: String(t.bonus)}));
+      state.draftTiers = (state.eventConfig.tiers||[]).map(tr=>({threshold: String(tr.threshold), bonus: String(tr.bonus)}));
     }
     container.innerHTML = `
-      <div class="settings-note">提示：抽奖资料（含照片）保存在服务器的 data 目录里，只有知道管理员密码的人能查看，请勿将后台密码告诉参与者。</div>
+      <div class="settings-note">${t('提示：抽奖资料（含照片）保存在服务器的 data 目录里，只有知道管理员密码的人能查看，请勿将后台密码告诉参与者。','Note: Draw data (including photos) is stored in the server\'s data folder — only people who know the admin password can view it. Do not share the admin password with participants.')}</div>
       <div style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:16px;margin-bottom:22px;">
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">开始新一场活动</label>
-        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">会把目前所有资料（参与名单、奖品、中奖记录）和活动设置整个存档保存，然后系统重置成全新状态。管理员密码不受影响，存档之后可以在「历史存档」查看或恢复。</div>
-        <input type="text" id="new-event-label" placeholder="给这次存档取个名字（选填，比如「9月场次」）" style="width:100%;max-width:400px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
-        <br><button class="small-btn" id="start-new-event-btn">开始新一场</button>
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">${t('开始新一场活动','Start New Event')}</label>
+        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">${t('会把目前所有资料（参与名单、奖品、中奖记录）和活动设置整个存档保存，然后系统重置成全新状态。管理员密码不受影响，存档之后可以在「历史存档」查看或恢复。','This archives all current data (entries, prizes, draw history) and settings, then resets the system to a fresh state. Your admin password is not affected — you can view or restore the archive later under "Archives".')}</div>
+        <input type="text" id="new-event-label" placeholder="${t('给这次存档取个名字（选填，比如「9月场次」）','Name this archive (optional, e.g. "September Event")')}" style="width:100%;max-width:400px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
+        <br><button class="small-btn" id="start-new-event-btn">${t('开始新一场','Start New Event')}</button>
       </div>
-      <div class="field"><label>活动标题</label><input type="text" id="ev-title" value="${escapeAttr(state.eventConfig.title)}"></div>
-      <div class="field"><label>活动说明</label><input type="text" id="ev-subtitle" value="${escapeAttr(state.eventConfig.subtitle)}"></div>
-      <div class="field"><label>换算比例 <span class="hint">每 RM 多少 = 1次抽奖机会（取整数向下），这是基础次数</span></label><input type="text" id="ev-rate" value="${escapeAttr(state.eventConfig.conversionRate)}"></div>
+      <div class="field"><label>${t('活动标题','Event Title')}</label><input type="text" id="ev-title" value="${escapeAttr(state.eventConfig.title)}"></div>
+      <div class="field"><label>${t('活动说明','Event Subtitle')}</label><input type="text" id="ev-subtitle" value="${escapeAttr(state.eventConfig.subtitle)}"></div>
+      <div class="field"><label>${t('换算比例','Conversion Rate')} <span class="hint">${t('每 RM 多少 = 1次抽奖机会（取整数向下），这是基础次数','Every RM how much = 1 chance (rounded down) — this is the base chance count')}</span></label><input type="text" id="ev-rate" value="${escapeAttr(state.eventConfig.conversionRate)}"></div>
       <div class="field">
-        <label>奖励门槛 <span class="hint">金额达到门槛时，在基础次数上额外加送次数（可叠加多档，跟基础次数相加）</span></label>
+        <label>${t('奖励门槛','Bonus Tiers')} <span class="hint">${t('金额达到门槛时，在基础次数上额外加送次数（可叠加多档，跟基础次数相加）','When spending reaches a tier, extra chances are added on top of the base count (multiple tiers stack, added to the base)')}</span></label>
         <div id="tiers-list">
-          ${state.draftTiers.length===0?`<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">还没有设置门槛</div>`:
-            state.draftTiers.map((t,i)=>`
+          ${state.draftTiers.length===0?`<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">${t('还没有设置门槛','No tiers set yet')}</div>`:
+            state.draftTiers.map((tr,i)=>`
               <div class="add-prize-form" style="margin-bottom:8px;" data-tier-row="${i}">
-                <input type="text" class="tier-threshold" placeholder="满 RM 多少" value="${escapeAttr(t.threshold)}">
-                <input type="text" class="tier-bonus" placeholder="额外加送次数" value="${escapeAttr(t.bonus)}" style="max-width:140px;">
-                <button class="del-btn" data-del-tier="${i}">删除</button>
+                <input type="text" class="tier-threshold" placeholder="${t('满 RM 多少','Spend RM')}" value="${escapeAttr(tr.threshold)}">
+                <input type="text" class="tier-bonus" placeholder="${t('额外加送次数','Bonus chances')}" value="${escapeAttr(tr.bonus)}" style="max-width:140px;">
+                <button class="del-btn" data-del-tier="${i}">${t('删除','Delete')}</button>
               </div>
             `).join('')}
         </div>
-        <button class="small-btn ghost" id="add-tier-btn" type="button">+ 添加门槛</button>
+        <button class="small-btn ghost" id="add-tier-btn" type="button">+ ${t('添加门槛','Add Tier')}</button>
       </div>
-      <div class="field"><label>每人最多可中奖次数 <span class="hint">大抽奖 + 幸运轮盘加起来算，填0代表不限制</span></label><input type="text" id="ev-maxwins" value="${escapeAttr(state.eventConfig.maxWinsPerPerson)}"></div>
-      <div class="field"><label>每人抽奖机会上限 <span class="hint">不管基础次数+门槛加起来算出多少票，最多不能超过这个数字；填0代表不限制</span></label><input type="text" id="ev-maxtickets" value="${escapeAttr(state.eventConfig.maxTicketsPerPerson)}"></div>
-      <div class="field"><label>幸运轮盘门槛 <span class="hint">金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物，每人限领一次；填0代表不启用</span></label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
-      <div class="field"><label>抽奖动画时长（秒） <span class="hint">大抽奖和幸运轮盘抽礼物共用，3~10秒之间</span></label><input type="number" id="ev-drawduration" min="3" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}"></div>
-      <div class="field"><label>抽奖音效主题 <span class="hint">大抽奖和转盘共用同一个主题</span></label>
+      <div class="field"><label>${t('每人最多可中奖次数','Max Wins Per Person')} <span class="hint">${t('大抽奖 + 幸运轮盘加起来算，填0代表不限制','Main Draw + Lucky Wheel combined, 0 = unlimited')}</span></label><input type="text" id="ev-maxwins" value="${escapeAttr(state.eventConfig.maxWinsPerPerson)}"></div>
+      <div class="field"><label>${t('每人抽奖机会上限','Max Chances Per Person')} <span class="hint">${t('不管基础次数+门槛加起来算出多少票，最多不能超过这个数字；填0代表不限制','Regardless of base + tier chances, the total cannot exceed this number; 0 = unlimited')}</span></label><input type="text" id="ev-maxtickets" value="${escapeAttr(state.eventConfig.maxTicketsPerPerson)}"></div>
+      <div class="field"><label>${t('幸运轮盘门槛','Lucky Wheel Threshold')} <span class="hint">${t('金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物，每人限领一次；填0代表不启用','People who reach this amount can be given a guaranteed gift by the admin on the Draw page, once per person; 0 = disabled')}</span></label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
+      <div class="field"><label>${t('抽奖动画时长（秒）','Draw Animation Duration (sec)')} <span class="hint">${t('大抽奖和幸运轮盘抽礼物共用，3~10秒之间','Shared by Main Draw and Lucky Wheel, 3–10 seconds')}</span></label><input type="number" id="ev-drawduration" min="3" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}"></div>
+      <div class="field"><label>${t('抽奖音效主题','Draw Sound Theme')} <span class="hint">${t('大抽奖和转盘共用同一个主题','Shared by Main Draw and the wheel')}</span></label>
         <select id="ev-soundtheme">
-          <option value="classic" ${(!state.eventConfig.soundTheme||state.eventConfig.soundTheme==='classic')?'selected':''}>经典滋答声</option>
-          <option value="electronic" ${state.eventConfig.soundTheme==='electronic'?'selected':''}>电子音效</option>
-          <option value="drum" ${state.eventConfig.soundTheme==='drum'?'selected':''}>鼓声风</option>
+          <option value="classic" ${(!state.eventConfig.soundTheme||state.eventConfig.soundTheme==='classic')?'selected':''}>${t('经典滋答声','Classic Tick')}</option>
+          <option value="electronic" ${state.eventConfig.soundTheme==='electronic'?'selected':''}>${t('电子音效','Electronic')}</option>
+          <option value="drum" ${state.eventConfig.soundTheme==='drum'?'selected':''}>${t('鼓声风','Drum')}</option>
         </select>
       </div>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
-        <label class="checkline" style="margin-bottom:12px;"><input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}> 开放报名 <span class="hint">关闭后，参与者打开页面会看到「报名已结束」，无法再登记；只看这个勾选框，跟下面的日期无关</span></label>
-        <div class="field"><label>报名截止时间 <span class="hint">时间到了会自动关闭「开放报名」，之后仍可手动重新打开；留空代表不设截止时间</span></label><input type="datetime-local" id="ev-deadline" value="${escapeAttr(state.eventConfig.registrationDeadline)}"></div>
+        <label class="checkline" style="margin-bottom:12px;"><input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}> ${t('开放报名','Registration Open')} <span class="hint">${t('关闭后，参与者打开页面会看到「报名已结束」，无法再登记；只看这个勾选框，跟下面的日期无关','When off, participants will see "Registration closed" and cannot register; this checkbox alone controls it, independent of the dates below')}</span></label>
+        <div class="field"><label>${t('报名截止时间','Registration Deadline')} <span class="hint">${t('时间到了会自动关闭「开放报名」，之后仍可手动重新打开；留空代表不设截止时间','Registration will auto-close when this time passes; you can still manually reopen it afterward. Leave blank for no deadline')}</span></label><input type="datetime-local" id="ev-deadline" value="${escapeAttr(state.eventConfig.registrationDeadline)}"></div>
       </div>
       <div style="margin-top:22px;">
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">允许的订单日期范围</label>
-        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">用来核对参与者上传照片里 OCR 识别到的订单日期，不在范围内会拒绝上传；留空代表不限制，跟报名开放/关闭无关</div>
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">${t('允许的订单日期范围','Allowed Order Date Range')}</label>
+        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">${t('用来核对参与者上传照片里 OCR 识别到的订单日期，不在范围内会拒绝上传；留空代表不限制，跟报名开放/关闭无关','Used to check the order date OCR-read from the uploaded photo; uploads outside this range are rejected. Leave blank for no limit — independent of registration open/closed')}</div>
         <div class="row2">
-          <div class="field"><label>开始日期 <span class="hint">留空代表不限制</span></label><input type="date" id="ev-startdate" value="${escapeAttr(state.eventConfig.regStartDate)}"></div>
-          <div class="field"><label>结束日期 <span class="hint">留空代表不限制</span></label><input type="date" id="ev-enddate" value="${escapeAttr(state.eventConfig.regEndDate)}"></div>
+          <div class="field"><label>${t('开始日期','Start Date')} <span class="hint">${t('留空代表不限制','Leave blank for no limit')}</span></label><input type="date" id="ev-startdate" value="${escapeAttr(state.eventConfig.regStartDate)}"></div>
+          <div class="field"><label>${t('结束日期','End Date')} <span class="hint">${t('留空代表不限制','Leave blank for no limit')}</span></label><input type="date" id="ev-enddate" value="${escapeAttr(state.eventConfig.regEndDate)}"></div>
         </div>
       </div>
       <div style="margin-top:22px;">
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">活动海报</label>
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('活动海报','Event Poster')}</label>
         <div class="upload-box">
-          <label class="upload-btn">${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?'更换海报':'上传海报'}<input type="file" id="poster-upload" accept="image/*"></label>
-          ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<img class="thumb" style="width:64px;height:64px;" src="${state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">还没有上传，参与者登记页会显示预设标题</span>`}
-          ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<button class="small-btn ghost" id="remove-poster-btn" type="button">移除海报</button>`:''}
+          <label class="upload-btn">${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?t('更换海报','Change Poster'):t('上传海报','Upload Poster')}<input type="file" id="poster-upload" accept="image/*"></label>
+          ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<img class="thumb" style="width:64px;height:64px;" src="${state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页会显示预设标题','Not uploaded yet — the registration page will show the default title')}</span>`}
+          ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<button class="small-btn ghost" id="remove-poster-btn" type="button">${t('移除海报','Remove Poster')}</button>`:''}
         </div>
       </div>
-      <button class="small-btn" id="save-event-btn" style="margin-top:20px;">保存</button>
+      <button class="small-btn" id="save-event-btn" style="margin-top:20px;">${t('保存','Save')}</button>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">修改管理员密码</label>
-        <input type="password" id="new-pw" placeholder="新密码（至少4位）" style="width:100%;max-width:280px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
-        <br><button class="small-btn ghost" id="change-pw-btn">更新密码</button>
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('修改管理员密码','Change Admin Password')}</label>
+        <input type="password" id="new-pw" placeholder="${t('新密码（至少4位）','New password (at least 4 characters)')}" style="width:100%;max-width:280px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
+        <br><button class="small-btn ghost" id="change-pw-btn">${t('更新密码','Update Password')}</button>
+      </div>
+      <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('后台语言','Admin Language')}</label>
+        <select id="ev-adminlang">
+          <option value="zh" ${state.adminLang==='zh'?'selected':''}>中文</option>
+          <option value="en" ${state.adminLang==='en'?'selected':''}>English</option>
+        </select>
       </div>
     `;
     container.querySelectorAll('[data-tier-row]').forEach(row=>{
@@ -1546,7 +1561,7 @@
     container.querySelector('#poster-upload').onchange = async (e)=>{
       const file = e.target.files[0]; if(!file) return;
       try{ state.draftPosterImage = await compressImage(file); renderAdminSettingsTab(container); }
-      catch(err){ showToast('照片处理失败，请重试'); }
+      catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
     };
     const removePosterBtn = container.querySelector('#remove-poster-btn');
     if(removePosterBtn) removePosterBtn.onclick = ()=>{ state.draftPosterImage = null; renderAdminSettingsTab(container); };
@@ -1554,7 +1569,7 @@
       container.querySelector('#ev-title').value,
       container.querySelector('#ev-subtitle').value,
       container.querySelector('#ev-rate').value,
-      state.draftTiers.filter(t=> t.threshold.toString().trim() && t.bonus.toString().trim()),
+      state.draftTiers.filter(tr=> tr.threshold.toString().trim() && tr.bonus.toString().trim()),
       container.querySelector('#ev-maxwins').value,
       container.querySelector('#ev-giftthreshold').value,
       container.querySelector('#ev-maxtickets').value,
@@ -1567,22 +1582,27 @@
     );
     container.querySelector('#change-pw-btn').onclick = async ()=>{
       const v = container.querySelector('#new-pw').value;
-      if(!v || v.length<4){ showToast('密码至少4位'); return; }
-      try{ await api('/api/admin/change-password', {method:'POST', auth:true, body:{password:v}}); showToast('密码已更新'); }
+      if(!v || v.length<4){ showToast(t('密码至少4位','Password must be at least 4 characters')); return; }
+      try{ await api('/api/admin/change-password', {method:'POST', auth:true, body:{password:v}}); showToast(t('密码已更新','Password updated')); }
       catch(e){ showToast(e.message); }
+    };
+    container.querySelector('#ev-adminlang').onchange = e=>{
+      state.adminLang = e.target.value;
+      localStorage.setItem('ld_admin_lang', state.adminLang);
+      render();
     };
   }
 
   function renderAdminView(){
-    const tabs = [['entries','参与名单'],['prizes','奖品管理'],['draw','开始抽奖'],['history','中奖记录'],['archives','历史存档'],['settings','活动设置']];
+    const tabs = [['entries',t('参与名单','Entries')],['prizes',t('奖品管理','Prizes')],['draw',t('开始抽奖','Draw')],['history',t('中奖记录','History')],['archives',t('历史存档','Archives')],['settings',t('活动设置','Settings')]];
     app.innerHTML = `
       <div class="admin-wrap">
         <div class="admin-header">
-          <div><h2>抽奖后台管理</h2><div class="sub">${escapeHtml(state.eventConfig.title)}</div></div>
-          <button class="logout-btn" id="logout-btn">退出管理</button>
+          <div><h2>${t('抽奖后台管理','Lucky Draw Admin')}</h2><div class="sub">${escapeHtml(state.eventConfig.title)}</div></div>
+          <button class="logout-btn" id="logout-btn">${t('退出管理','Log Out')}</button>
         </div>
         ${state.eventConfig.registrationDeadline?`<div id="countdown-admin" style="background:#fdf1e0;color:var(--rose);font-weight:700;font-size:12.5px;padding:8px 14px;"></div>`:''}
-        <div class="tabs">${tabs.map(t=>`<div class="tab ${state.adminTab===t[0]?'active':''}" data-tab="${t[0]}">${t[1]}</div>`).join('')}</div>
+        <div class="tabs">${tabs.map(tb=>`<div class="tab ${state.adminTab===tb[0]?'active':''}" data-tab="${tb[0]}">${tb[1]}</div>`).join('')}</div>
         <div class="admin-content" id="admin-content"></div>
       </div>`;
     document.getElementById('logout-btn').onclick = logout;
