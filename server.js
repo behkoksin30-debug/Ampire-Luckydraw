@@ -250,6 +250,11 @@ app.delete('/api/entries/:id', requireAdmin, (req, res) => {
   if (fs.existsSync(file)) fs.unlinkSync(file);
   res.json({ ok: true });
 });
+app.delete('/api/entries', requireAdmin, (req, res) => {
+  const files = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
+  files.forEach(f => fs.unlinkSync(path.join(ENTRIES_DIR, f)));
+  res.json({ ok: true, deleted: files.length });
+});
 
 /* ---------------- prizes ---------------- */
 app.get('/api/prizes', requireAdmin, (req, res) => {
