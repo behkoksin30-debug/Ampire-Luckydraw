@@ -122,6 +122,12 @@
   .lightbox img{max-width:100%;max-height:90vh;border-radius:8px;}
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--plum);color:#fff;padding:11px 20px;border-radius:30px;font-size:13.5px;z-index:60;box-shadow:0 8px 20px rgba(0,0,0,.25);}
   .settings-note{background:#fdf1e0;border:1px solid var(--gold-light);border-radius:9px;padding:12px 14px;font-size:12.5px;color:var(--ink-soft);margin-bottom:16px;line-height:1.6;}
+  .hint-toggle{display:inline-block;vertical-align:middle;}
+  .hint-toggle summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--line);color:var(--ink-soft);font-size:10px;font-weight:700;font-style:normal;}
+  .hint-toggle summary::-webkit-details-marker{display:none;}
+  .hint-toggle summary::marker{content:'';}
+  .hint-toggle[open] summary{background:var(--gold);color:var(--plum);}
+  .hint-toggle .hint-text{display:block;font-size:11.5px;color:var(--ink-soft);font-weight:400;margin-top:6px;background:#fdf1e0;border:1px solid var(--gold-light);border-radius:6px;padding:7px 10px;line-height:1.5;}
 </style>
 </head>
 <body>
@@ -769,6 +775,7 @@
   /* ---------------- render helpers ---------------- */
   function el(html){ const d=document.createElement('div'); d.innerHTML=html; return d.firstElementChild; }
   function t(zh, en){ return state.adminLang==='en' ? en : zh; }
+  function hintIcon(text){ return `<details class="hint-toggle"><summary>i</summary><div class="hint-text">${text}</div></details>`; }
   function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function escapeAttr(s){ return escapeHtml(s); }
 
@@ -1078,7 +1085,7 @@
         <button class="small-btn" id="add-prize-btn">${t('添加奖品','Add Prize')}</button>
       </div>
       <label class="checkline" style="margin-bottom:8px;"><input type="checkbox" id="new-prize-guaranteed"> ${t('可用于幸运轮盘','Usable for Lucky Wheel')}</label>
-      <div class="field" style="margin-bottom:16px;"><label style="font-size:12.5px;">${t('幸运轮盘预留数量','Reserved for Lucky Wheel')} <span class="hint">${t('从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存','Reserve a portion of stock exclusively for Lucky Wheel, separate from the Main Draw stock')}</span></label><input type="number" id="new-prize-guaranteed-qty" min="0" value="0" style="max-width:140px;"></div>
+      <div class="field" style="margin-bottom:16px;"><label style="font-size:12.5px;">${t('幸运轮盘预留数量','Reserved for Lucky Wheel')} ${hintIcon(t('从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存','Reserve a portion of stock exclusively for Lucky Wheel, separate from the Main Draw stock'))}</label><input type="number" id="new-prize-guaranteed-qty" min="0" value="0" style="max-width:140px;"></div>
       ${state.prizes.length===0?`<div class="empty-state">${t('还没有添加奖品','No prizes added yet')}</div>`:
         sortPrizesByValue(state.prizes).map(p=> p.id===state.editingPrizeId ? `
           <div class="prize-card" style="flex-direction:column;align-items:stretch;gap:10px;">
@@ -1098,7 +1105,7 @@
               </select>
             </div>
             <label class="checkline"><input type="checkbox" class="edit-guaranteed" ${p.guaranteedEligible?'checked':''}> ${t('可用于幸运轮盘','Usable for Lucky Wheel')}</label>
-            <div class="field"><label style="font-size:12.5px;">${t('幸运轮盘预留数量','Reserved for Lucky Wheel')} <span class="hint">${t('从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存','Reserve a portion of stock exclusively for Lucky Wheel, separate from the Main Draw stock')}</span></label><input type="number" class="edit-guaranteed-qty" min="0" value="${p.guaranteedQty||0}" style="max-width:140px;"></div>
+            <div class="field"><label style="font-size:12.5px;">${t('幸运轮盘预留数量','Reserved for Lucky Wheel')} ${hintIcon(t('从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存','Reserve a portion of stock exclusively for Lucky Wheel, separate from the Main Draw stock'))}</label><input type="number" class="edit-guaranteed-qty" min="0" value="${p.guaranteedQty||0}" style="max-width:140px;"></div>
             <div style="display:flex;gap:10px;">
               <button class="small-btn" data-save-prize="${p.id}">${t('保存','Save')}</button>
               <button class="small-btn ghost" data-cancel-prize="${p.id}">${t('取消','Cancel')}</button>
@@ -1488,9 +1495,9 @@
       </div>
       <div class="field"><label>${t('活动标题','Event Title')}</label><input type="text" id="ev-title" value="${escapeAttr(state.eventConfig.title)}"></div>
       <div class="field"><label>${t('活动说明','Event Subtitle')}</label><input type="text" id="ev-subtitle" value="${escapeAttr(state.eventConfig.subtitle)}"></div>
-      <div class="field"><label>${t('换算比例','Conversion Rate')} <span class="hint">${t('每 RM 多少 = 1次抽奖机会（取整数向下），这是基础次数','Every RM how much = 1 chance (rounded down) — this is the base chance count')}</span></label><input type="text" id="ev-rate" value="${escapeAttr(state.eventConfig.conversionRate)}"></div>
+      <div class="field"><label>${t('换算比例','Conversion Rate')} ${hintIcon(t('每 RM 多少 = 1次抽奖机会（取整数向下），这是基础次数','Every RM how much = 1 chance (rounded down) — this is the base chance count'))}</label><input type="text" id="ev-rate" value="${escapeAttr(state.eventConfig.conversionRate)}"></div>
       <div class="field">
-        <label>${t('奖励门槛','Bonus Tiers')} <span class="hint">${t('金额达到门槛时，在基础次数上额外加送次数（可叠加多档，跟基础次数相加）','When spending reaches a tier, extra chances are added on top of the base count (multiple tiers stack, added to the base)')}</span></label>
+        <label>${t('奖励门槛','Bonus Tiers')} ${hintIcon(t('金额达到门槛时，在基础次数上额外加送次数（可叠加多档，跟基础次数相加）','When spending reaches a tier, extra chances are added on top of the base count (multiple tiers stack, added to the base)'))}</label>
         <div id="tiers-list">
           ${state.draftTiers.length===0?`<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">${t('还没有设置门槛','No tiers set yet')}</div>`:
             state.draftTiers.map((tr,i)=>`
@@ -1503,11 +1510,11 @@
         </div>
         <button class="small-btn ghost" id="add-tier-btn" type="button">+ ${t('添加门槛','Add Tier')}</button>
       </div>
-      <div class="field"><label>${t('每人最多可中奖次数','Max Wins Per Person')} <span class="hint">${t('大抽奖 + 幸运轮盘加起来算，填0代表不限制','Main Draw + Lucky Wheel combined, 0 = unlimited')}</span></label><input type="text" id="ev-maxwins" value="${escapeAttr(state.eventConfig.maxWinsPerPerson)}"></div>
-      <div class="field"><label>${t('每人抽奖机会上限','Max Chances Per Person')} <span class="hint">${t('不管基础次数+门槛加起来算出多少票，最多不能超过这个数字；填0代表不限制','Regardless of base + tier chances, the total cannot exceed this number; 0 = unlimited')}</span></label><input type="text" id="ev-maxtickets" value="${escapeAttr(state.eventConfig.maxTicketsPerPerson)}"></div>
-      <div class="field"><label>${t('幸运轮盘门槛','Lucky Wheel Threshold')} <span class="hint">${t('金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物，每人限领一次；填0代表不启用','People who reach this amount can be given a guaranteed gift by the admin on the Draw page, once per person; 0 = disabled')}</span></label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
-      <div class="field"><label>${t('抽奖动画时长（秒）','Draw Animation Duration (sec)')} <span class="hint">${t('大抽奖和幸运轮盘抽礼物共用，3~10秒之间','Shared by Main Draw and Lucky Wheel, 3–10 seconds')}</span></label><input type="number" id="ev-drawduration" min="3" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}"></div>
-      <div class="field"><label>${t('抽奖音效主题','Draw Sound Theme')} <span class="hint">${t('大抽奖和转盘共用同一个主题','Shared by Main Draw and the wheel')}</span></label>
+      <div class="field"><label>${t('每人最多可中奖次数','Max Wins Per Person')} ${hintIcon(t('大抽奖 + 幸运轮盘加起来算，填0代表不限制','Main Draw + Lucky Wheel combined, 0 = unlimited'))}</label><input type="text" id="ev-maxwins" value="${escapeAttr(state.eventConfig.maxWinsPerPerson)}"></div>
+      <div class="field"><label>${t('每人抽奖机会上限','Max Chances Per Person')} ${hintIcon(t('不管基础次数+门槛加起来算出多少票，最多不能超过这个数字；填0代表不限制','Regardless of base + tier chances, the total cannot exceed this number; 0 = unlimited'))}</label><input type="text" id="ev-maxtickets" value="${escapeAttr(state.eventConfig.maxTicketsPerPerson)}"></div>
+      <div class="field"><label>${t('幸运轮盘门槛','Lucky Wheel Threshold')} ${hintIcon(t('金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物，每人限领一次；填0代表不启用','People who reach this amount can be given a guaranteed gift by the admin on the Draw page, once per person; 0 = disabled'))}</label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
+      <div class="field"><label>${t('抽奖动画时长（秒）','Draw Animation Duration (sec)')} ${hintIcon(t('大抽奖和幸运轮盘抽礼物共用，3~10秒之间','Shared by Main Draw and Lucky Wheel, 3–10 seconds'))}</label><input type="number" id="ev-drawduration" min="3" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}"></div>
+      <div class="field"><label>${t('抽奖音效主题','Draw Sound Theme')} ${hintIcon(t('大抽奖和转盘共用同一个主题','Shared by Main Draw and the wheel'))}</label>
         <select id="ev-soundtheme">
           <option value="classic" ${(!state.eventConfig.soundTheme||state.eventConfig.soundTheme==='classic')?'selected':''}>${t('经典滋答声','Classic Tick')}</option>
           <option value="electronic" ${state.eventConfig.soundTheme==='electronic'?'selected':''}>${t('电子音效','Electronic')}</option>
@@ -1515,15 +1522,15 @@
         </select>
       </div>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
-        <label class="checkline" style="margin-bottom:12px;"><input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}> ${t('开放报名','Registration Open')} <span class="hint">${t('关闭后，参与者打开页面会看到「报名已结束」，无法再登记；只看这个勾选框，跟下面的日期无关','When off, participants will see "Registration closed" and cannot register; this checkbox alone controls it, independent of the dates below')}</span></label>
-        <div class="field"><label>${t('报名截止时间','Registration Deadline')} <span class="hint">${t('时间到了会自动关闭「开放报名」，之后仍可手动重新打开；留空代表不设截止时间','Registration will auto-close when this time passes; you can still manually reopen it afterward. Leave blank for no deadline')}</span></label><input type="datetime-local" id="ev-deadline" value="${escapeAttr(state.eventConfig.registrationDeadline)}"></div>
+        <label class="checkline" style="margin-bottom:12px;"><input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}> ${t('开放报名','Registration Open')} ${hintIcon(t('关闭后，参与者打开页面会看到「报名已结束」，无法再登记；只看这个勾选框，跟下面的日期无关','When off, participants will see "Registration closed" and cannot register; this checkbox alone controls it, independent of the dates below'))}</label>
+        <div class="field"><label>${t('报名截止时间','Registration Deadline')} ${hintIcon(t('时间到了会自动关闭「开放报名」，之后仍可手动重新打开；留空代表不设截止时间','Registration will auto-close when this time passes; you can still manually reopen it afterward. Leave blank for no deadline'))}</label><input type="datetime-local" id="ev-deadline" value="${escapeAttr(state.eventConfig.registrationDeadline)}"></div>
       </div>
       <div style="margin-top:22px;">
         <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">${t('允许的订单日期范围','Allowed Order Date Range')}</label>
         <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">${t('用来核对参与者上传照片里 OCR 识别到的订单日期，不在范围内会拒绝上传；留空代表不限制，跟报名开放/关闭无关','Used to check the order date OCR-read from the uploaded photo; uploads outside this range are rejected. Leave blank for no limit — independent of registration open/closed')}</div>
         <div class="row2">
-          <div class="field"><label>${t('开始日期','Start Date')} <span class="hint">${t('留空代表不限制','Leave blank for no limit')}</span></label><input type="date" id="ev-startdate" value="${escapeAttr(state.eventConfig.regStartDate)}"></div>
-          <div class="field"><label>${t('结束日期','End Date')} <span class="hint">${t('留空代表不限制','Leave blank for no limit')}</span></label><input type="date" id="ev-enddate" value="${escapeAttr(state.eventConfig.regEndDate)}"></div>
+          <div class="field"><label>${t('开始日期','Start Date')} ${hintIcon(t('留空代表不限制','Leave blank for no limit'))}</label><input type="date" id="ev-startdate" value="${escapeAttr(state.eventConfig.regStartDate)}"></div>
+          <div class="field"><label>${t('结束日期','End Date')} ${hintIcon(t('留空代表不限制','Leave blank for no limit'))}</label><input type="date" id="ev-enddate" value="${escapeAttr(state.eventConfig.regEndDate)}"></div>
         </div>
       </div>
       <div style="margin-top:22px;">
