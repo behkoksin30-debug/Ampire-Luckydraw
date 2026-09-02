@@ -273,6 +273,13 @@
     }
     return dates;
   }
+  function extractOrderAmount(text){
+    const m = (text||'').match(/(?:RM|MYR|\$|合计|总额|total|amount)[^\d]{0,8}([\d,]+\.\d{1,2}|[\d,]+)/i);
+    if(m) return parseFloat(m[1].replace(/,/g,''));
+    const dec = (text||'').match(/\d{1,6}\.\d{2}/);
+    if(dec) return parseFloat(dec[0]);
+    return null;
+  }
   function guessOrderIdAndAmount(text){
     let orderId = '', amount = '';
     const lines = text.split(/\n+/);
@@ -286,9 +293,8 @@
       const all = extractElevenDigitOrderIds(text);
       if(all.length) orderId = all[0];
     }
-    const amtKeyword = text.match(/(?:RM|MYR|\$|合计|总额|total|amount)[^\d]{0,8}([\d,]+\.\d{1,2}|[\d,]+)/i);
-    if(amtKeyword){ amount = amtKeyword[1].replace(/,/g,''); }
-    else { const dec = text.match(/\d{1,6}\.\d{2}/); if(dec) amount = dec[0]; }
+    const foundAmount = extractOrderAmount(text);
+    if(foundAmount!==null) amount = foundAmount.toString();
     return { orderId, amount };
   }
 
@@ -331,7 +337,13 @@
         } else if(!foundOrderIds.includes(state.form.orderId.trim())){
           errs.orderId = '订单号与照片识别内容不符，请核对或重新上传清晰照片 / Order ID does not match the photo, please check or re-upload a clearer photo';
         }
-        if(!ocrText.includes(state.form.amount.toString().trim())) errs.amount = '金额与照片识别内容不符，请核对或重新上传清晰照片 / Amount does not match the photo, please check or re-upload a clearer photo';
+        const foundAmount = extractOrderAmount(ocrText);
+        const typedAmount = parseFloat(state.form.amount);
+        if(foundAmount===null){
+          errs.amount = '照片中找不到金额（RM），请核对或重新上传清晰照片 / Could not find an amount (RM) in the photo, please check or re-upload a clearer photo';
+        } else if(isNaN(typedAmount) || Math.abs(typedAmount - foundAmount) > 0.01){
+          errs.amount = '金额与照片识别内容不符，请核对或重新上传清晰照片 / Amount does not match the photo, please check or re-upload a clearer photo';
+        }
 
         const startD = state.eventConfig.regStartDate, endD = state.eventConfig.regEndDate;
         if(startD || endD){
