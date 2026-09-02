@@ -25,7 +25,8 @@ function defaultConfig() {
     registrationOpen: true,
     regStartDate: '',
     regEndDate: '',
-    posterImage: null
+    posterImage: null,
+    drawDurationSeconds: 5
   };
 }
 
@@ -119,7 +120,8 @@ app.get('/api/config', (req, res) => {
     registrationOpen: cfg.registrationOpen !== false,
     regStartDate: cfg.regStartDate || '',
     regEndDate: cfg.regEndDate || '',
-    posterImage: cfg.posterImage || null
+    posterImage: cfg.posterImage || null,
+    drawDurationSeconds: cfg.drawDurationSeconds || 5
   });
 });
 app.put('/api/config', requireAdmin, (req, res) => {
@@ -157,6 +159,10 @@ app.put('/api/config', requireAdmin, (req, res) => {
   }
   if (req.body.posterImage !== undefined) {
     cfg.posterImage = req.body.posterImage || null;
+  }
+  if (req.body.drawDurationSeconds !== undefined) {
+    const ds = parseFloat(req.body.drawDurationSeconds);
+    cfg.drawDurationSeconds = (!isNaN(ds) && ds >= 3 && ds <= 10) ? ds : (cfg.drawDurationSeconds || 5);
   }
   writeConfig(cfg);
   res.json({ ok: true });
