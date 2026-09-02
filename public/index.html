@@ -133,7 +133,7 @@
     token: localStorage.getItem('ld_admin_token') || null,
     lastTicket: null,
     entries: [], prizes: [], draws: [],
-    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null },
+    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, drawDurationSeconds: 5 },
     adminPasswordSet: null,
     form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null },
     formErrors: {},
@@ -416,6 +416,49 @@
   }
 
   /* ---------------- admin: draw ---------------- */
+  /* ---------------- draw sound effects (synthesized, no files) ---------------- */
+  let audioCtx = null;
+  function getAudioCtx(){
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    return audioCtx;
+  }
+  function playTick(pitch){
+    try{
+      const ctx = getAudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = pitch || 900;
+      gain.gain.setValueAtTime(0.14, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime + 0.07);
+    }catch(e){}
+  }
+  function playWinChime(){
+    try{
+      const ctx = getAudioCtx();
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((freq, i)=>{
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        const start = ctx.currentTime + i*0.12;
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.22, start+0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start+0.35);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(start); osc.stop(start+0.4);
+      });
+    }catch(e){}
+  }
+  function drawTickCount(){
+    const seconds = state.eventConfig.drawDurationSeconds || 5;
+    return Math.max(4, Math.round(seconds*1000/90));
+  }
+
   function eligibleEntries(){
     const maxWins = state.eventConfig.maxWinsPerPerson || 0;
     return state.entries.filter(en=> maxWins>0 ? (en.wonPrizes||[]).length < maxWins : true).filter(en=> (en.ticketCount||0) > 0);
@@ -434,17 +477,20 @@
     const pool = eligibleTicketPool();
     if(pool.length===0){ showToast('没有符合条件的参与者'); return; }
     state.drawing = true; state.revealedWinner = null; render();
-    let count = 0; const totalTicks = 26;
+    let count = 0; const totalTicks = drawTickCount();
     clearInterval(rollInterval);
     rollInterval = setInterval(()=>{
       const r = pool[Math.floor(Math.random()*pool.length)];
       state.rollingName = r.name; count++;
       const nameEl = document.getElementById('draw-name-el');
       if(nameEl) nameEl.textContent = state.rollingName;
+      const progress = count/totalTicks;
+      playTick(700 + progress*500);
       if(count>=totalTicks){
         clearInterval(rollInterval);
         state.revealedWinner = pool[Math.floor(Math.random()*pool.length)];
         state.drawing = false;
+        playWinChime();
         render();
       }
     }, 90);
@@ -496,9 +542,9 @@
     state.loggedIn = false; state.token = null; localStorage.removeItem('ld_admin_token');
     state.view = 'entry'; render();
   }
-  async function saveEventConfig(title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson, registrationOpen, regStartDate, regEndDate){
+  async function saveEventConfig(title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson, registrationOpen, regStartDate, regEndDate, drawDurationSeconds){
     try{
-      const body = {title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson, registrationOpen, regStartDate, regEndDate};
+      const body = {title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson, registrationOpen, regStartDate, regEndDate, drawDurationSeconds};
       if(state.draftPosterImage !== undefined) body.posterImage = state.draftPosterImage;
       await api('/api/config', {method:'PUT', auth:true, body});
       state.eventConfig = {
@@ -511,7 +557,8 @@
         registrationOpen: !!registrationOpen,
         regStartDate: regStartDate||'',
         regEndDate: regEndDate||'',
-        posterImage: state.draftPosterImage !== undefined ? state.draftPosterImage : state.eventConfig.posterImage
+        posterImage: state.draftPosterImage !== undefined ? state.draftPosterImage : state.eventConfig.posterImage,
+        drawDurationSeconds: parseFloat(drawDurationSeconds)||state.eventConfig.drawDurationSeconds||5
       };
       state.draftTiers = null;
       state.draftPosterImage = undefined;
@@ -839,7 +886,7 @@
     state.guaranteedDrawEntryId = entryId;
     state.guaranteedRevealedPrize = null;
     render();
-    let count = 0; const totalTicks = 22;
+    let count = 0; const totalTicks = drawTickCount();
     clearInterval(guaranteedRollInterval);
     guaranteedRollInterval = setInterval(()=>{
       const r = pool[Math.floor(Math.random()*pool.length)];
@@ -847,9 +894,12 @@
       count++;
       const el = document.getElementById('guaranteed-roll-'+entryId);
       if(el) el.textContent = state.guaranteedRolling;
+      const progress = count/totalTicks;
+      playTick(700 + progress*500);
       if(count>=totalTicks){
         clearInterval(guaranteedRollInterval);
         state.guaranteedRevealedPrize = pool[Math.floor(Math.random()*pool.length)];
+        playWinChime();
         render();
       }
     }, 90);
@@ -1090,6 +1140,7 @@
       <div class="field"><label>每人最多可中奖次数 <span class="hint">大抽奖 + 满额保证送礼加起来算，填0代表不限制</span></label><input type="text" id="ev-maxwins" value="${escapeAttr(state.eventConfig.maxWinsPerPerson)}"></div>
       <div class="field"><label>每人抽奖机会上限 <span class="hint">不管基础次数+门槛加起来算出多少票，最多不能超过这个数字；填0代表不限制</span></label><input type="text" id="ev-maxtickets" value="${escapeAttr(state.eventConfig.maxTicketsPerPerson)}"></div>
       <div class="field"><label>满额保证送礼门槛 <span class="hint">金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物，每人限领一次；填0代表不启用</span></label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
+      <div class="field"><label>抽奖动画时长（秒） <span class="hint">大抽奖和满额保证送礼抽礼物共用，3~10秒之间</span></label><input type="number" id="ev-drawduration" min="3" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}"></div>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
         <label class="checkline" style="margin-bottom:12px;"><input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}> 开放报名 <span class="hint">关闭后，参与者打开页面会看到「报名已结束」，无法再登记；只看这个勾选框，跟下面的日期无关</span></label>
       </div>
@@ -1143,7 +1194,8 @@
       container.querySelector('#ev-maxtickets').value,
       container.querySelector('#ev-regopen').checked,
       container.querySelector('#ev-startdate').value,
-      container.querySelector('#ev-enddate').value
+      container.querySelector('#ev-enddate').value,
+      container.querySelector('#ev-drawduration').value
     );
     container.querySelector('#change-pw-btn').onclick = async ()=>{
       const v = container.querySelector('#new-pw').value;
