@@ -1233,6 +1233,8 @@
     const guaranteedList = eligibleGuaranteedEntries();
     const guaranteedThreshold = state.eventConfig.guaranteedGiftThreshold || 0;
     const guaranteedPool = guaranteedPrizePool();
+    const selectedPrize = state.prizes.find(p=>p.id===state.drawSelectedPrize);
+    const selectedTotalQty = selectedPrize ? (selectedPrize.qty||0)+(selectedPrize.guaranteedQty||0) : null;
     container.innerHTML = `
       <div class="select-row">
         <select id="prize-select">
@@ -1240,7 +1242,12 @@
           ${availablePrizes.map(p=>`<option value="${p.id}" ${state.drawSelectedPrize===p.id?'selected':''}>${p.tier?`【${escapeHtml(p.tier)}】`:''}${escapeHtml(p.name)}${p.value?` (RM${escapeHtml(p.value)})`:''}（剩余 ${p.qty}）</option>`).join('')}
         </select>
       </div>
-      <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;">符合抽奖条件人数：${eligibleCount} 人 · 共 ${ticketCount} 次机会 ${maxWins>0?`· 每人最多中奖 ${maxWins} 次`:'· 中奖次数不限'}</div>
+      <div class="stat-row">
+        <div class="stat-card"><div class="stat-num">${eligibleCount}</div><div class="stat-label">符合抽奖条件人数</div></div>
+        <div class="stat-card"><div class="stat-num gold">${ticketCount}</div><div class="stat-label">共有机会次数</div></div>
+        <div class="stat-card"><div class="stat-num gold">${maxWins>0?maxWins:'不限'}</div><div class="stat-label">每人最多中奖次数</div></div>
+        ${selectedPrize?`<div class="stat-card"><div class="stat-num gold">${selectedTotalQty}</div><div class="stat-label">${escapeHtml(selectedPrize.name)} 总剩余数量</div></div>`:''}
+      </div>
       <div class="draw-stage">
         ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); return pz && pz.photo ? `<img class="thumb" style="width:140px;height:140px;margin-bottom:14px;" src="${pz.photo}">` : ''; })()}
         <div class="draw-prize-label">${state.drawSelectedPrize? '奖品：'+escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).name||'')+((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).value?` (RM${escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).value)})`:'') : '请先选择奖品'}</div>
