@@ -190,20 +190,9 @@ app.post('/api/admin/change-password', requireAdmin, (req, res) => {
 });
 
 /* ---------------- entries (public submits, admin manages) ---------------- */
-function todayStr(){
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
 app.post('/api/entries', (req, res) => {
   const cfg = readConfig();
   if (cfg.registrationOpen === false) {
-    return res.status(400).json({ error: '报名已结束 / Registration is closed' });
-  }
-  const today = todayStr();
-  if (cfg.regStartDate && today < cfg.regStartDate) {
-    return res.status(400).json({ error: '报名尚未开始 / Registration has not started yet' });
-  }
-  if (cfg.regEndDate && today > cfg.regEndDate) {
     return res.status(400).json({ error: '报名已结束 / Registration is closed' });
   }
   const { name, contact, ddName, customerName, orderId, amount, photo } = req.body || {};
