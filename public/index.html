@@ -824,8 +824,10 @@
     const threshold = state.eventConfig.guaranteedGiftThreshold || 0;
     if(threshold<=0) return [];
     const maxWins = state.eventConfig.maxWinsPerPerson || 0;
+    const guaranteedWinnerIds = new Set(state.draws.filter(d=>d.guaranteed).map(d=>d.entryId));
     return state.entries.filter(en=> (parseFloat(en.amount)||0) >= threshold)
-      .filter(en=> maxWins>0 ? (en.wonPrizes||[]).length < maxWins : true);
+      .filter(en=> maxWins>0 ? (en.wonPrizes||[]).length < maxWins : true)
+      .filter(en=> !guaranteedWinnerIds.has(en.id));
   }
   function guaranteedPrizePool(){
     return state.prizes.filter(p=> p.guaranteedEligible && (p.guaranteedQty||0)>0);
@@ -1087,7 +1089,7 @@
       </div>
       <div class="field"><label>每人最多可中奖次数 <span class="hint">大抽奖 + 满额保证送礼加起来算，填0代表不限制</span></label><input type="text" id="ev-maxwins" value="${escapeAttr(state.eventConfig.maxWinsPerPerson)}"></div>
       <div class="field"><label>每人抽奖机会上限 <span class="hint">不管基础次数+门槛加起来算出多少票，最多不能超过这个数字；填0代表不限制</span></label><input type="text" id="ev-maxtickets" value="${escapeAttr(state.eventConfig.maxTicketsPerPerson)}"></div>
-      <div class="field"><label>满额保证送礼门槛 <span class="hint">金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物；填0代表不启用</span></label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
+      <div class="field"><label>满额保证送礼门槛 <span class="hint">金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物，每人限领一次；填0代表不启用</span></label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
         <label class="checkline" style="margin-bottom:12px;"><input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}> 开放报名 <span class="hint">关闭后，参与者打开页面会看到「报名已结束」，无法再登记；只看这个勾选框，跟下面的日期无关</span></label>
       </div>
