@@ -687,7 +687,7 @@
           <div class="field"><label>上传订单截图 / Upload Order Screenshot</label>
             <div class="upload-box">
               <label class="upload-btn">选择照片 / Choose Photo<input type="file" id="f-photo" accept="image/*"></label>
-              ${f.photo?`<img class="thumb" src="${f.photo}">`:''}
+              ${f.photo?`<img class="thumb" id="entry-photo-preview" src="${f.photo}" style="cursor:pointer;">`:''}
               ${f.photo?`<button class="ocr-btn" id="ocr-btn" ${state.ocrBusy?'disabled':''}>${state.ocrBusy?'识别中… / Recognizing…':'OCR自动识别 / OCR Auto-Detect'}</button>`:''}
               ${f.photo?`<button class="small-btn ghost" id="reset-photo-btn" type="button">Reset</button>`:''}
             </div>
@@ -723,6 +723,8 @@
       catch(err){ showToast('照片处理失败，请重试 / Photo processing failed, please try again'); }
     };
     const ocrBtn = document.getElementById('ocr-btn'); if(ocrBtn) ocrBtn.onclick = runOcr;
+    const photoPreview = document.getElementById('entry-photo-preview');
+    if(photoPreview) photoPreview.onclick = ()=>{ state.lightboxSrc = f.photo; render(); };
     const resetPhotoBtn = document.getElementById('reset-photo-btn');
     if(resetPhotoBtn) resetPhotoBtn.onclick = ()=>{
       state.form.photo = null;
@@ -1315,12 +1317,6 @@
     else if(state.adminTab==='history') renderAdminHistoryTab(content);
     else if(state.adminTab==='archives') renderAdminArchivesTab(content);
     else if(state.adminTab==='settings') renderAdminSettingsTab(content);
-    document.querySelectorAll('.lightbox').forEach(el=> el.remove());
-    if(state.lightboxSrc){
-      const lb = el(`<div class="lightbox"><button class="lightbox-close" type="button">✕ 关闭</button><img src="${state.lightboxSrc}"></div>`);
-      lb.onclick = (e)=>{ if(e.target===lb || e.target.closest('.lightbox-close')){ state.lightboxSrc=null; render(); } };
-      document.body.appendChild(lb);
-    }
     tickCountdown();
   }
 
@@ -1329,6 +1325,12 @@
     else if(state.view==='success') renderSuccessView();
     else if(state.view==='adminLogin') renderAdminLoginView();
     else if(state.view==='admin') renderAdminView();
+    document.querySelectorAll('.lightbox').forEach(el=> el.remove());
+    if(state.lightboxSrc){
+      const lb = el(`<div class="lightbox"><button class="lightbox-close" type="button">✕ 关闭</button><img src="${state.lightboxSrc}"></div>`);
+      lb.onclick = (e)=>{ if(e.target===lb || e.target.closest('.lightbox-close')){ state.lightboxSrc=null; render(); } };
+      document.body.appendChild(lb);
+    }
   }
 
   async function init(){
