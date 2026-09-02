@@ -142,7 +142,9 @@ app.get('/api/config', (req, res) => {
 app.put('/api/config', requireAdmin, (req, res) => {
   const cfg = readConfig();
   cfg.title = (req.body.title || cfg.title || '幸运抽奖登记').toString().slice(0, 60);
-  cfg.subtitle = (req.body.subtitle || '').toString().slice(0, 140);
+  if (req.body.subtitle !== undefined) {
+    cfg.subtitle = (req.body.subtitle || '').toString().slice(0, 140);
+  }
   const rate = parseFloat(req.body.conversionRate);
   cfg.conversionRate = (!isNaN(rate) && rate > 0) ? rate : (cfg.conversionRate || 100);
   if (Array.isArray(req.body.tiers)) {
