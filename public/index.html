@@ -97,6 +97,8 @@
   .prize-card .pname{font-weight:700;color:var(--plum);}
   .prize-card .pqty{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
   .add-prize-form{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+  .mini-field{display:flex;flex-direction:column;gap:4px;}
+  .mini-field label{font-size:11px;font-weight:700;color:var(--plum);}
   .add-prize-form input{flex:1;min-width:140px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;}
   .draw-stage{border:2px dashed var(--gold);border-radius:16px;background:linear-gradient(160deg,#fffaf0,#fdf1e0);padding:40px 20px;text-align:center;position:relative;overflow:hidden;}
   .draw-prize-label{font-size:13px;color:var(--ink-soft);letter-spacing:.02em;margin-bottom:10px;}
@@ -862,8 +864,8 @@
       </div>
       <div class="add-prize-form">
         <input type="text" id="new-prize-name" placeholder="奖品名称">
-        <input type="text" id="new-prize-value" placeholder="产品价值 (RM)" style="max-width:140px;">
-        <input type="number" id="new-prize-qty" placeholder="数量" min="1" value="1" style="max-width:100px;">
+        <div class="mini-field"><label>价值 (RM)</label><input type="text" id="new-prize-value" style="max-width:140px;"></div>
+        <div class="mini-field"><label>数量</label><input type="number" id="new-prize-qty" min="1" value="1" style="max-width:100px;"></div>
         <select id="new-prize-tier" style="max-width:120px;">
           <option value="">不设等级</option>
           <option value="大奖">大奖</option>
@@ -883,8 +885,8 @@
             </div>
             <div class="add-prize-form">
               <input type="text" class="edit-name" value="${escapeAttr(p.name)}" placeholder="奖品名称">
-              <input type="text" class="edit-value" value="${escapeAttr(p.value||'')}" placeholder="产品价值 (RM)" style="max-width:140px;">
-              <input type="number" class="edit-qty" value="${p.qty}" min="0" style="max-width:100px;">
+              <div class="mini-field"><label>价值 (RM)</label><input type="text" class="edit-value" value="${escapeAttr(p.value||'')}" style="max-width:140px;"></div>
+              <div class="mini-field"><label>数量</label><input type="number" class="edit-qty" value="${p.qty}" min="0" style="max-width:100px;"></div>
               <select class="edit-tier" style="max-width:120px;">
                 <option value="" ${!p.tier?'selected':''}>不设等级</option>
                 <option value="大奖" ${p.tier==='大奖'?'selected':''}>大奖</option>
