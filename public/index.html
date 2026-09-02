@@ -83,6 +83,12 @@
   .del-btn{background:none;border:none;color:var(--danger);font-size:12.5px;font-weight:700;}
   .searchbar{width:100%;padding:10px 13px;border:1.5px solid var(--line);border-radius:9px;margin-bottom:14px;font-size:14px;}
   .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap;}
+  .stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+  .stat-card{background:linear-gradient(150deg,#fffaf0,#fdf1e0);border:1.5px solid var(--gold-light);border-radius:12px;padding:12px 18px;min-width:120px;flex:1;}
+  .stat-card .stat-num{font-family:'Fraunces',serif;font-size:26px;font-weight:700;color:var(--plum);line-height:1.15;}
+  .stat-card .stat-num.gold{color:var(--gold);}
+  .stat-card .stat-label{font-size:12px;color:var(--ink-soft);margin-top:2px;font-weight:600;}
+  .stat-filter-note{font-size:12.5px;color:var(--ink-soft);margin:-8px 0 12px;}
   .small-btn{background:var(--plum);color:#fff;border:none;padding:9px 14px;border-radius:8px;font-size:13px;font-weight:700;}
   .small-btn.ghost{background:none;border:1.5px solid var(--plum);color:var(--plum);}
   .small-btn.danger{background:var(--danger);}
@@ -687,9 +693,18 @@
       return en.name.toLowerCase().includes(q) || en.orderId.toLowerCase().includes(q) || en.contact.toLowerCase().includes(q) || en.id.toLowerCase().includes(q)
         || (en.ddName||'').toLowerCase().includes(q) || (en.customerName||'').toLowerCase().includes(q);
     });
+    const totalTickets = state.entries.reduce((sum,en)=>sum+(en.ticketCount||0),0);
+    const giftThreshold = state.eventConfig.guaranteedGiftThreshold || 0;
+    const qualifiedCount = giftThreshold>0 ? state.entries.filter(en=>(parseFloat(en.amount)||0) >= giftThreshold).length : null;
     container.innerHTML = `
+      <div class="stat-row">
+        <div class="stat-card"><div class="stat-num">${state.entries.length}</div><div class="stat-label">位登记</div></div>
+        <div class="stat-card"><div class="stat-num gold">${totalTickets}</div><div class="stat-label">次抽奖资格</div></div>
+        ${qualifiedCount!==null?`<div class="stat-card"><div class="stat-num gold">${qualifiedCount}</div><div class="stat-label">满额保证送礼门槛达标</div></div>`:''}
+      </div>
+      ${q?`<div class="stat-filter-note">筛选出 ${list.length} 位</div>`:''}
       <div class="toolbar">
-        <div style="font-size:13.5px;color:var(--ink-soft);">共 ${state.entries.length} 位登记 · 共 ${state.entries.reduce((sum,en)=>sum+(en.ticketCount||0),0)} 次抽奖资格 ${state.eventConfig.guaranteedGiftThreshold>0?`· 满额保证送礼门槛达标 ${state.entries.filter(en=>(parseFloat(en.amount)||0) >= state.eventConfig.guaranteedGiftThreshold).length} 位`:''} ${q?`· 筛选出 ${list.length} 位`:''}</div>
+        <div></div>
         <div style="display:flex;gap:10px;">
           <button class="small-btn ghost" id="export-btn">导出 CSV</button>
           <button class="small-btn danger" id="delete-all-btn">全部删除</button>
