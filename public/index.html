@@ -366,6 +366,13 @@
     try{ await api('/api/entries/'+id, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
     catch(e){ showToast(e.message); }
   }
+  async function deleteAllEntries(){
+    if(state.entries.length===0){ showToast('目前没有资料'); return; }
+    if(!confirm('确定要删除全部 '+state.entries.length+' 位参与者的登记资料吗？此操作直接永久删除，不会存档，无法恢复！')) return;
+    if(!confirm('再次确认：真的要永久删除全部登记资料吗？这个动作无法撤销。')) return;
+    try{ await api('/api/entries', {method:'DELETE', auth:true}); await loadAdminData(); showToast('已全部删除'); render(); }
+    catch(e){ showToast(e.message); }
+  }
   function exportCsv(){
     const rows = [['抽奖编号','姓名','电话','DD名字','顾客名字','订单号','金额','提交时间']];
     state.entries.forEach(en=> rows.push([en.id, en.name, en.contact, en.ddName||'', en.customerName||'', en.orderId, en.amount, new Date(en.submittedAt).toLocaleString()]));
@@ -676,7 +683,10 @@
     container.innerHTML = `
       <div class="toolbar">
         <div style="font-size:13.5px;color:var(--ink-soft);">共 ${state.entries.length} 位登记 · 共 ${state.entries.reduce((sum,en)=>sum+(en.ticketCount||0),0)} 次抽奖资格 ${state.eventConfig.guaranteedGiftThreshold>0?`· 满额保证送礼门槛达标 ${state.entries.filter(en=>(parseFloat(en.amount)||0) >= state.eventConfig.guaranteedGiftThreshold).length} 位`:''} ${q?`· 筛选出 ${list.length} 位`:''}</div>
-        <button class="small-btn ghost" id="export-btn">导出 CSV</button>
+        <div style="display:flex;gap:10px;">
+          <button class="small-btn ghost" id="export-btn">导出 CSV</button>
+          <button class="small-btn danger" id="delete-all-btn">全部删除</button>
+        </div>
       </div>
       <input class="searchbar" id="search-input" placeholder="按姓名 / 订单号 / 联系方式 / 编号搜索" value="${escapeAttr(state.search)}">
       ${list.length===0?`<div class="empty-state">暂无符合条件的登记资料</div>`:`
@@ -705,6 +715,7 @@
     container.querySelectorAll('.mini-thumb').forEach(img=>{ img.onclick = ()=>{ state.lightboxSrc = img.getAttribute('data-src'); render(); }; });
     container.querySelectorAll('[data-del]').forEach(btn=>{ btn.onclick = ()=> deleteEntry(btn.getAttribute('data-del')); });
     container.querySelector('#export-btn').onclick = exportCsv;
+    container.querySelector('#delete-all-btn').onclick = deleteAllEntries;
     container.querySelector('#search-input').oninput = e=>{ state.search = e.target.value; renderAdminEntriesTab(container); };
   }
 
