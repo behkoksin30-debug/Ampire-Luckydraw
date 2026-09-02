@@ -788,6 +788,9 @@
     container.querySelector('#search-input').oninput = e=>{ state.search = e.target.value; renderAdminEntriesTab(container); };
   }
 
+  function sortPrizesByValue(prizes){
+    return [...prizes].sort((a,b)=> (parseFloat(a.value)||0) - (parseFloat(b.value)||0));
+  }
   function renderAdminPrizesTab(container){
     container.innerHTML = `
       <div class="upload-box" style="margin-bottom:12px;">
@@ -809,7 +812,7 @@
       <label class="checkline" style="margin-bottom:8px;"><input type="checkbox" id="new-prize-guaranteed"> 可用于满额保证送礼</label>
       <div class="field" style="margin-bottom:16px;"><label style="font-size:12.5px;">满额保证送礼预留数量 <span class="hint">从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存</span></label><input type="number" id="new-prize-guaranteed-qty" min="0" value="0" style="max-width:140px;"></div>
       ${state.prizes.length===0?`<div class="empty-state">还没有添加奖品</div>`:
-        state.prizes.map(p=> p.id===state.editingPrizeId ? `
+        sortPrizesByValue(state.prizes).map(p=> p.id===state.editingPrizeId ? `
           <div class="prize-card" style="flex-direction:column;align-items:stretch;gap:10px;">
             <div class="upload-box">
               <label class="upload-btn">更换图片<input type="file" class="edit-prize-photo" data-id="${p.id}" accept="image/*"></label>
@@ -938,7 +941,7 @@
   }
 
   function renderAdminDrawTab(container){
-    const availablePrizes = state.prizes.filter(p=>p.qty>0);
+    const availablePrizes = sortPrizesByValue(state.prizes.filter(p=>p.qty>0));
     const eligibleCount = eligibleEntries().length;
     const ticketCount = eligibleTicketPool().length;
     const maxWins = state.eventConfig.maxWinsPerPerson || 0;
