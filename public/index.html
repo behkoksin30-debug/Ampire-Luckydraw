@@ -127,7 +127,7 @@
     token: localStorage.getItem('ld_admin_token') || null,
     lastTicket: null,
     entries: [], prizes: [], draws: [],
-    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0 },
+    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null },
     adminPasswordSet: null,
     form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null },
     formErrors: {},
@@ -139,6 +139,7 @@
     newPrizePhoto: null,
     editingPrizeId: null, editPrizePhoto: null,
     draftTiers: null,
+    draftPosterImage: undefined,
     guaranteedDrawEntryId: null, guaranteedRolling: '', guaranteedRevealedPrize: null, guaranteedSending: false
   };
 
@@ -408,18 +409,25 @@
     state.loggedIn = false; state.token = null; localStorage.removeItem('ld_admin_token');
     state.view = 'entry'; render();
   }
-  async function saveEventConfig(title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson){
+  async function saveEventConfig(title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson, registrationOpen, regStartDate, regEndDate){
     try{
-      await api('/api/config', {method:'PUT', auth:true, body:{title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson}});
+      const body = {title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson, registrationOpen, regStartDate, regEndDate};
+      if(state.draftPosterImage !== undefined) body.posterImage = state.draftPosterImage;
+      await api('/api/config', {method:'PUT', auth:true, body});
       state.eventConfig = {
         title: title||'幸运抽奖登记', subtitle: subtitle||'',
         conversionRate: parseFloat(conversionRate)||state.eventConfig.conversionRate,
         tiers: tiers||[],
         maxWinsPerPerson: parseInt(maxWinsPerPerson,10)||0,
         guaranteedGiftThreshold: parseFloat(guaranteedGiftThreshold)||0,
-        maxTicketsPerPerson: parseInt(maxTicketsPerPerson,10)||0
+        maxTicketsPerPerson: parseInt(maxTicketsPerPerson,10)||0,
+        registrationOpen: !!registrationOpen,
+        regStartDate: regStartDate||'',
+        regEndDate: regEndDate||'',
+        posterImage: state.draftPosterImage !== undefined ? state.draftPosterImage : state.eventConfig.posterImage
       };
       state.draftTiers = null;
+      state.draftPosterImage = undefined;
       await loadAdminData();
       showToast('活动信息已更新'); render();
     }catch(e){ showToast(e.message); }
@@ -430,10 +438,55 @@
   function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function escapeAttr(s){ return escapeHtml(s); }
 
+  function todayStr(){
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function registrationClosedReason(){
+    const cfg = state.eventConfig;
+    if(cfg.registrationOpen === false) return 'closed';
+    const today = todayStr();
+    if(cfg.regStartDate && today < cfg.regStartDate) return 'notstarted';
+    if(cfg.regEndDate && today > cfg.regEndDate) return 'closed';
+    return null;
+  }
   function renderEntryView(){
+    const closedReason = registrationClosedReason();
+    if(closedReason){
+      app.innerHTML = `
+        <div class="ticket">
+          ${state.eventConfig.posterImage?`<img src="${state.eventConfig.posterImage}" style="width:100%;display:block;">`:''}
+          <div class="ticket-head">
+            <div class="eyebrow" style="color:var(--gold-light);opacity:.85;">LUCKY DRAW ENTRY</div>
+            <h1>${escapeHtml(state.eventConfig.title)}</h1>
+            <p>${escapeHtml(state.eventConfig.subtitle)}</p>
+          </div>
+          <div class="perforation"></div>
+          <div class="ticket-body" style="text-align:center;padding:40px 30px;">
+            <div style="font-size:18px;font-weight:700;color:var(--plum);margin-bottom:8px;">
+              ${closedReason==='notstarted'?'报名尚未开始 / Registration has not started yet':'报名已结束 / Registration is closed'}
+            </div>
+            <div style="font-size:13.5px;color:var(--ink-soft);">
+              ${closedReason==='notstarted'?(state.eventConfig.regStartDate?('开始日期：'+state.eventConfig.regStartDate+' / Starts: '+state.eventConfig.regStartDate):''):(state.eventConfig.regEndDate?('结束日期：'+state.eventConfig.regEndDate+' / Ended: '+state.eventConfig.regEndDate):'')}
+            </div>
+          </div>
+        </div>
+        <div class="admin-link"><a id="admin-entry-link">管理员入口 / Admin</a></div>
+      `;
+      document.getElementById('admin-entry-link').onclick = async ()=>{
+        await loadAdminStatus();
+        if(state.token){
+          try{ await loadAdminData(); state.loggedIn=true; state.view='admin'; render(); return; }
+          catch(e){ localStorage.removeItem('ld_admin_token'); state.token=null; }
+        }
+        state.view = 'adminLogin'; render();
+      };
+      return;
+    }
     const f = state.form, errs = state.formErrors;
     app.innerHTML = `
       <div class="ticket">
+        ${state.eventConfig.posterImage?`<img src="${state.eventConfig.posterImage}" style="width:100%;display:block;">`:''}
         <div class="ticket-head">
           <div class="eyebrow" style="color:var(--gold-light);opacity:.85;">LUCKY DRAW ENTRY</div>
           <h1>${escapeHtml(state.eventConfig.title)}</h1>
@@ -854,7 +907,23 @@
       <div class="field"><label>每人最多可中奖次数 <span class="hint">大抽奖 + 满额保证送礼加起来算，填0代表不限制</span></label><input type="text" id="ev-maxwins" value="${escapeAttr(state.eventConfig.maxWinsPerPerson)}"></div>
       <div class="field"><label>每人抽奖机会上限 <span class="hint">不管基础次数+门槛加起来算出多少票，最多不能超过这个数字；填0代表不限制</span></label><input type="text" id="ev-maxtickets" value="${escapeAttr(state.eventConfig.maxTicketsPerPerson)}"></div>
       <div class="field"><label>满额保证送礼门槛 <span class="hint">金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物；填0代表不启用</span></label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
-      <button class="small-btn" id="save-event-btn">保存</button>
+      <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
+        <label class="checkline" style="margin-bottom:12px;"><input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}> 开放报名 <span class="hint">关闭后，参与者打开页面会看到「报名已结束」，无法再登记</span></label>
+        <div class="row2">
+          <div class="field"><label>开始日期 <span class="hint">留空代表不限制</span></label><input type="date" id="ev-startdate" value="${escapeAttr(state.eventConfig.regStartDate)}"></div>
+          <div class="field"><label>结束日期 <span class="hint">留空代表不限制</span></label><input type="date" id="ev-enddate" value="${escapeAttr(state.eventConfig.regEndDate)}"></div>
+        </div>
+        <div style="font-size:12.5px;color:var(--ink-soft);">日期范围之外，就算「开放报名」勾选了，表单一样无法提交</div>
+      </div>
+      <div style="margin-top:22px;">
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">活动海报</label>
+        <div class="upload-box">
+          <label class="upload-btn">${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?'更换海报':'上传海报'}<input type="file" id="poster-upload" accept="image/*"></label>
+          ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<img class="thumb" style="width:64px;height:64px;" src="${state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">还没有上传，参与者登记页会显示预设标题</span>`}
+          ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<button class="small-btn ghost" id="remove-poster-btn" type="button">移除海报</button>`:''}
+        </div>
+      </div>
+      <button class="small-btn" id="save-event-btn" style="margin-top:20px;">保存</button>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
         <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">修改管理员密码</label>
         <input type="password" id="new-pw" placeholder="新密码（至少4位）" style="width:100%;max-width:280px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
@@ -870,6 +939,13 @@
       btn.onclick = ()=>{ state.draftTiers.splice(parseInt(btn.getAttribute('data-del-tier'),10), 1); renderAdminSettingsTab(container); };
     });
     container.querySelector('#add-tier-btn').onclick = ()=>{ state.draftTiers.push({threshold:'', bonus:''}); renderAdminSettingsTab(container); };
+    container.querySelector('#poster-upload').onchange = async (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      try{ state.draftPosterImage = await compressImage(file); renderAdminSettingsTab(container); }
+      catch(err){ showToast('照片处理失败，请重试'); }
+    };
+    const removePosterBtn = container.querySelector('#remove-poster-btn');
+    if(removePosterBtn) removePosterBtn.onclick = ()=>{ state.draftPosterImage = null; renderAdminSettingsTab(container); };
     container.querySelector('#save-event-btn').onclick = ()=> saveEventConfig(
       container.querySelector('#ev-title').value,
       container.querySelector('#ev-subtitle').value,
@@ -877,7 +953,10 @@
       state.draftTiers.filter(t=> t.threshold.toString().trim() && t.bonus.toString().trim()),
       container.querySelector('#ev-maxwins').value,
       container.querySelector('#ev-giftthreshold').value,
-      container.querySelector('#ev-maxtickets').value
+      container.querySelector('#ev-maxtickets').value,
+      container.querySelector('#ev-regopen').checked,
+      container.querySelector('#ev-startdate').value,
+      container.querySelector('#ev-enddate').value
     );
     container.querySelector('#change-pw-btn').onclick = async ()=>{
       const v = container.querySelector('#new-pw').value;
