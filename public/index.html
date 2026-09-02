@@ -390,10 +390,10 @@
   }
 
   /* ---------------- admin: prizes ---------------- */
-  async function addPrize(name, qty, value, guaranteedEligible){
+  async function addPrize(name, qty, value, guaranteedEligible, guaranteedQty){
     if(!name.trim()){ showToast('请输入奖品名称'); return; }
     try{
-      await api('/api/prizes', {method:'POST', auth:true, body:{name:name.trim(), qty, photo: state.newPrizePhoto, value: (value||'').toString().trim(), guaranteedEligible: !!guaranteedEligible}});
+      await api('/api/prizes', {method:'POST', auth:true, body:{name:name.trim(), qty, photo: state.newPrizePhoto, value: (value||'').toString().trim(), guaranteedEligible: !!guaranteedEligible, guaranteedQty}});
       state.newPrizePhoto = null;
       await loadAdminData(); render();
     }
@@ -404,10 +404,10 @@
     try{ await api('/api/prizes/'+id, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
     catch(e){ showToast(e.message); }
   }
-  async function updatePrize(id, name, qty, value, guaranteedEligible){
+  async function updatePrize(id, name, qty, value, guaranteedEligible, guaranteedQty){
     if(!name.trim()){ showToast('请输入奖品名称'); return; }
     try{
-      const body = {name:name.trim(), qty, value:(value||'').toString().trim(), guaranteedEligible: !!guaranteedEligible};
+      const body = {name:name.trim(), qty, value:(value||'').toString().trim(), guaranteedEligible: !!guaranteedEligible, guaranteedQty};
       if(state.editPrizePhoto !== null) body.photo = state.editPrizePhoto;
       await api('/api/prizes/'+id, {method:'PUT', auth:true, body});
       state.editingPrizeId = null; state.editPrizePhoto = null;
@@ -753,7 +753,8 @@
         <input type="number" id="new-prize-qty" placeholder="数量" min="1" value="1" style="max-width:100px;">
         <button class="small-btn" id="add-prize-btn">添加奖品</button>
       </div>
-      <label class="checkline" style="margin-bottom:16px;"><input type="checkbox" id="new-prize-guaranteed"> 可用于满额保证送礼</label>
+      <label class="checkline" style="margin-bottom:8px;"><input type="checkbox" id="new-prize-guaranteed"> 可用于满额保证送礼</label>
+      <div class="field" style="margin-bottom:16px;"><label style="font-size:12.5px;">满额保证送礼预留数量 <span class="hint">从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存</span></label><input type="number" id="new-prize-guaranteed-qty" min="0" value="0" style="max-width:140px;"></div>
       ${state.prizes.length===0?`<div class="empty-state">还没有添加奖品</div>`:
         state.prizes.map(p=> p.id===state.editingPrizeId ? `
           <div class="prize-card" style="flex-direction:column;align-items:stretch;gap:10px;">
@@ -767,6 +768,7 @@
               <input type="number" class="edit-qty" value="${p.qty}" min="0" style="max-width:100px;">
             </div>
             <label class="checkline"><input type="checkbox" class="edit-guaranteed" ${p.guaranteedEligible?'checked':''}> 可用于满额保证送礼</label>
+            <div class="field"><label style="font-size:12.5px;">满额保证送礼预留数量 <span class="hint">从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存</span></label><input type="number" class="edit-guaranteed-qty" min="0" value="${p.guaranteedQty||0}" style="max-width:140px;"></div>
             <div style="display:flex;gap:10px;">
               <button class="small-btn" data-save-prize="${p.id}">保存</button>
               <button class="small-btn ghost" data-cancel-prize="${p.id}">取消</button>
@@ -776,7 +778,7 @@
           <div class="prize-card">
             <div style="display:flex;align-items:center;gap:12px;">
               ${p.photo?`<img class="thumb" src="${p.photo}">`:''}
-              <div><div class="pname">${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}${p.guaranteedEligible?` <span class="pill win">满额保证</span>`:''}</div><div class="pqty">剩余数量：${p.qty}</div></div>
+              <div><div class="pname">${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}${p.guaranteedEligible?` <span class="pill win">满额保证</span>`:''}</div><div class="pqty">大抽奖剩余：${p.qty}${p.guaranteedEligible?` · 满额保证预留剩余：${p.guaranteedQty||0}`:''}</div></div>
             </div>
             <div style="display:flex;gap:14px;align-items:center;">
               <button class="del-btn" data-edit-prize="${p.id}" style="color:var(--plum);">编辑</button>
@@ -789,7 +791,7 @@
       try{ state.newPrizePhoto = await compressImage(file); renderAdminPrizesTab(container); }
       catch(err){ showToast('照片处理失败，请重试'); }
     };
-    container.querySelector('#add-prize-btn').onclick = ()=> addPrize(container.querySelector('#new-prize-name').value, container.querySelector('#new-prize-qty').value, container.querySelector('#new-prize-value').value, container.querySelector('#new-prize-guaranteed').checked);
+    container.querySelector('#add-prize-btn').onclick = ()=> addPrize(container.querySelector('#new-prize-name').value, container.querySelector('#new-prize-qty').value, container.querySelector('#new-prize-value').value, container.querySelector('#new-prize-guaranteed').checked, container.querySelector('#new-prize-guaranteed-qty').value);
     container.querySelectorAll('[data-del-prize]').forEach(btn=>{ btn.onclick = ()=> deletePrize(btn.getAttribute('data-del-prize')); });
     container.querySelectorAll('[data-edit-prize]').forEach(btn=>{
       btn.onclick = ()=>{ state.editingPrizeId = btn.getAttribute('data-edit-prize'); state.editPrizePhoto = null; renderAdminPrizesTab(container); };
@@ -812,7 +814,8 @@
         const qty = card.querySelector('.edit-qty').value;
         const value = card.querySelector('.edit-value').value;
         const guaranteedEligible = card.querySelector('.edit-guaranteed').checked;
-        updatePrize(id, name, qty, value, guaranteedEligible);
+        const guaranteedQty = card.querySelector('.edit-guaranteed-qty').value;
+        updatePrize(id, name, qty, value, guaranteedEligible, guaranteedQty);
       };
     });
   }
@@ -825,7 +828,7 @@
       .filter(en=> maxWins>0 ? (en.wonPrizes||[]).length < maxWins : true);
   }
   function guaranteedPrizePool(){
-    return state.prizes.filter(p=> p.guaranteedEligible && p.qty>0);
+    return state.prizes.filter(p=> p.guaranteedEligible && (p.guaranteedQty||0)>0);
   }
   let guaranteedRollInterval = null;
   function startGuaranteedDraw(entryId){
