@@ -214,6 +214,18 @@
     const matches = (text||'').match(/(?<!\d)\d{11}(?!\d)/g);
     return matches || [];
   }
+  function extractOrderDatesISO(text){
+    const dates = [];
+    const re = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;
+    let m;
+    while((m = re.exec(text||''))){
+      const day = parseInt(m[1],10), month = parseInt(m[2],10), year = parseInt(m[3],10);
+      if(month>=1 && month<=12 && day>=1 && day<=31){
+        dates.push(year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0'));
+      }
+    }
+    return dates;
+  }
   function guessOrderIdAndAmount(text){
     let orderId = '', amount = '';
     const lines = text.split(/\n+/);
@@ -273,6 +285,20 @@
           errs.orderId = '订单号与照片识别内容不符，请核对或重新上传清晰照片 / Order ID does not match the photo, please check or re-upload a clearer photo';
         }
         if(!ocrText.includes(state.form.amount.toString().trim())) errs.amount = '金额与照片识别内容不符，请核对或重新上传清晰照片 / Amount does not match the photo, please check or re-upload a clearer photo';
+
+        const startD = state.eventConfig.regStartDate, endD = state.eventConfig.regEndDate;
+        if(startD || endD){
+          const foundDates = extractOrderDatesISO(ocrText);
+          if(foundDates.length===0){
+            errs.orderDate = '照片中找不到订单日期，请重新上传清晰的订单详情截图 / Could not find an order date in the photo, please re-upload a clear order details screenshot';
+          } else {
+            const anyInRange = foundDates.some(d => (!startD || d>=startD) && (!endD || d<=endD));
+            if(!anyInRange){
+              errs.orderDate = '订单日期不在允许范围内 / Order date is outside the allowed range'
+                + (startD?(' ('+startD+(endD?(' ~ '+endD):'')+')'):(endD?(' (~ '+endD+')'):''));
+            }
+          }
+        }
       }
     }
     state.formErrors = errs;
@@ -438,16 +464,9 @@
   function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function escapeAttr(s){ return escapeHtml(s); }
 
-  function todayStr(){
-    const d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  }
   function registrationClosedReason(){
     const cfg = state.eventConfig;
     if(cfg.registrationOpen === false) return 'closed';
-    const today = todayStr();
-    if(cfg.regStartDate && today < cfg.regStartDate) return 'notstarted';
-    if(cfg.regEndDate && today > cfg.regEndDate) return 'closed';
     return null;
   }
   function renderEntryView(){
@@ -464,10 +483,7 @@
           <div class="perforation"></div>
           <div class="ticket-body" style="text-align:center;padding:40px 30px;">
             <div style="font-size:18px;font-weight:700;color:var(--plum);margin-bottom:8px;">
-              ${closedReason==='notstarted'?'报名尚未开始 / Registration has not started yet':'报名已结束 / Registration is closed'}
-            </div>
-            <div style="font-size:13.5px;color:var(--ink-soft);">
-              ${closedReason==='notstarted'?(state.eventConfig.regStartDate?('开始日期：'+state.eventConfig.regStartDate+' / Starts: '+state.eventConfig.regStartDate):''):(state.eventConfig.regEndDate?('结束日期：'+state.eventConfig.regEndDate+' / Ended: '+state.eventConfig.regEndDate):'')}
+              报名已结束 / Registration is closed
             </div>
           </div>
         </div>
@@ -518,6 +534,7 @@
             </div>
             ${errs.photo?`<div class="error-text">${errs.photo}</div>`:''}
             ${errs.ocr?`<div class="error-text">${errs.ocr}</div>`:''}
+            ${errs.orderDate?`<div class="error-text">${errs.orderDate}</div>`:''}
             ${state.ocrText?`<div class="ocr-note">识别到的原始文字（供核对）：/ Recognized text (for checking):</div><div class="ocr-text">${escapeHtml(state.ocrText)}</div>`:''}
           </div>
           <div class="row2">
@@ -908,12 +925,15 @@
       <div class="field"><label>每人抽奖机会上限 <span class="hint">不管基础次数+门槛加起来算出多少票，最多不能超过这个数字；填0代表不限制</span></label><input type="text" id="ev-maxtickets" value="${escapeAttr(state.eventConfig.maxTicketsPerPerson)}"></div>
       <div class="field"><label>满额保证送礼门槛 <span class="hint">金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物；填0代表不启用</span></label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
-        <label class="checkline" style="margin-bottom:12px;"><input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}> 开放报名 <span class="hint">关闭后，参与者打开页面会看到「报名已结束」，无法再登记</span></label>
+        <label class="checkline" style="margin-bottom:12px;"><input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}> 开放报名 <span class="hint">关闭后，参与者打开页面会看到「报名已结束」，无法再登记；只看这个勾选框，跟下面的日期无关</span></label>
+      </div>
+      <div style="margin-top:22px;">
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">允许的订单日期范围</label>
+        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">用来核对参与者上传照片里 OCR 识别到的订单日期，不在范围内会拒绝上传；留空代表不限制，跟报名开放/关闭无关</div>
         <div class="row2">
           <div class="field"><label>开始日期 <span class="hint">留空代表不限制</span></label><input type="date" id="ev-startdate" value="${escapeAttr(state.eventConfig.regStartDate)}"></div>
           <div class="field"><label>结束日期 <span class="hint">留空代表不限制</span></label><input type="date" id="ev-enddate" value="${escapeAttr(state.eventConfig.regEndDate)}"></div>
         </div>
-        <div style="font-size:12.5px;color:var(--ink-soft);">日期范围之外，就算「开放报名」勾选了，表单一样无法提交</div>
       </div>
       <div style="margin-top:22px;">
         <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">活动海报</label>
