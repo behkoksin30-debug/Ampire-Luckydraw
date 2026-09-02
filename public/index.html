@@ -689,6 +689,7 @@
               <label class="upload-btn">选择照片 / Choose Photo<input type="file" id="f-photo" accept="image/*"></label>
               ${f.photo?`<img class="thumb" src="${f.photo}">`:''}
               ${f.photo?`<button class="ocr-btn" id="ocr-btn" ${state.ocrBusy?'disabled':''}>${state.ocrBusy?'识别中… / Recognizing…':'OCR自动识别 / OCR Auto-Detect'}</button>`:''}
+              ${f.photo?`<button class="small-btn ghost" id="reset-photo-btn" type="button">Reset</button>`:''}
             </div>
             ${errs.photo?`<div class="error-text">${errs.photo}</div>`:''}
             ${errs.ocr?`<div class="error-text">${errs.ocr}</div>`:''}
@@ -722,6 +723,15 @@
       catch(err){ showToast('照片处理失败，请重试 / Photo processing failed, please try again'); }
     };
     const ocrBtn = document.getElementById('ocr-btn'); if(ocrBtn) ocrBtn.onclick = runOcr;
+    const resetPhotoBtn = document.getElementById('reset-photo-btn');
+    if(resetPhotoBtn) resetPhotoBtn.onclick = ()=>{
+      state.form.photo = null;
+      state.form.orderId = '';
+      state.form.amount = '';
+      state.ocrText = '';
+      state.formErrors = {};
+      render();
+    };
     document.getElementById('submit-btn').onclick = submitEntry;
     document.getElementById('admin-entry-link').onclick = async ()=>{
       await loadAdminStatus();
