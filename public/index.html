@@ -113,6 +113,17 @@
   .select-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;}
   select{padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;}
   .checkline{font-size:13.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px;}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;}
+  .toggle-row-text{display:flex;align-items:center;gap:6px;}
+  .toggle-row-text .title{font-weight:700;color:var(--plum);font-size:14.5px;}
+  .toggle-state-note{font-size:11.5px;color:var(--ink-soft);margin-top:3px;}
+  .switch{position:relative;display:inline-block;width:46px;height:26px;flex-shrink:0;}
+  .switch input{opacity:0;width:0;height:0;}
+  .switch .slider{position:absolute;cursor:pointer;inset:0;background:#D8CFC0;border-radius:26px;transition:.25s;}
+  .switch .slider::before{content:'';position:absolute;height:20px;width:20px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.25s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+  .switch input:checked + .slider{background:var(--success);}
+  .switch input:checked + .slider::before{transform:translateX(20px);}
+  .switch input:focus + .slider{box-shadow:0 0 0 3px rgba(63,125,92,.25);}
   .login-box{max-width:360px;margin:60px auto 0;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:30px;text-align:center;box-shadow:0 12px 32px rgba(62,22,56,.10);}
   .login-box h2{margin:0 0 6px;color:var(--plum);font-size:20px;}
   .login-box p{color:var(--ink-soft);font-size:13.5px;margin:0 0 20px;}
@@ -1535,7 +1546,17 @@
         </select>
       </div>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
-        <label class="checkline" style="margin-bottom:12px;"><input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}> ${t('开放报名','Registration Open')} ${hintIcon(t('关闭后，参与者打开页面会看到「报名已结束」，无法再登记；只看这个勾选框，跟下面的日期无关','When off, participants will see "Registration closed" and cannot register; this checkbox alone controls it, independent of the dates below'))}</label>
+        <div class="toggle-row">
+          <div class="toggle-row-text">
+            <span class="title">${t('开放报名','Registration Open')}</span>
+            ${hintIcon(t('关闭后，参与者打开页面会看到「报名已结束」，无法再登记；这个开关拖动后立刻生效，不用按下面的保存','When off, participants will see "Registration closed" and cannot register; this switch takes effect immediately — no need to click Save'))}
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="toggle-state-note" style="margin-bottom:14px;">${state.eventConfig.registrationOpen? t('当前：开放中，参与者可以正常登记','Currently: Open — participants can register') : t('当前：已关闭，参与者会看到「报名已结束」','Currently: Closed — participants will see "Registration closed"')}</div>
         <div class="field"><label>${t('报名截止时间','Registration Deadline')} ${hintIcon(t('时间到了会自动关闭「开放报名」，之后仍可手动重新打开；留空代表不设截止时间','Registration will auto-close when this time passes; you can still manually reopen it afterward. Leave blank for no deadline'))}</label><input type="datetime-local" id="ev-deadline" value="${escapeAttr(isoToLocalInputValue(state.eventConfig.registrationDeadline))}"></div>
       </div>
       <div style="margin-top:22px;">
@@ -1577,6 +1598,18 @@
       btn.onclick = ()=>{ state.draftTiers.splice(parseInt(btn.getAttribute('data-del-tier'),10), 1); renderAdminSettingsTab(container); };
     });
     container.querySelector('#add-tier-btn').onclick = ()=>{ state.draftTiers.push({threshold:'', bonus:''}); renderAdminSettingsTab(container); };
+    container.querySelector('#ev-regopen').onchange = async (e)=>{
+      const newValue = e.target.checked;
+      try{
+        await api('/api/config', {method:'PUT', auth:true, body:{registrationOpen: newValue}});
+        state.eventConfig.registrationOpen = newValue;
+        showToast(newValue ? t('已开放报名','Registration opened') : t('已关闭报名','Registration closed'));
+        renderAdminSettingsTab(container);
+      }catch(err){
+        e.target.checked = !newValue;
+        showToast(err.message);
+      }
+    };
     container.querySelector('#start-new-event-btn').onclick = ()=> startNewEvent(container.querySelector('#new-event-label').value);
     container.querySelector('#poster-upload').onchange = async (e)=>{
       const file = e.target.files[0]; if(!file) return;
