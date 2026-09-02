@@ -101,6 +101,11 @@
   .mini-field label{font-size:11px;font-weight:700;color:var(--plum);}
   .add-prize-form input{flex:1;min-width:140px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;}
   .draw-stage{border:2px dashed var(--gold);border-radius:16px;background:linear-gradient(160deg,#fffaf0,#fdf1e0);padding:40px 20px;text-align:center;position:relative;overflow:hidden;}
+  .wheel-wrap{position:relative;width:230px;height:230px;margin:0 auto 18px;}
+  .wheel{width:100%;height:100%;border-radius:50%;position:relative;box-shadow:0 8px 22px rgba(0,0,0,.28);border:5px solid var(--gold);will-change:transform;}
+  .wheel-seg-label{position:absolute;top:50%;left:50%;width:50%;height:0;display:flex;align-items:center;justify-content:flex-end;padding-right:16px;box-sizing:border-box;font-size:10.5px;font-weight:700;color:#fff;transform-origin:0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96px;text-shadow:0 1px 2px rgba(0,0,0,.4);}
+  .wheel-pointer{position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:28px;color:var(--rose);z-index:5;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3));}
+  .wheel-hub{position:absolute;top:50%;left:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:var(--gold);border:3px solid var(--paper);box-shadow:0 2px 6px rgba(0,0,0,.3);z-index:4;}
   .draw-prize-label{font-size:13px;color:var(--ink-soft);letter-spacing:.02em;margin-bottom:10px;}
   .draw-name{font-family:'Fraunces',serif;font-size:32px;color:var(--plum);min-height:44px;font-weight:600;}
   .draw-name.rolling{color:var(--ink-soft);}
@@ -149,7 +154,7 @@
     draftTiers: null,
     draftPosterImage: undefined,
     archives: [], archiveDetail: null, newEventLabel: '',
-    guaranteedDrawEntryId: null, guaranteedRolling: '', guaranteedRevealedPrize: null, guaranteedSending: false
+    guaranteedDrawEntryId: null, guaranteedRevealedPrize: null, guaranteedSending: false, guaranteedSpinning: false, guaranteedWheelPool: null
   };
 
   function showToast(msg){
@@ -231,6 +236,16 @@
       await loadArchives();
       showToast('已恢复，现在使用的是这一场的资料');
       state.adminTab = 'entries';
+      render();
+    }catch(e){ showToast(e.message); }
+  }
+  async function deleteArchive(id){
+    if(!confirm('确定要永久删除这份存档吗？此操作无法撤销。')) return;
+    try{
+      await api('/api/archives/'+id, {method:'DELETE', auth:true});
+      if(state.archiveDetail && state.archiveDetail.meta.id===id) state.archiveDetail = null;
+      await loadArchives();
+      showToast('存档已删除');
       render();
     }catch(e){ showToast(e.message); }
   }
@@ -857,7 +872,13 @@
     return [...prizes].sort((a,b)=> (parseFloat(a.value)||0) - (parseFloat(b.value)||0));
   }
   function renderAdminPrizesTab(container){
+    const totalQty = state.prizes.reduce((sum,p)=> sum + (p.qty||0) + (p.guaranteedQty||0), 0);
+    const totalValue = state.prizes.reduce((sum,p)=> sum + ((parseFloat(p.value)||0) * ((p.qty||0)+(p.guaranteedQty||0))), 0);
     container.innerHTML = `
+      <div class="stat-row">
+        <div class="stat-card"><div class="stat-num">${totalQty}</div><div class="stat-label">总奖品数量</div></div>
+        <div class="stat-card"><div class="stat-num gold">RM${totalValue.toLocaleString(undefined,{maximumFractionDigits:2})}</div><div class="stat-label">总价值</div></div>
+      </div>
       <div class="upload-box" style="margin-bottom:12px;">
         <label class="upload-btn">选择产品图片<input type="file" id="new-prize-photo" accept="image/*"></label>
         ${state.newPrizePhoto?`<img class="thumb" src="${state.newPrizePhoto}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">可选，不上传也可以添加奖品</span>`}
@@ -960,35 +981,51 @@
   function guaranteedPrizePool(){
     return state.prizes.filter(p=> p.guaranteedEligible && (p.guaranteedQty||0)>0);
   }
-  let guaranteedRollInterval = null;
+  function wheelColor(i){
+    const palette = ['#3E1638','#C6963C','#A73347','#6b3560','#8a6d1f','#55204c'];
+    return palette[i % palette.length];
+  }
+  function buildWheelGradient(pool){
+    const seg = 360/pool.length;
+    const stops = pool.map((p,i)=> `${wheelColor(i)} ${i*seg}deg ${(i+1)*seg}deg`).join(', ');
+    return `conic-gradient(${stops})`;
+  }
+  let wheelSpinTimeout = null;
   function startGuaranteedDraw(entryId){
     const pool = guaranteedPrizePool();
     if(pool.length===0){ showToast('还没有奖品被设为「可用于满额保证送礼」，请先到奖品管理勾选'); return; }
+    const seg = 360/pool.length;
+    const winnerIndex = Math.floor(Math.random()*pool.length);
+    const winner = pool[winnerIndex];
+    const duration = state.eventConfig.drawDurationSeconds || 5;
+    const extraSpins = 6;
+    const targetCenter = winnerIndex*seg + seg/2;
+    const finalRotation = extraSpins*360 + (360 - targetCenter);
     state.guaranteedDrawEntryId = entryId;
     state.guaranteedRevealedPrize = null;
+    state.guaranteedSpinning = true;
+    state.guaranteedWheelPool = pool;
     render();
-    let count = 0; const totalTicks = drawTickCount();
-    clearInterval(guaranteedRollInterval);
-    guaranteedRollInterval = setInterval(()=>{
-      const r = pool[Math.floor(Math.random()*pool.length)];
-      state.guaranteedRolling = r.name;
-      count++;
-      const el = document.getElementById('guaranteed-roll-'+entryId);
-      if(el) el.textContent = state.guaranteedRolling;
-      const progress = count/totalTicks;
-      playTick(700 + progress*500);
-      if(count>=totalTicks){
-        clearInterval(guaranteedRollInterval);
-        state.guaranteedRevealedPrize = pool[Math.floor(Math.random()*pool.length)];
-        playWinChime();
-        render();
+    requestAnimationFrame(()=>{
+      const wheelEl = document.getElementById('wheel-'+entryId);
+      if(wheelEl){
+        wheelEl.style.transition = 'transform '+duration+'s cubic-bezier(0.15,0.65,0.15,1)';
+        wheelEl.style.transform = 'rotate('+finalRotation+'deg)';
       }
-    }, 90);
+    });
+    clearTimeout(wheelSpinTimeout);
+    wheelSpinTimeout = setTimeout(()=>{
+      state.guaranteedRevealedPrize = winner;
+      state.guaranteedSpinning = false;
+      playWinChime();
+      render();
+    }, duration*1000 + 150);
   }
   function cancelGuaranteedDraw(){
-    clearInterval(guaranteedRollInterval);
+    clearTimeout(wheelSpinTimeout);
     state.guaranteedDrawEntryId = null;
     state.guaranteedRevealedPrize = null;
+    state.guaranteedSpinning = false;
     render();
   }
   async function confirmGuaranteedGift(entryId){
@@ -1049,15 +1086,30 @@
                 <button class="small-btn" data-draw-guaranteed="${en.id}">抽礼物</button>
                 `:`
                 <div class="draw-stage" style="padding:22px 14px;margin-top:10px;">
-                  ${state.guaranteedRevealedPrize && state.guaranteedRevealedPrize.photo?`<img class="thumb" style="width:140px;height:140px;margin-bottom:14px;" src="${state.guaranteedRevealedPrize.photo}">`:''}
-                  <div class="draw-name ${!state.guaranteedRevealedPrize?'rolling':''}" id="guaranteed-roll-${en.id}" style="font-size:24px;">${state.guaranteedRevealedPrize?escapeHtml(state.guaranteedRevealedPrize.name):escapeHtml(state.guaranteedRolling||'…')}</div>
-                  ${state.guaranteedRevealedPrize?`<div class="draw-sub">${state.guaranteedRevealedPrize.value?('价值 RM'+escapeHtml(state.guaranteedRevealedPrize.value)):''}</div>`:''}
+                  ${!state.guaranteedRevealedPrize?`
+                    <div class="wheel-wrap">
+                      <div class="wheel-pointer">▼</div>
+                      <div class="wheel-hub"></div>
+                      <div class="wheel" id="wheel-${en.id}" style="background:${buildWheelGradient(state.guaranteedWheelPool||[])};">
+                        ${(state.guaranteedWheelPool||[]).map((p,i)=>{
+                          const wseg = 360/(state.guaranteedWheelPool||[]).length;
+                          const mid = i*wseg+wseg/2;
+                          return `<div class="wheel-seg-label" style="transform:rotate(${mid}deg);">${escapeHtml(p.name)}</div>`;
+                        }).join('')}
+                      </div>
+                    </div>
+                    <div class="draw-sub">转盘转动中…</div>
+                  `:`
+                    ${state.guaranteedRevealedPrize.photo?`<img class="thumb" style="width:140px;height:140px;margin-bottom:14px;" src="${state.guaranteedRevealedPrize.photo}">`:''}
+                    <div class="draw-name" style="font-size:24px;">${escapeHtml(state.guaranteedRevealedPrize.name)}</div>
+                    <div class="draw-sub">${state.guaranteedRevealedPrize.value?('价值 RM'+escapeHtml(state.guaranteedRevealedPrize.value)):''}</div>
+                  `}
                   <div class="draw-actions">
                     ${state.guaranteedRevealedPrize?`
                       <button class="small-btn" data-confirm-guaranteed="${en.id}" ${state.guaranteedSending?'disabled':''}>${state.guaranteedSending?'送出中…':'确认送出'}</button>
                       <button class="small-btn ghost" data-redraw-guaranteed="${en.id}">重新抽</button>
                     `:''}
-                    <button class="small-btn ghost" data-cancel-guaranteed="${en.id}">取消</button>
+                    ${!state.guaranteedSpinning?`<button class="small-btn ghost" data-cancel-guaranteed="${en.id}">取消</button>`:''}
                   </div>
                 </div>
                 `}
@@ -1183,12 +1235,14 @@
           <div style="display:flex;gap:10px;">
             <button class="small-btn ghost" data-view-archive="${a.id}">查看</button>
             <button class="small-btn" data-restore-archive="${a.id}">恢复使用</button>
+            <button class="small-btn danger" data-delete-archive="${a.id}">删除</button>
           </div>
         </div>
       `).join('')}
     `;
     container.querySelectorAll('[data-view-archive]').forEach(btn=>{ btn.onclick = ()=> viewArchive(btn.getAttribute('data-view-archive')); });
     container.querySelectorAll('[data-restore-archive]').forEach(btn=>{ btn.onclick = ()=> restoreArchive(btn.getAttribute('data-restore-archive')); });
+    container.querySelectorAll('[data-delete-archive]').forEach(btn=>{ btn.onclick = ()=> deleteArchive(btn.getAttribute('data-delete-archive')); });
   }
 
   function renderAdminSettingsTab(container){
