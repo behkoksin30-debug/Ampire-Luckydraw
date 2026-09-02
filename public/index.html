@@ -1321,6 +1321,19 @@
     });
   }
 
+  function formatWhatsAppNumber(contact){
+    let digits = (contact||'').replace(/\D/g,'');
+    if(!digits) return '';
+    if(digits.startsWith('60')) return digits;
+    if(digits.startsWith('0')) digits = digits.slice(1);
+    return '60' + digits;
+  }
+  function buildWhatsAppLink(draw){
+    const num = formatWhatsAppNumber(draw.winnerContact);
+    if(!num) return '';
+    const msg = `恭喜 ${draw.winnerName}！您在抽奖活动中获得「${draw.prizeName}」${draw.prizeValue?('（价值 RM'+draw.prizeValue+'）'):''}，请联系我们领取奖品，谢谢！`;
+    return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
+  }
   function renderAdminHistoryTab(container){
     container.innerHTML = state.draws.length===0? `<div class="empty-state">暂无中奖记录</div>` : `
       <div class="toolbar">
@@ -1331,7 +1344,9 @@
       <table>
         <thead><tr><th>方式</th><th>奖品</th><th>价值</th><th>姓名</th><th>DD名字</th><th>顾客名字</th><th>联系方式</th><th>订单号</th><th>时间</th><th></th></tr></thead>
         <tbody>
-          ${state.draws.map(d=>`
+          ${state.draws.map(d=>{
+            const waLink = buildWhatsAppLink(d);
+            return `
             <tr>
               <td>${d.guaranteed?`<span class="pill win">满额保证</span>`:`<span class="pill">大抽奖</span>`}</td>
               <td>${escapeHtml(d.prizeName)}</td>
@@ -1339,11 +1354,11 @@
               <td>${escapeHtml(d.winnerName)}</td>
               <td>${escapeHtml(d.winnerDdName||'—')}</td>
               <td>${escapeHtml(d.winnerCustomerName||'—')}</td>
-              <td>${escapeHtml(d.winnerContact)}</td>
+              <td>${waLink?`<a href="${waLink}" target="_blank" rel="noopener" style="color:var(--success);font-weight:700;text-decoration:none;">${escapeHtml(d.winnerContact)} 📲</a>`:escapeHtml(d.winnerContact)}</td>
               <td>${escapeHtml(d.winnerOrderId)}</td>
               <td>${new Date(d.timestamp).toLocaleString()}</td>
               <td><button class="del-btn" data-revoke="${d.id}">撤销</button></td>
-            </tr>`).join('')}
+            </tr>`;}).join('')}
         </tbody>
       </table>
       </div>`;
