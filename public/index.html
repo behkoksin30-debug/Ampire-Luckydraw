@@ -968,6 +968,7 @@
                 <button class="small-btn" data-draw-guaranteed="${en.id}">抽礼物</button>
                 `:`
                 <div class="draw-stage" style="padding:22px 14px;margin-top:10px;">
+                  ${state.guaranteedRevealedPrize && state.guaranteedRevealedPrize.photo?`<img class="thumb" style="width:140px;height:140px;margin-bottom:14px;" src="${state.guaranteedRevealedPrize.photo}">`:''}
                   <div class="draw-name ${!state.guaranteedRevealedPrize?'rolling':''}" id="guaranteed-roll-${en.id}" style="font-size:24px;">${state.guaranteedRevealedPrize?escapeHtml(state.guaranteedRevealedPrize.name):escapeHtml(state.guaranteedRolling||'…')}</div>
                   ${state.guaranteedRevealedPrize?`<div class="draw-sub">${state.guaranteedRevealedPrize.value?('价值 RM'+escapeHtml(state.guaranteedRevealedPrize.value)):''}</div>`:''}
                   <div class="draw-actions">
