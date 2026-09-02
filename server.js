@@ -523,6 +523,22 @@ app.post('/api/archives/:id/restore', requireAdmin, (req, res) => {
 
   res.json({ ok: true, autoArchivedAs: autoArchiveId });
 });
+function rimraf(dir) {
+  if (!fs.existsSync(dir)) return;
+  fs.readdirSync(dir).forEach(f => {
+    const p = path.join(dir, f);
+    if (fs.statSync(p).isDirectory()) rimraf(p);
+    else fs.unlinkSync(p);
+  });
+  fs.rmdirSync(dir);
+}
+app.delete('/api/archives/:id', requireAdmin, (req, res) => {
+  const archiveDir = path.join(ARCHIVES_DIR, req.params.id);
+  const meta = readJson(path.join(archiveDir, 'meta.json'), null);
+  if (!meta) return res.status(404).json({ error: '存档不存在' });
+  rimraf(archiveDir);
+  res.json({ ok: true });
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res) => {
