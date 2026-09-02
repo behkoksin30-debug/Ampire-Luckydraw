@@ -146,6 +146,7 @@
     formErrors: {},
     ocrBusy: false, ocrText: '',
     search: '',
+    showTotalAmount: true,
     lightboxSrc: null,
     drawing: false, drawSelectedPrize: '',
     rollingName: '', revealedWinner: null,
@@ -909,12 +910,18 @@
         || (en.ddName||'').toLowerCase().includes(q) || (en.customerName||'').toLowerCase().includes(q);
     });
     const totalTickets = state.entries.reduce((sum,en)=>sum+(en.ticketCount||0),0);
+    const totalAmount = state.entries.reduce((sum,en)=>sum+(parseFloat(en.amount)||0),0);
     const giftThreshold = state.eventConfig.guaranteedGiftThreshold || 0;
     const qualifiedCount = giftThreshold>0 ? state.entries.filter(en=>(parseFloat(en.amount)||0) >= giftThreshold).length : null;
     container.innerHTML = `
       <div class="stat-row">
         <div class="stat-card"><div class="stat-num">${state.entries.length}</div><div class="stat-label">位登记</div></div>
         <div class="stat-card"><div class="stat-num gold">${totalTickets}</div><div class="stat-label">次抽奖资格</div></div>
+        <div class="stat-card" style="position:relative;">
+          <button id="toggle-total-amount-btn" type="button" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:13px;color:var(--ink-soft);cursor:pointer;padding:0;">${state.showTotalAmount?'隐藏':'显示'}</button>
+          <div class="stat-num gold">${state.showTotalAmount?('RM'+totalAmount.toLocaleString(undefined,{maximumFractionDigits:2})):'••••••'}</div>
+          <div class="stat-label">总金额</div>
+        </div>
         ${qualifiedCount!==null?`<div class="stat-card"><div class="stat-num gold">${qualifiedCount}</div><div class="stat-label">满额保证送礼门槛达标</div></div>`:''}
       </div>
       ${q?`<div class="stat-filter-note">筛选出 ${list.length} 位</div>`:''}
@@ -953,6 +960,7 @@
     container.querySelectorAll('[data-del]').forEach(btn=>{ btn.onclick = ()=> deleteEntry(btn.getAttribute('data-del')); });
     container.querySelector('#export-btn').onclick = exportCsv;
     container.querySelector('#delete-all-btn').onclick = deleteAllEntries;
+    container.querySelector('#toggle-total-amount-btn').onclick = ()=>{ state.showTotalAmount = !state.showTotalAmount; renderAdminEntriesTab(container); };
     container.querySelector('#search-input').oninput = e=>{ state.search = e.target.value; renderAdminEntriesTab(container); };
   }
 
