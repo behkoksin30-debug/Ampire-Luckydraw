@@ -941,13 +941,13 @@
       </div>
       <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;">符合抽奖条件人数：${eligibleCount} 人 · 共 ${ticketCount} 次机会 ${maxWins>0?`· 每人最多中奖 ${maxWins} 次`:'· 中奖次数不限'}</div>
       <div class="draw-stage">
-        ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); return pz && pz.photo ? `<img class="thumb" style="width:64px;height:64px;margin-bottom:10px;" src="${pz.photo}">` : ''; })()}
+        ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); return pz && pz.photo ? `<img class="thumb" style="width:140px;height:140px;margin-bottom:14px;" src="${pz.photo}">` : ''; })()}
         <div class="draw-prize-label">${state.drawSelectedPrize? '奖品：'+escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).name||'')+((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).value?` (RM${escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).value)})`:'') : '请先选择奖品'}</div>
         <div class="draw-name ${state.drawing?'rolling':''}" id="draw-name-el">${state.revealedWinner ? escapeHtml(state.revealedWinner.name) : (state.drawing ? escapeHtml(state.rollingName||'…') : '—')}</div>
         ${state.revealedWinner?`<div class="draw-sub">顾客：${escapeHtml(state.revealedWinner.customerName||'—')} · DD名字：${escapeHtml(state.revealedWinner.ddName||'—')} · 联系方式：${escapeHtml(state.revealedWinner.contact)} · 订单号：${escapeHtml(state.revealedWinner.orderId)} · 编号：${state.revealedWinner.id}</div>`:''}
         <div class="draw-actions">
           ${!state.drawing && !state.revealedWinner? `<button class="small-btn" id="start-draw-btn">开始抽奖</button>`:''}
-          ${state.revealedWinner? `<button class="small-btn" id="confirm-winner-btn">保存中奖结果</button><button class="small-btn ghost" id="redraw-btn">重新抽一次</button>`:''}
+          ${state.revealedWinner? `<button class="small-btn" id="confirm-winner-btn">保存中奖结果</button><button class="small-btn ghost" id="redraw-btn">重新抽一次</button><button class="small-btn ghost" id="cancel-draw-btn">取消</button>`:''}
         </div>
       </div>
       <div style="margin-top:30px;border-top:1px solid var(--line);padding-top:20px;">
@@ -988,6 +988,7 @@
     const startBtn = container.querySelector('#start-draw-btn'); if(startBtn) startBtn.onclick = startDraw;
     const confirmBtn = container.querySelector('#confirm-winner-btn'); if(confirmBtn) confirmBtn.onclick = confirmWinner;
     const redrawBtn = container.querySelector('#redraw-btn'); if(redrawBtn) redrawBtn.onclick = ()=>{ discardDraw(); startDraw(); };
+    const cancelBtn = container.querySelector('#cancel-draw-btn'); if(cancelBtn) cancelBtn.onclick = discardDraw;
     container.querySelectorAll('[data-draw-guaranteed]').forEach(btn=>{
       btn.onclick = ()=> startGuaranteedDraw(btn.getAttribute('data-draw-guaranteed'));
     });
