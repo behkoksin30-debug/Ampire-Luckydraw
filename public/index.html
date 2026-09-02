@@ -209,18 +209,22 @@
     });
   }
 
+  function extractElevenDigitOrderIds(text){
+    const matches = (text||'').match(/(?<!\d)\d{11}(?!\d)/g);
+    return matches || [];
+  }
   function guessOrderIdAndAmount(text){
     let orderId = '', amount = '';
     const lines = text.split(/\n+/);
     for(const line of lines){
       if(/order|订单|单号|编号/i.test(line)){
-        const m = line.match(/[A-Za-z0-9]{8,25}/);
-        if(m){ orderId = m[0]; break; }
+        const ids = extractElevenDigitOrderIds(line);
+        if(ids.length){ orderId = ids[0]; break; }
       }
     }
     if(!orderId){
-      const all = text.match(/[A-Za-z0-9]{9,25}/g);
-      if(all && all.length){ all.sort((a,b)=>b.length-a.length); orderId = all[0]; }
+      const all = extractElevenDigitOrderIds(text);
+      if(all.length) orderId = all[0];
     }
     const amtKeyword = text.match(/(?:RM|MYR|\$|合计|总额|total|amount)[^\d]{0,8}([\d,]+\.\d{1,2}|[\d,]+)/i);
     if(amtKeyword){ amount = amtKeyword[1].replace(/,/g,''); }
@@ -261,7 +265,12 @@
       if(!ocrText.trim()){
         errs.ocr = '请先点击「OCR自动识别」核对照片内容，再提交 / Please click "OCR Auto-Detect" to verify the photo before submitting';
       } else {
-        if(!ocrText.includes(state.form.orderId.trim())) errs.orderId = '订单号与照片识别内容不符，请核对或重新上传清晰照片 / Order ID does not match the photo, please check or re-upload a clearer photo';
+        const foundOrderIds = extractElevenDigitOrderIds(ocrText);
+        if(foundOrderIds.length===0){
+          errs.orderId = '照片中找不到11位数字的订单号，请重新上传清晰的订单详情截图 / Could not find an 11-digit Order ID in the photo, please re-upload a clear order details screenshot';
+        } else if(!foundOrderIds.includes(state.form.orderId.trim())){
+          errs.orderId = '订单号与照片识别内容不符，请核对或重新上传清晰照片 / Order ID does not match the photo, please check or re-upload a clearer photo';
+        }
         if(!ocrText.includes(state.form.amount.toString().trim())) errs.amount = '金额与照片识别内容不符，请核对或重新上传清晰照片 / Amount does not match the photo, please check or re-upload a clearer photo';
       }
     }
