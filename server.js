@@ -21,7 +21,8 @@ function ensureDirs() {
       conversionRate: 100,
       tiers: [],
       maxWinsPerPerson: 0,
-      guaranteedGiftThreshold: 0
+      guaranteedGiftThreshold: 0,
+      maxTicketsPerPerson: 0
     }, null, 2));
   }
   if (!fs.existsSync(PRIZES_FILE)) fs.writeFileSync(PRIZES_FILE, '[]');
@@ -75,7 +76,7 @@ function genId(prefix, len) {
   return prefix + s;
 }
 
-function computeTicketCount(amount, rate, tiers) {
+function computeTicketCount(amount, rate, tiers, maxTicketsPerPerson) {
   const amt = parseFloat(amount) || 0;
   const r = parseFloat(rate) || 0;
   let base = 0;
@@ -87,7 +88,10 @@ function computeTicketCount(amount, rate, tiers) {
     const b = parseFloat(t.bonus) || 0;
     if (threshold > 0 && amt >= threshold) bonus += b;
   });
-  return base + bonus;
+  let total = base + bonus;
+  const cap = parseFloat(maxTicketsPerPerson) || 0;
+  if (cap > 0 && total > cap) total = cap;
+  return total;
 }
 
 /* ---------------- event config ---------------- */
@@ -99,7 +103,8 @@ app.get('/api/config', (req, res) => {
     conversionRate: cfg.conversionRate || 100,
     tiers: cfg.tiers || [],
     maxWinsPerPerson: cfg.maxWinsPerPerson || 0,
-    guaranteedGiftThreshold: cfg.guaranteedGiftThreshold || 0
+    guaranteedGiftThreshold: cfg.guaranteedGiftThreshold || 0,
+    maxTicketsPerPerson: cfg.maxTicketsPerPerson || 0
   });
 });
 app.put('/api/config', requireAdmin, (req, res) => {
@@ -121,6 +126,10 @@ app.put('/api/config', requireAdmin, (req, res) => {
   if (req.body.guaranteedGiftThreshold !== undefined) {
     const g = parseFloat(req.body.guaranteedGiftThreshold);
     cfg.guaranteedGiftThreshold = (!isNaN(g) && g >= 0) ? g : (cfg.guaranteedGiftThreshold || 0);
+  }
+  if (req.body.maxTicketsPerPerson !== undefined) {
+    const mt = parseInt(req.body.maxTicketsPerPerson, 10);
+    cfg.maxTicketsPerPerson = (!isNaN(mt) && mt >= 0) ? mt : (cfg.maxTicketsPerPerson || 0);
   }
   writeConfig(cfg);
   res.json({ ok: true });
@@ -194,10 +203,11 @@ app.get('/api/entries', requireAdmin, (req, res) => {
   const cfg = readConfig();
   const rate = cfg.conversionRate || 100;
   const tiers = cfg.tiers || [];
+  const maxTickets = cfg.maxTicketsPerPerson || 0;
   const files = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
   const list = files.map(f => readJson(path.join(ENTRIES_DIR, f), null)).filter(Boolean);
   list.forEach(entry => {
-    const count = computeTicketCount(entry.amount, rate, tiers);
+    const count = computeTicketCount(entry.amount, rate, tiers, maxTickets);
     entry.ticketCount = count;
     entry.ticketIds = Array.from({ length: count }, (_, i) => entry.id + '-' + (i + 1));
   });
