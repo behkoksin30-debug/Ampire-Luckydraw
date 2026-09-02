@@ -897,6 +897,7 @@
     else if(state.adminTab==='draw') renderAdminDrawTab(content);
     else if(state.adminTab==='history') renderAdminHistoryTab(content);
     else if(state.adminTab==='settings') renderAdminSettingsTab(content);
+    document.querySelectorAll('.lightbox').forEach(el=> el.remove());
     if(state.lightboxSrc){
       const lb = el(`<div class="lightbox"><button class="lightbox-close" type="button">✕ 关闭</button><img src="${state.lightboxSrc}"></div>`);
       lb.onclick = (e)=>{ if(e.target===lb || e.target.closest('.lightbox-close')){ state.lightboxSrc=null; render(); } };
