@@ -359,6 +359,24 @@ app.delete('/api/draws/:id', requireAdmin, (req, res) => {
   }
   res.json({ ok: true });
 });
+app.delete('/api/draws', requireAdmin, (req, res) => {
+  const draws = readJson(DRAWS_FILE, []);
+  const prizes = readJson(PRIZES_FILE, []);
+  draws.forEach(draw => {
+    const prize = prizes.find(p => p.id === draw.prizeId);
+    if (prize) prize.qty += 1;
+    const entryFile = path.join(ENTRIES_DIR, draw.entryId + '.json');
+    const entry = readJson(entryFile, null);
+    if (entry && entry.wonPrizes) {
+      const idx = entry.wonPrizes.indexOf(draw.prizeName);
+      if (idx > -1) entry.wonPrizes.splice(idx, 1);
+      fs.writeFileSync(entryFile, JSON.stringify(entry));
+    }
+  });
+  writeJson(PRIZES_FILE, prizes);
+  writeJson(DRAWS_FILE, []);
+  res.json({ ok: true, reset: draws.length });
+});
 
 /* ---------------- archives (snapshot current event, start fresh, restore) ---------------- */
 function snapshotActiveInto(archiveDir, label) {
