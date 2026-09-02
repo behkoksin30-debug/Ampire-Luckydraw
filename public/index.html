@@ -420,7 +420,7 @@
   function exportDrawsCsv(){
     const rows = [['方式','奖品','价值','姓名','DD名字','顾客名字','联系方式','订单号','时间']];
     state.draws.forEach(d=> rows.push([
-      d.guaranteed?'满额保证':'大抽奖',
+      d.guaranteed?'幸运轮盘':'大抽奖',
       d.prizeName, d.prizeValue||'', d.winnerName, d.winnerDdName||'', d.winnerCustomerName||'',
       d.winnerContact, d.winnerOrderId, new Date(d.timestamp).toLocaleString()
     ]));
@@ -1000,7 +1000,7 @@
           <div class="stat-num gold">${state.showTotalAmount?('RM'+totalAmount.toLocaleString(undefined,{maximumFractionDigits:2})):'••••••'}</div>
           <div class="stat-label">总金额</div>
         </div>
-        ${qualifiedCount!==null?`<div class="stat-card"><div class="stat-num gold">${qualifiedCount}</div><div class="stat-label">满额保证送礼门槛达标</div></div>`:''}
+        ${qualifiedCount!==null?`<div class="stat-card"><div class="stat-num gold">${qualifiedCount}</div><div class="stat-label">幸运轮盘门槛达标</div></div>`:''}
       </div>
       ${q?`<div class="stat-filter-note">筛选出 ${list.length} 位</div>`:''}
       <div class="toolbar">
@@ -1069,8 +1069,8 @@
         </select>
         <button class="small-btn" id="add-prize-btn">添加奖品</button>
       </div>
-      <label class="checkline" style="margin-bottom:8px;"><input type="checkbox" id="new-prize-guaranteed"> 可用于满额保证送礼</label>
-      <div class="field" style="margin-bottom:16px;"><label style="font-size:12.5px;">满额保证送礼预留数量 <span class="hint">从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存</span></label><input type="number" id="new-prize-guaranteed-qty" min="0" value="0" style="max-width:140px;"></div>
+      <label class="checkline" style="margin-bottom:8px;"><input type="checkbox" id="new-prize-guaranteed"> 可用于幸运轮盘</label>
+      <div class="field" style="margin-bottom:16px;"><label style="font-size:12.5px;">幸运轮盘预留数量 <span class="hint">从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存</span></label><input type="number" id="new-prize-guaranteed-qty" min="0" value="0" style="max-width:140px;"></div>
       ${state.prizes.length===0?`<div class="empty-state">还没有添加奖品</div>`:
         sortPrizesByValue(state.prizes).map(p=> p.id===state.editingPrizeId ? `
           <div class="prize-card" style="flex-direction:column;align-items:stretch;gap:10px;">
@@ -1089,8 +1089,8 @@
                 <option value="三奖" ${p.tier==='三奖'?'selected':''}>三奖</option>
               </select>
             </div>
-            <label class="checkline"><input type="checkbox" class="edit-guaranteed" ${p.guaranteedEligible?'checked':''}> 可用于满额保证送礼</label>
-            <div class="field"><label style="font-size:12.5px;">满额保证送礼预留数量 <span class="hint">从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存</span></label><input type="number" class="edit-guaranteed-qty" min="0" value="${p.guaranteedQty||0}" style="max-width:140px;"></div>
+            <label class="checkline"><input type="checkbox" class="edit-guaranteed" ${p.guaranteedEligible?'checked':''}> 可用于幸运轮盘</label>
+            <div class="field"><label style="font-size:12.5px;">幸运轮盘预留数量 <span class="hint">从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存</span></label><input type="number" class="edit-guaranteed-qty" min="0" value="${p.guaranteedQty||0}" style="max-width:140px;"></div>
             <div style="display:flex;gap:10px;">
               <button class="small-btn" data-save-prize="${p.id}">保存</button>
               <button class="small-btn ghost" data-cancel-prize="${p.id}">取消</button>
@@ -1100,7 +1100,7 @@
           <div class="prize-card">
             <div style="display:flex;align-items:center;gap:12px;">
               ${p.photo?`<img class="thumb" src="${p.photo}">`:''}
-              <div><div class="pname">${p.tier?`<span class="pill" style="background:var(--gold);color:var(--plum);">${escapeHtml(p.tier)}</span> `:''}${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}${p.guaranteedEligible?` <span class="pill win">满额保证</span>`:''}</div><div class="pqty">大抽奖剩余：${p.qty}${p.guaranteedEligible?` · 满额保证预留剩余：${p.guaranteedQty||0}`:''}</div></div>
+              <div><div class="pname">${p.tier?`<span class="pill" style="background:var(--gold);color:var(--plum);">${escapeHtml(p.tier)}</span> `:''}${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}${p.guaranteedEligible?` <span class="pill win">幸运轮盘</span>`:''}</div><div class="pqty">大抽奖剩余：${p.qty}${p.guaranteedEligible?` · 幸运轮盘预留剩余：${p.guaranteedQty||0}`:''}</div></div>
             </div>
             <div style="display:flex;gap:14px;align-items:center;">
               <button class="del-btn" data-edit-prize="${p.id}" style="color:var(--plum);">编辑</button>
@@ -1187,7 +1187,7 @@
   let wheelSpinTimeout = null;
   function startGuaranteedDraw(entryId){
     const pool = guaranteedPrizePool();
-    if(pool.length===0){ showToast('还没有奖品被设为「可用于满额保证送礼」，请先到奖品管理勾选'); return; }
+    if(pool.length===0){ showToast('还没有奖品被设为「可用于幸运轮盘」，请先到奖品管理勾选'); return; }
     const seg = 360/pool.length;
     const winnerIndex = Math.floor(Math.random()*pool.length);
     const winner = pool[winnerIndex];
@@ -1272,9 +1272,9 @@
         </div>
       </div>
       <div style="margin-top:30px;border-top:1px solid var(--line);padding-top:20px;">
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">满额保证送礼</label>
-        ${guaranteedThreshold<=0?`<div style="font-size:12.5px;color:var(--ink-soft);">还没有设置门槛，去「活动设置」填「满额保证送礼门槛」后才会显示名单</div>`:
-          guaranteedPool.length===0?`<div style="font-size:12.5px;color:var(--ink-soft);">还没有奖品被勾选「可用于满额保证送礼」，请先到「奖品管理」设置</div>`:`
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">幸运轮盘</label>
+        ${guaranteedThreshold<=0?`<div style="font-size:12.5px;color:var(--ink-soft);">还没有设置门槛，去「活动设置」填「幸运轮盘门槛」后才会显示名单</div>`:
+          guaranteedPool.length===0?`<div style="font-size:12.5px;color:var(--ink-soft);">还没有奖品被勾选「可用于幸运轮盘」，请先到「奖品管理」设置</div>`:`
           <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;">金额达到 RM${guaranteedThreshold} 以上、且未达最多中奖次数的顾客：共 ${guaranteedList.length} 人 · 礼物池：${guaranteedPool.map(p=>escapeHtml(p.name)).join('、')}</div>
           ${guaranteedList.length===0?`<div class="empty-state">暂时没有符合条件的顾客</div>`:
             guaranteedList.map(en=>{
@@ -1368,7 +1368,7 @@
             const waLink = buildWhatsAppLink(d);
             return `
             <tr>
-              <td>${d.guaranteed?`<span class="pill win">满额保证</span>`:`<span class="pill">大抽奖</span>`}</td>
+              <td>${d.guaranteed?`<span class="pill win">幸运轮盘</span>`:`<span class="pill">大抽奖</span>`}</td>
               <td>${escapeHtml(d.prizeName)}</td>
               <td>${d.prizeValue?('RM'+escapeHtml(d.prizeValue)):'—'}</td>
               <td>${escapeHtml(d.winnerName)}</td>
@@ -1431,7 +1431,7 @@
           <tbody>
             ${d.draws.map(dr=>`
               <tr>
-                <td>${dr.guaranteed?`<span class="pill win">满额保证</span>`:`<span class="pill">大抽奖</span>`}</td>
+                <td>${dr.guaranteed?`<span class="pill win">幸运轮盘</span>`:`<span class="pill">大抽奖</span>`}</td>
                 <td>${escapeHtml(dr.prizeName)}</td>
                 <td>${escapeHtml(dr.winnerName)}</td>
                 <td>${escapeHtml(dr.winnerCustomerName||'—')}</td>
@@ -1495,10 +1495,10 @@
         </div>
         <button class="small-btn ghost" id="add-tier-btn" type="button">+ 添加门槛</button>
       </div>
-      <div class="field"><label>每人最多可中奖次数 <span class="hint">大抽奖 + 满额保证送礼加起来算，填0代表不限制</span></label><input type="text" id="ev-maxwins" value="${escapeAttr(state.eventConfig.maxWinsPerPerson)}"></div>
+      <div class="field"><label>每人最多可中奖次数 <span class="hint">大抽奖 + 幸运轮盘加起来算，填0代表不限制</span></label><input type="text" id="ev-maxwins" value="${escapeAttr(state.eventConfig.maxWinsPerPerson)}"></div>
       <div class="field"><label>每人抽奖机会上限 <span class="hint">不管基础次数+门槛加起来算出多少票，最多不能超过这个数字；填0代表不限制</span></label><input type="text" id="ev-maxtickets" value="${escapeAttr(state.eventConfig.maxTicketsPerPerson)}"></div>
-      <div class="field"><label>满额保证送礼门槛 <span class="hint">金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物，每人限领一次；填0代表不启用</span></label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
-      <div class="field"><label>抽奖动画时长（秒） <span class="hint">大抽奖和满额保证送礼抽礼物共用，3~10秒之间</span></label><input type="number" id="ev-drawduration" min="3" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}"></div>
+      <div class="field"><label>幸运轮盘门槛 <span class="hint">金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物，每人限领一次；填0代表不启用</span></label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
+      <div class="field"><label>抽奖动画时长（秒） <span class="hint">大抽奖和幸运轮盘抽礼物共用，3~10秒之间</span></label><input type="number" id="ev-drawduration" min="3" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}"></div>
       <div class="field"><label>抽奖音效主题 <span class="hint">大抽奖和转盘共用同一个主题</span></label>
         <select id="ev-soundtheme">
           <option value="classic" ${(!state.eventConfig.soundTheme||state.eventConfig.soundTheme==='classic')?'selected':''}>经典滋答声</option>
