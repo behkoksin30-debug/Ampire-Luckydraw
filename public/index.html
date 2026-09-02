@@ -1331,7 +1331,11 @@
   function buildWhatsAppLink(draw){
     const num = formatWhatsAppNumber(draw.winnerContact);
     if(!num) return '';
-    const msg = `恭喜 ${draw.winnerName}！您在抽奖活动中获得「${draw.prizeName}」${draw.prizeValue?('（价值 RM'+draw.prizeValue+'）'):''}，请联系我们领取奖品，谢谢！`;
+    const customerName = draw.winnerCustomerName || '';
+    const valuePart = draw.prizeValue?('（价值 RM'+draw.prizeValue+'）'):'';
+    const msg = (customerName && customerName !== draw.winnerName)
+      ? `恭喜 ${draw.winnerName}！您的顾客 ${customerName} 在抽奖活动中获得「${draw.prizeName}」${valuePart}，请联系我们领取奖品，谢谢！`
+      : `恭喜 ${draw.winnerName}！您在抽奖活动中获得「${draw.prizeName}」${valuePart}，请联系我们领取奖品，谢谢！`;
     return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
   }
   function renderAdminHistoryTab(container){
