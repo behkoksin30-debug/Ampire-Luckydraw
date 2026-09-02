@@ -321,6 +321,11 @@ app.post('/api/draws', requireAdmin, (req, res) => {
     if (!prize.guaranteedEligible) {
       return res.status(400).json({ error: '该礼物未开放用于满额保证送礼' });
     }
+    const allDraws = readJson(DRAWS_FILE, []);
+    const alreadyGuaranteed = allDraws.some(d => d.entryId === entryId && d.guaranteed);
+    if (alreadyGuaranteed) {
+      return res.status(400).json({ error: '该顾客已经领取过满额保证礼物，每人限领一次' });
+    }
   }
 
   const draw = {
