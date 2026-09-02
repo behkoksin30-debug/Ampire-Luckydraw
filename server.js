@@ -22,7 +22,11 @@ function ensureDirs() {
       tiers: [],
       maxWinsPerPerson: 0,
       guaranteedGiftThreshold: 0,
-      maxTicketsPerPerson: 0
+      maxTicketsPerPerson: 0,
+      registrationOpen: true,
+      regStartDate: '',
+      regEndDate: '',
+      posterImage: null
     }, null, 2));
   }
   if (!fs.existsSync(PRIZES_FILE)) fs.writeFileSync(PRIZES_FILE, '[]');
@@ -95,6 +99,7 @@ function computeTicketCount(amount, rate, tiers, maxTicketsPerPerson) {
 }
 
 /* ---------------- event config ---------------- */
+function isDateStr(s){ return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s); }
 app.get('/api/config', (req, res) => {
   const cfg = readConfig();
   res.json({
@@ -104,7 +109,11 @@ app.get('/api/config', (req, res) => {
     tiers: cfg.tiers || [],
     maxWinsPerPerson: cfg.maxWinsPerPerson || 0,
     guaranteedGiftThreshold: cfg.guaranteedGiftThreshold || 0,
-    maxTicketsPerPerson: cfg.maxTicketsPerPerson || 0
+    maxTicketsPerPerson: cfg.maxTicketsPerPerson || 0,
+    registrationOpen: cfg.registrationOpen !== false,
+    regStartDate: cfg.regStartDate || '',
+    regEndDate: cfg.regEndDate || '',
+    posterImage: cfg.posterImage || null
   });
 });
 app.put('/api/config', requireAdmin, (req, res) => {
@@ -130,6 +139,18 @@ app.put('/api/config', requireAdmin, (req, res) => {
   if (req.body.maxTicketsPerPerson !== undefined) {
     const mt = parseInt(req.body.maxTicketsPerPerson, 10);
     cfg.maxTicketsPerPerson = (!isNaN(mt) && mt >= 0) ? mt : (cfg.maxTicketsPerPerson || 0);
+  }
+  if (req.body.registrationOpen !== undefined) {
+    cfg.registrationOpen = !!req.body.registrationOpen;
+  }
+  if (req.body.regStartDate !== undefined) {
+    cfg.regStartDate = isDateStr(req.body.regStartDate) ? req.body.regStartDate : '';
+  }
+  if (req.body.regEndDate !== undefined) {
+    cfg.regEndDate = isDateStr(req.body.regEndDate) ? req.body.regEndDate : '';
+  }
+  if (req.body.posterImage !== undefined) {
+    cfg.posterImage = req.body.posterImage || null;
   }
   writeConfig(cfg);
   res.json({ ok: true });
@@ -169,7 +190,22 @@ app.post('/api/admin/change-password', requireAdmin, (req, res) => {
 });
 
 /* ---------------- entries (public submits, admin manages) ---------------- */
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
 app.post('/api/entries', (req, res) => {
+  const cfg = readConfig();
+  if (cfg.registrationOpen === false) {
+    return res.status(400).json({ error: '报名已结束 / Registration is closed' });
+  }
+  const today = todayStr();
+  if (cfg.regStartDate && today < cfg.regStartDate) {
+    return res.status(400).json({ error: '报名尚未开始 / Registration has not started yet' });
+  }
+  if (cfg.regEndDate && today > cfg.regEndDate) {
+    return res.status(400).json({ error: '报名已结束 / Registration is closed' });
+  }
   const { name, contact, ddName, customerName, orderId, amount, photo } = req.body || {};
   if (!name || !contact || !ddName || !customerName || !orderId || !amount || !photo) {
     return res.status(400).json({ error: '资料不完整，请填写全部字段并上传照片 / Missing information, please fill in all fields and upload a photo' });
