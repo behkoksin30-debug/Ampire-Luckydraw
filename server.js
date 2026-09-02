@@ -261,10 +261,10 @@ app.get('/api/prizes', requireAdmin, (req, res) => {
   res.json(readJson(PRIZES_FILE, []));
 });
 app.post('/api/prizes', requireAdmin, (req, res) => {
-  const { name, qty, photo, value, guaranteedEligible } = req.body || {};
+  const { name, qty, photo, value, guaranteedEligible, guaranteedQty } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: '请输入奖品名称' });
   const prizes = readJson(PRIZES_FILE, []);
-  const prize = { id: genId('PZ-', 6), name: String(name).slice(0, 100), qty: Math.max(1, parseInt(qty, 10) || 1), photo: photo || null, value: value ? String(value).slice(0, 30) : '', guaranteedEligible: !!guaranteedEligible, createdAt: Date.now() };
+  const prize = { id: genId('PZ-', 6), name: String(name).slice(0, 100), qty: Math.max(1, parseInt(qty, 10) || 1), photo: photo || null, value: value ? String(value).slice(0, 30) : '', guaranteedEligible: !!guaranteedEligible, guaranteedQty: Math.max(0, parseInt(guaranteedQty, 10) || 0), createdAt: Date.now() };
   prizes.push(prize);
   writeJson(PRIZES_FILE, prizes);
   res.json(prize);
@@ -279,12 +279,13 @@ app.put('/api/prizes/:id', requireAdmin, (req, res) => {
   const prizes = readJson(PRIZES_FILE, []);
   const prize = prizes.find(p => p.id === req.params.id);
   if (!prize) return res.status(404).json({ error: '奖品不存在' });
-  const { name, qty, photo, value, guaranteedEligible } = req.body || {};
+  const { name, qty, photo, value, guaranteedEligible, guaranteedQty } = req.body || {};
   if (name && String(name).trim()) prize.name = String(name).slice(0, 100);
   if (qty !== undefined) prize.qty = Math.max(0, parseInt(qty, 10) || 0);
   if (value !== undefined) prize.value = value ? String(value).slice(0, 30) : '';
   if (photo !== undefined) prize.photo = photo || null;
   if (guaranteedEligible !== undefined) prize.guaranteedEligible = !!guaranteedEligible;
+  if (guaranteedQty !== undefined) prize.guaranteedQty = Math.max(0, parseInt(guaranteedQty, 10) || 0);
   writeJson(PRIZES_FILE, prizes);
   res.json(prize);
 });
@@ -297,7 +298,12 @@ app.post('/api/draws', requireAdmin, (req, res) => {
   const cfg = readConfig();
   const prizes = readJson(PRIZES_FILE, []);
   const prize = prizes.find(p => p.id === prizeId);
-  if (!prize || prize.qty < 1) return res.status(400).json({ error: '奖品无效或数量不足' });
+  if (!prize) return res.status(400).json({ error: '奖品无效' });
+  if (guaranteed) {
+    if ((prize.guaranteedQty || 0) < 1) return res.status(400).json({ error: '该礼物满额保证送礼预留数量不足' });
+  } else {
+    if (prize.qty < 1) return res.status(400).json({ error: '奖品无效或数量不足' });
+  }
   const entryFile = path.join(ENTRIES_DIR, entryId + '.json');
   const entry = readJson(entryFile, null);
   if (!entry) return res.status(400).json({ error: '参与者不存在，可能已被删除' });
@@ -330,7 +336,8 @@ app.post('/api/draws', requireAdmin, (req, res) => {
   draws.push(draw);
   writeJson(DRAWS_FILE, draws);
 
-  prize.qty -= 1;
+  if (guaranteed) { prize.guaranteedQty = Math.max(0, (prize.guaranteedQty || 0) - 1); }
+  else { prize.qty -= 1; }
   writeJson(PRIZES_FILE, prizes);
 
   entry.wonPrizes = entry.wonPrizes || [];
@@ -348,7 +355,11 @@ app.delete('/api/draws/:id', requireAdmin, (req, res) => {
 
   const prizes = readJson(PRIZES_FILE, []);
   const prize = prizes.find(p => p.id === draw.prizeId);
-  if (prize) { prize.qty += 1; writeJson(PRIZES_FILE, prizes); }
+  if (prize) {
+    if (draw.guaranteed) prize.guaranteedQty = (prize.guaranteedQty || 0) + 1;
+    else prize.qty += 1;
+    writeJson(PRIZES_FILE, prizes);
+  }
 
   const entryFile = path.join(ENTRIES_DIR, draw.entryId + '.json');
   const entry = readJson(entryFile, null);
@@ -364,7 +375,10 @@ app.delete('/api/draws', requireAdmin, (req, res) => {
   const prizes = readJson(PRIZES_FILE, []);
   draws.forEach(draw => {
     const prize = prizes.find(p => p.id === draw.prizeId);
-    if (prize) prize.qty += 1;
+    if (prize) {
+      if (draw.guaranteed) prize.guaranteedQty = (prize.guaranteedQty || 0) + 1;
+      else prize.qty += 1;
+    }
     const entryFile = path.join(ENTRIES_DIR, draw.entryId + '.json');
     const entry = readJson(entryFile, null);
     if (entry && entry.wonPrizes) {
