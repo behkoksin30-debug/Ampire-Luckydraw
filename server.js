@@ -11,23 +11,29 @@ const ENTRIES_DIR = path.join(DATA_DIR, 'entries');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const PRIZES_FILE = path.join(DATA_DIR, 'prizes.json');
 const DRAWS_FILE = path.join(DATA_DIR, 'draws.json');
+const ARCHIVES_DIR = path.join(DATA_DIR, 'archives');
+
+function defaultConfig() {
+  return {
+    title: '幸运抽奖登记',
+    subtitle: '上传订单截图，填写资料，登记您的抽奖资格',
+    conversionRate: 100,
+    tiers: [],
+    maxWinsPerPerson: 0,
+    guaranteedGiftThreshold: 0,
+    maxTicketsPerPerson: 0,
+    registrationOpen: true,
+    regStartDate: '',
+    regEndDate: '',
+    posterImage: null
+  };
+}
 
 function ensureDirs() {
   fs.mkdirSync(ENTRIES_DIR, { recursive: true });
+  fs.mkdirSync(ARCHIVES_DIR, { recursive: true });
   if (!fs.existsSync(CONFIG_FILE)) {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify({
-      title: '幸运抽奖登记',
-      subtitle: '上传订单截图，填写资料，登记您的抽奖资格',
-      conversionRate: 100,
-      tiers: [],
-      maxWinsPerPerson: 0,
-      guaranteedGiftThreshold: 0,
-      maxTicketsPerPerson: 0,
-      registrationOpen: true,
-      regStartDate: '',
-      regEndDate: '',
-      posterImage: null
-    }, null, 2));
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(defaultConfig(), null, 2));
   }
   if (!fs.existsSync(PRIZES_FILE)) fs.writeFileSync(PRIZES_FILE, '[]');
   if (!fs.existsSync(DRAWS_FILE)) fs.writeFileSync(DRAWS_FILE, '[]');
@@ -347,6 +353,104 @@ app.delete('/api/draws/:id', requireAdmin, (req, res) => {
     fs.writeFileSync(entryFile, JSON.stringify(entry));
   }
   res.json({ ok: true });
+});
+
+/* ---------------- archives (snapshot current event, start fresh, restore) ---------------- */
+function snapshotActiveInto(archiveDir, label) {
+  fs.mkdirSync(path.join(archiveDir, 'entries'), { recursive: true });
+  const entryFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
+  entryFiles.forEach(f => {
+    fs.copyFileSync(path.join(ENTRIES_DIR, f), path.join(archiveDir, 'entries', f));
+  });
+  fs.copyFileSync(PRIZES_FILE, path.join(archiveDir, 'prizes.json'));
+  fs.copyFileSync(DRAWS_FILE, path.join(archiveDir, 'draws.json'));
+  fs.copyFileSync(CONFIG_FILE, path.join(archiveDir, 'config.json'));
+  const draws = readJson(DRAWS_FILE, []);
+  const cfg = readConfig();
+  const meta = {
+    id: path.basename(archiveDir),
+    label: label || (cfg.title || '未命名活动') + ' - ' + new Date().toLocaleString(),
+    createdAt: Date.now(),
+    entryCount: entryFiles.length,
+    drawCount: draws.length,
+    title: cfg.title || ''
+  };
+  writeJson(path.join(archiveDir, 'meta.json'), meta);
+  return meta;
+}
+function clearActiveData() {
+  const entryFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
+  entryFiles.forEach(f => fs.unlinkSync(path.join(ENTRIES_DIR, f)));
+  writeJson(PRIZES_FILE, []);
+  writeJson(DRAWS_FILE, []);
+  const cfg = readConfig();
+  const fresh = defaultConfig();
+  fresh.passwordHash = cfg.passwordHash;
+  fresh.passwordSalt = cfg.passwordSalt;
+  writeConfig(fresh);
+}
+
+app.get('/api/archives', requireAdmin, (req, res) => {
+  const ids = fs.readdirSync(ARCHIVES_DIR).filter(f => fs.statSync(path.join(ARCHIVES_DIR, f)).isDirectory());
+  const list = ids.map(id => readJson(path.join(ARCHIVES_DIR, id, 'meta.json'), null)).filter(Boolean);
+  list.sort((a, b) => b.createdAt - a.createdAt);
+  res.json(list);
+});
+app.post('/api/archives', requireAdmin, (req, res) => {
+  const id = genId('AR-', 8);
+  const archiveDir = path.join(ARCHIVES_DIR, id);
+  const meta = snapshotActiveInto(archiveDir, (req.body && req.body.label) || '');
+  clearActiveData();
+  res.json(meta);
+});
+app.get('/api/archives/:id', requireAdmin, (req, res) => {
+  const archiveDir = path.join(ARCHIVES_DIR, req.params.id);
+  const meta = readJson(path.join(archiveDir, 'meta.json'), null);
+  if (!meta) return res.status(404).json({ error: '存档不存在' });
+  const cfg = readJson(path.join(archiveDir, 'config.json'), {});
+  const rate = cfg.conversionRate || 100;
+  const tiers = cfg.tiers || [];
+  const maxTickets = cfg.maxTicketsPerPerson || 0;
+  const entriesDir = path.join(archiveDir, 'entries');
+  const entryFiles = fs.existsSync(entriesDir) ? fs.readdirSync(entriesDir).filter(f => f.endsWith('.json')) : [];
+  const entries = entryFiles.map(f => readJson(path.join(entriesDir, f), null)).filter(Boolean);
+  entries.forEach(entry => {
+    const count = computeTicketCount(entry.amount, rate, tiers, maxTickets);
+    entry.ticketCount = count;
+  });
+  entries.sort((a, b) => b.submittedAt - a.submittedAt);
+  const prizes = readJson(path.join(archiveDir, 'prizes.json'), []);
+  const draws = readJson(path.join(archiveDir, 'draws.json'), []);
+  draws.sort((a, b) => b.timestamp - a.timestamp);
+  res.json({ meta, config: { title: cfg.title, subtitle: cfg.subtitle }, entries, prizes, draws });
+});
+app.post('/api/archives/:id/restore', requireAdmin, (req, res) => {
+  const archiveDir = path.join(ARCHIVES_DIR, req.params.id);
+  const meta = readJson(path.join(archiveDir, 'meta.json'), null);
+  if (!meta) return res.status(404).json({ error: '存档不存在' });
+
+  const autoArchiveId = genId('AR-', 8);
+  snapshotActiveInto(path.join(ARCHIVES_DIR, autoArchiveId), '恢复前自动存档 - ' + new Date().toLocaleString());
+  clearActiveData();
+
+  const entriesDir = path.join(archiveDir, 'entries');
+  if (fs.existsSync(entriesDir)) {
+    fs.readdirSync(entriesDir).filter(f => f.endsWith('.json')).forEach(f => {
+      fs.copyFileSync(path.join(entriesDir, f), path.join(ENTRIES_DIR, f));
+    });
+  }
+  const archivedPrizes = readJson(path.join(archiveDir, 'prizes.json'), []);
+  writeJson(PRIZES_FILE, archivedPrizes);
+  const archivedDraws = readJson(path.join(archiveDir, 'draws.json'), []);
+  writeJson(DRAWS_FILE, archivedDraws);
+
+  const archivedConfig = readJson(path.join(archiveDir, 'config.json'), defaultConfig());
+  const currentCfg = readConfig();
+  archivedConfig.passwordHash = currentCfg.passwordHash;
+  archivedConfig.passwordSalt = currentCfg.passwordSalt;
+  writeConfig(archivedConfig);
+
+  res.json({ ok: true, autoArchivedAs: autoArchiveId });
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
