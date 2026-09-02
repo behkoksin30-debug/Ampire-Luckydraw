@@ -133,7 +133,7 @@
     token: localStorage.getItem('ld_admin_token') || null,
     lastTicket: null,
     entries: [], prizes: [], draws: [],
-    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, drawDurationSeconds: 5 },
+    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, drawDurationSeconds: 5, registrationDeadline: '' },
     adminPasswordSet: null,
     form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null },
     formErrors: {},
@@ -542,9 +542,9 @@
     state.loggedIn = false; state.token = null; localStorage.removeItem('ld_admin_token');
     state.view = 'entry'; render();
   }
-  async function saveEventConfig(title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson, registrationOpen, regStartDate, regEndDate, drawDurationSeconds){
+  async function saveEventConfig(title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson, registrationOpen, regStartDate, regEndDate, drawDurationSeconds, registrationDeadline){
     try{
-      const body = {title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson, registrationOpen, regStartDate, regEndDate, drawDurationSeconds};
+      const body = {title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson, registrationOpen, regStartDate, regEndDate, drawDurationSeconds, registrationDeadline};
       if(state.draftPosterImage !== undefined) body.posterImage = state.draftPosterImage;
       await api('/api/config', {method:'PUT', auth:true, body});
       state.eventConfig = {
@@ -558,8 +558,10 @@
         regStartDate: regStartDate||'',
         regEndDate: regEndDate||'',
         posterImage: state.draftPosterImage !== undefined ? state.draftPosterImage : state.eventConfig.posterImage,
-        drawDurationSeconds: parseFloat(drawDurationSeconds)||state.eventConfig.drawDurationSeconds||5
+        drawDurationSeconds: parseFloat(drawDurationSeconds)||state.eventConfig.drawDurationSeconds||5,
+        registrationDeadline: registrationDeadline||''
       };
+      deadlineExpiredHandled = false;
       state.draftTiers = null;
       state.draftPosterImage = undefined;
       await loadAdminData();
@@ -577,6 +579,41 @@
     if(cfg.registrationOpen === false) return 'closed';
     return null;
   }
+  function formatCountdown(deadlineStr){
+    if(!deadlineStr) return null;
+    const target = new Date(deadlineStr).getTime();
+    if(isNaN(target)) return null;
+    const diff = target - Date.now();
+    if(diff <= 0) return null;
+    const totalSeconds = Math.floor(diff/1000);
+    const days = Math.floor(totalSeconds/86400);
+    const hours = Math.floor((totalSeconds%86400)/3600);
+    const mins = Math.floor((totalSeconds%3600)/60);
+    const secs = totalSeconds%60;
+    let parts = [];
+    if(days>0) parts.push(days+'天');
+    if(days>0||hours>0) parts.push(hours+'小时');
+    parts.push(mins+'分');
+    parts.push(secs+'秒');
+    return parts.join(' ');
+  }
+  let deadlineExpiredHandled = false;
+  function tickCountdown(){
+    const dl = state.eventConfig.registrationDeadline;
+    const elPublic = document.getElementById('countdown-public');
+    const elAdmin = document.getElementById('countdown-admin');
+    if(!dl){ return; }
+    const text = formatCountdown(dl);
+    if(text){
+      deadlineExpiredHandled = false;
+      if(elPublic) elPublic.textContent = '距离报名截止还有 '+text+' / Closes in '+text;
+      if(elAdmin) elAdmin.textContent = '距离报名截止还有 '+text;
+    } else if(!deadlineExpiredHandled){
+      deadlineExpiredHandled = true;
+      loadEventConfig().then(render);
+    }
+  }
+  setInterval(tickCountdown, 1000);
   function renderEntryView(){
     const closedReason = registrationClosedReason();
     if(closedReason){
@@ -616,6 +653,7 @@
           <h1>${escapeHtml(state.eventConfig.title)}</h1>
           <p>${escapeHtml(state.eventConfig.subtitle)}</p>
         </div>
+        ${state.eventConfig.registrationDeadline?`<div id="countdown-public" style="text-align:center;font-size:12.5px;color:var(--rose);font-weight:700;padding:8px 10px;background:#fdf1e0;"></div>`:''}
         <div class="perforation"></div>
         <div class="ticket-body">
           <div class="field"><label>姓名 / Name</label>
@@ -681,6 +719,7 @@
       }
       state.view = 'adminLogin'; render();
     };
+    tickCountdown();
   }
 
   function renderSuccessView(){
@@ -1161,6 +1200,7 @@
       <div class="field"><label>抽奖动画时长（秒） <span class="hint">大抽奖和满额保证送礼抽礼物共用，3~10秒之间</span></label><input type="number" id="ev-drawduration" min="3" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}"></div>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
         <label class="checkline" style="margin-bottom:12px;"><input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}> 开放报名 <span class="hint">关闭后，参与者打开页面会看到「报名已结束」，无法再登记；只看这个勾选框，跟下面的日期无关</span></label>
+        <div class="field"><label>报名截止时间 <span class="hint">时间到了会自动关闭「开放报名」，之后仍可手动重新打开；留空代表不设截止时间</span></label><input type="datetime-local" id="ev-deadline" value="${escapeAttr(state.eventConfig.registrationDeadline)}"></div>
       </div>
       <div style="margin-top:22px;">
         <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">允许的订单日期范围</label>
@@ -1213,7 +1253,8 @@
       container.querySelector('#ev-regopen').checked,
       container.querySelector('#ev-startdate').value,
       container.querySelector('#ev-enddate').value,
-      container.querySelector('#ev-drawduration').value
+      container.querySelector('#ev-drawduration').value,
+      container.querySelector('#ev-deadline').value
     );
     container.querySelector('#change-pw-btn').onclick = async ()=>{
       const v = container.querySelector('#new-pw').value;
@@ -1231,6 +1272,7 @@
           <div><h2>抽奖后台管理</h2><div class="sub">${escapeHtml(state.eventConfig.title)}</div></div>
           <button class="logout-btn" id="logout-btn">退出管理</button>
         </div>
+        ${state.eventConfig.registrationDeadline?`<div id="countdown-admin" style="background:#fdf1e0;color:var(--rose);font-weight:700;font-size:12.5px;padding:8px 14px;"></div>`:''}
         <div class="tabs">${tabs.map(t=>`<div class="tab ${state.adminTab===t[0]?'active':''}" data-tab="${t[0]}">${t[1]}</div>`).join('')}</div>
         <div class="admin-content" id="admin-content"></div>
       </div>`;
@@ -1257,6 +1299,7 @@
       lb.onclick = (e)=>{ if(e.target===lb || e.target.closest('.lightbox-close')){ state.lightboxSrc=null; render(); } };
       document.body.appendChild(lb);
     }
+    tickCountdown();
   }
 
   function render(){
