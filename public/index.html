@@ -102,8 +102,7 @@
   .add-prize-form input{flex:1;min-width:140px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;}
   .draw-stage{border:2px dashed var(--gold);border-radius:16px;background:linear-gradient(160deg,#fffaf0,#fdf1e0);padding:40px 20px;text-align:center;position:relative;overflow:hidden;}
   .wheel-wrap{position:relative;width:230px;height:230px;margin:0 auto 18px;}
-  .wheel{width:100%;height:100%;border-radius:50%;position:relative;box-shadow:0 8px 22px rgba(0,0,0,.28);border:5px solid var(--gold);will-change:transform;}
-  .wheel-seg-label{position:absolute;top:50%;left:50%;width:50%;height:0;display:flex;align-items:center;justify-content:flex-end;padding-right:16px;box-sizing:border-box;font-size:10.5px;font-weight:700;color:#fff;transform-origin:0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96px;text-shadow:0 1px 2px rgba(0,0,0,.4);}
+  .wheel{width:100%;height:100%;border-radius:50%;position:relative;box-shadow:0 8px 22px rgba(0,0,0,.28);border:5px solid var(--gold);will-change:transform;overflow:hidden;}
   .wheel-pointer{position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:28px;color:var(--rose);z-index:5;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3));}
   .wheel-hub{position:absolute;top:50%;left:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:var(--gold);border:3px solid var(--paper);box-shadow:0 2px 6px rgba(0,0,0,.3);z-index:4;}
   .draw-prize-label{font-size:13px;color:var(--ink-soft);letter-spacing:.02em;margin-bottom:10px;}
@@ -1147,10 +1146,30 @@
     const palette = ['#3E1638','#C6963C','#A73347','#6b3560','#8a6d1f','#55204c'];
     return palette[i % palette.length];
   }
-  function buildWheelGradient(pool){
+  function truncateName(name, maxLen){
+    if(!name) return '';
+    return name.length>maxLen ? name.slice(0,maxLen-1)+'…' : name;
+  }
+  function buildWheelSvg(pool){
     const seg = 360/pool.length;
-    const stops = pool.map((p,i)=> `${wheelColor(i)} ${i*seg}deg ${(i+1)*seg}deg`).join(', ');
-    return `conic-gradient(${stops})`;
+    const cx = 100, cy = 100, r = 97;
+    const parts = pool.map((p,i)=>{
+      const startAngle = i*seg - 90;
+      const endAngle = (i+1)*seg - 90;
+      const largeArc = seg>180?1:0;
+      const x1 = cx + r*Math.cos(startAngle*Math.PI/180);
+      const y1 = cy + r*Math.sin(startAngle*Math.PI/180);
+      const x2 = cx + r*Math.cos(endAngle*Math.PI/180);
+      const y2 = cy + r*Math.sin(endAngle*Math.PI/180);
+      const midAngle = startAngle + seg/2;
+      const tx = cx + (r*0.6)*Math.cos(midAngle*Math.PI/180);
+      const ty = cy + (r*0.6)*Math.sin(midAngle*Math.PI/180);
+      const textRotate = midAngle + 90;
+      const label = escapeHtml(truncateName(p.name, 14));
+      return `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${wheelColor(i)}" stroke="#fffdf9" stroke-width="1.5"/>`
+        + `<text x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" fill="#fff" font-size="10" font-weight="700" text-anchor="middle" dominant-baseline="middle" transform="rotate(${textRotate.toFixed(2)}, ${tx.toFixed(2)}, ${ty.toFixed(2)})" style="paint-order:stroke;stroke:#00000066;stroke-width:2px;">${label}</text>`;
+    }).join('');
+    return `<svg viewBox="0 0 200 200" style="width:100%;height:100%;display:block;">${parts}</svg>`;
   }
   let wheelSpinTimeout = null;
   function startGuaranteedDraw(entryId){
@@ -1254,13 +1273,7 @@
                     <div class="wheel-wrap">
                       <div class="wheel-pointer">▼</div>
                       <div class="wheel-hub"></div>
-                      <div class="wheel" id="wheel-${en.id}" style="background:${buildWheelGradient(state.guaranteedWheelPool||[])};">
-                        ${(state.guaranteedWheelPool||[]).map((p,i)=>{
-                          const wseg = 360/(state.guaranteedWheelPool||[]).length;
-                          const mid = i*wseg+wseg/2;
-                          return `<div class="wheel-seg-label" style="transform:rotate(${mid}deg);">${escapeHtml(p.name)}</div>`;
-                        }).join('')}
-                      </div>
+                      <div class="wheel" id="wheel-${en.id}">${buildWheelSvg(state.guaranteedWheelPool||[])}</div>
                     </div>
                     <div class="draw-sub">转盘转动中…</div>
                   `:`
