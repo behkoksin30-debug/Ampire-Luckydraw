@@ -417,6 +417,19 @@
     const a = document.createElement('a'); a.href=url; a.download='抽奖名单.csv'; a.click();
     URL.revokeObjectURL(url);
   }
+  function exportDrawsCsv(){
+    const rows = [['方式','奖品','价值','姓名','DD名字','顾客名字','联系方式','订单号','时间']];
+    state.draws.forEach(d=> rows.push([
+      d.guaranteed?'满额保证':'大抽奖',
+      d.prizeName, d.prizeValue||'', d.winnerName, d.winnerDdName||'', d.winnerCustomerName||'',
+      d.winnerContact, d.winnerOrderId, new Date(d.timestamp).toLocaleString()
+    ]));
+    const csv = rows.map(r=> r.map(c=> '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+    const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='中奖记录.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
 
   /* ---------------- admin: prizes ---------------- */
   async function addPrize(name, qty, value, guaranteedEligible, guaranteedQty, tier){
@@ -1342,7 +1355,10 @@
     container.innerHTML = state.draws.length===0? `<div class="empty-state">暂无中奖记录</div>` : `
       <div class="toolbar">
         <div style="font-size:13.5px;color:var(--ink-soft);">共 ${state.draws.length} 笔中奖记录</div>
-        <button class="small-btn danger" id="reset-draws-btn">重置全部</button>
+        <div style="display:flex;gap:10px;">
+          <button class="small-btn ghost" id="export-draws-btn">导出 CSV</button>
+          <button class="small-btn danger" id="reset-draws-btn">重置全部</button>
+        </div>
       </div>
       <div style="overflow-x:auto;">
       <table>
@@ -1369,6 +1385,8 @@
     container.querySelectorAll('[data-revoke]').forEach(btn=>{ btn.onclick = ()=> revokeDraw(btn.getAttribute('data-revoke')); });
     const resetBtn = container.querySelector('#reset-draws-btn');
     if(resetBtn) resetBtn.onclick = resetAllDraws;
+    const exportBtn = container.querySelector('#export-draws-btn');
+    if(exportBtn) exportBtn.onclick = exportDrawsCsv;
   }
 
   function renderAdminArchivesTab(container){
