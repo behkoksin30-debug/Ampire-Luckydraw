@@ -802,6 +802,19 @@
     parts.push(secs+'秒');
     return parts.join(' ');
   }
+  function localInputToISO(value){
+    if(!value) return '';
+    const d = new Date(value);
+    if(isNaN(d.getTime())) return '';
+    return d.toISOString();
+  }
+  function isoToLocalInputValue(isoStr){
+    if(!isoStr) return '';
+    const d = new Date(isoStr);
+    if(isNaN(d.getTime())) return '';
+    const pad = n=>String(n).padStart(2,'0');
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+  }
   let deadlineExpiredHandled = false;
   function tickCountdown(){
     const dl = state.eventConfig.registrationDeadline;
@@ -1523,7 +1536,7 @@
       </div>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
         <label class="checkline" style="margin-bottom:12px;"><input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}> ${t('开放报名','Registration Open')} ${hintIcon(t('关闭后，参与者打开页面会看到「报名已结束」，无法再登记；只看这个勾选框，跟下面的日期无关','When off, participants will see "Registration closed" and cannot register; this checkbox alone controls it, independent of the dates below'))}</label>
-        <div class="field"><label>${t('报名截止时间','Registration Deadline')} ${hintIcon(t('时间到了会自动关闭「开放报名」，之后仍可手动重新打开；留空代表不设截止时间','Registration will auto-close when this time passes; you can still manually reopen it afterward. Leave blank for no deadline'))}</label><input type="datetime-local" id="ev-deadline" value="${escapeAttr(state.eventConfig.registrationDeadline)}"></div>
+        <div class="field"><label>${t('报名截止时间','Registration Deadline')} ${hintIcon(t('时间到了会自动关闭「开放报名」，之后仍可手动重新打开；留空代表不设截止时间','Registration will auto-close when this time passes; you can still manually reopen it afterward. Leave blank for no deadline'))}</label><input type="datetime-local" id="ev-deadline" value="${escapeAttr(isoToLocalInputValue(state.eventConfig.registrationDeadline))}"></div>
       </div>
       <div style="margin-top:22px;">
         <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">${t('允许的订单日期范围','Allowed Order Date Range')}</label>
@@ -1584,7 +1597,7 @@
       container.querySelector('#ev-startdate').value,
       container.querySelector('#ev-enddate').value,
       container.querySelector('#ev-drawduration').value,
-      container.querySelector('#ev-deadline').value,
+      localInputToISO(container.querySelector('#ev-deadline').value),
       container.querySelector('#ev-soundtheme').value
     );
     container.querySelector('#change-pw-btn').onclick = async ()=>{
