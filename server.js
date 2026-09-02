@@ -27,7 +27,8 @@ function defaultConfig() {
     regEndDate: '',
     posterImage: null,
     drawDurationSeconds: 5,
-    registrationDeadline: ''
+    registrationDeadline: '',
+    soundTheme: 'classic'
   };
 }
 function enforceDeadline(cfg){
@@ -134,7 +135,8 @@ app.get('/api/config', (req, res) => {
     regEndDate: cfg.regEndDate || '',
     posterImage: cfg.posterImage || null,
     drawDurationSeconds: cfg.drawDurationSeconds || 5,
-    registrationDeadline: cfg.registrationDeadline || ''
+    registrationDeadline: cfg.registrationDeadline || '',
+    soundTheme: cfg.soundTheme || 'classic'
   });
 });
 app.put('/api/config', requireAdmin, (req, res) => {
@@ -184,6 +186,9 @@ app.put('/api/config', requireAdmin, (req, res) => {
       const ms = new Date(dl).getTime();
       cfg.registrationDeadline = !isNaN(ms) ? dl : '';
     }
+  }
+  if (req.body.soundTheme !== undefined) {
+    cfg.soundTheme = ['classic','electronic','drum'].includes(req.body.soundTheme) ? req.body.soundTheme : (cfg.soundTheme || 'classic');
   }
   writeConfig(cfg);
   res.json({ ok: true });
