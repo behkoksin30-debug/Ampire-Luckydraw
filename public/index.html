@@ -1081,7 +1081,13 @@
     container.querySelector('#export-btn').onclick = exportCsv;
     container.querySelector('#delete-all-btn').onclick = deleteAllEntries;
     container.querySelector('#toggle-total-amount-btn').onclick = ()=>{ state.showTotalAmount = !state.showTotalAmount; renderAdminEntriesTab(container); };
-    container.querySelector('#search-input').oninput = e=>{ state.search = e.target.value; renderAdminEntriesTab(container); };
+    container.querySelector('#search-input').oninput = e=>{
+      state.search = e.target.value;
+      const cursorPos = e.target.selectionStart;
+      renderAdminEntriesTab(container);
+      const newInput = container.querySelector('#search-input');
+      if(newInput){ newInput.focus(); newInput.setSelectionRange(cursorPos, cursorPos); }
+    };
   }
 
   function sortPrizesByValue(prizes){
