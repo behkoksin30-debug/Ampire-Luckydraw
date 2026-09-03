@@ -1032,7 +1032,7 @@
               ${errs.orderId?`<div class="error-text">${errs.orderId}</div>`:''}
             </div>
             <div class="field"><label>订单日期 / Order Date</label>
-              <input type="date" id="f-orderdate" value="${escapeAttr(f.orderDate)}">
+              <input type="text" id="f-orderdate" value="${escapeAttr(f.orderDate)}" placeholder="请核对或手动输入 / Check or enter manually">
               ${errs.orderDate?`<div class="error-text">${errs.orderDate}</div>`:''}
             </div>
             <div class="field"><label>金额 / Amount (RM)</label>
