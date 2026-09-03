@@ -377,6 +377,12 @@
     if(foundAmount!==null) amount = foundAmount.toString();
     return { orderId, amount };
   }
+  function guessOrderDate(text, startD, endD){
+    const foundDates = extractOrderDatesISO(text||'');
+    if(!foundDates.length) return '';
+    const inRange = foundDates.find(d => (!startD || d>=startD) && (!endD || d<=endD));
+    return inRange || foundDates[0];
+  }
 
   /* ---------------- OCR worker (v5+ async API, created once and reused) ---------------- */
   let __ocrWorkerPromise = null;
@@ -468,11 +474,12 @@
   async function submitEntry(){
     if(!validateForm()){ render(); return; }
     try{
+      const orderDate = guessOrderDate(state.ocrText, state.eventConfig.regStartDate, state.eventConfig.regEndDate);
       const r = await api('/api/entries', {method:'POST', body:{
         name: state.form.name.trim(), contact: state.form.contact.trim(),
         ddName: state.form.ddName.trim(), customerName: state.form.customerName.trim(),
         orderId: state.form.orderId.trim(), amount: state.form.amount.toString().trim(),
-        photo: state.form.photo, ocrOverride: !!state.form.ocrOverride
+        photo: state.form.photo, ocrOverride: !!state.form.ocrOverride, orderDate: orderDate
       }});
       state.lastTicket = { id: r.id, name: state.form.name.trim(), customerName: state.form.customerName.trim(), orderId: state.form.orderId.trim() };
       state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null, originalFile:null, ocrOverride:false };
@@ -486,11 +493,11 @@
     try{ await api('/api/entries/'+id, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
     catch(e){ showToast(e.message); }
   }
-  async function saveEntryEdit(id, orderId, amount, container){
+  async function saveEntryEdit(id, orderId, amount, orderDate, container){
     if(!orderId.trim()){ showToast(t('订单号不能为空','Order ID cannot be empty')); return; }
     if(!amount.toString().trim()){ showToast(t('金额不能为空','Amount cannot be empty')); return; }
     try{
-      await api('/api/entries/'+id, {method:'PUT', auth:true, body:{orderId: orderId.trim(), amount: amount.toString().trim()}});
+      await api('/api/entries/'+id, {method:'PUT', auth:true, body:{orderId: orderId.trim(), amount: amount.toString().trim(), orderDate: (orderDate||'').trim()}});
       state.editingEntryId = null;
       await loadAdminData();
       showToast(t('已保存','Saved'));
@@ -505,8 +512,8 @@
     catch(e){ showToast(e.message); }
   }
   function exportCsv(){
-    const rows = [[t('抽奖编号','Entry ID'),t('姓名','Name'),t('电话','Phone'),t('DD名字','DD Name'),t('顾客名字','Customer Name'),t('订单号','Order ID'),t('金额','Amount'),t('提交时间','Submitted At')]];
-    state.entries.forEach(en=> rows.push([en.id, en.name, en.contact, en.ddName||'', en.customerName||'', en.orderId, en.amount, new Date(en.submittedAt).toLocaleString()]));
+    const rows = [[t('抽奖编号','Entry ID'),t('姓名','Name'),t('电话','Phone'),t('DD名字','DD Name'),t('顾客名字','Customer Name'),t('订单号','Order ID'),t('订单日期','Order Date'),t('金额','Amount'),t('提交时间','Submitted At')]];
+    state.entries.forEach(en=> rows.push([en.id, en.name, en.contact, en.ddName||'', en.customerName||'', en.orderId, en.orderDate||'', en.amount, new Date(en.submittedAt).toLocaleString()]));
     const csv = rows.map(r=> r.map(c=> '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
     const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
@@ -1162,7 +1169,7 @@
       ${list.length===0?`<div class="empty-state">${t('暂无符合条件的登记资料','No matching entries')}</div>`:`
       <div style="overflow-x:auto;">
       <table>
-        <thead><tr><th>${t('照片','Photo')}</th><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th><th>${t('时间','Time')}</th><th></th></tr></thead>
+        <thead><tr><th>${t('照片','Photo')}</th><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('订单日期','Order Date')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th><th>${t('时间','Time')}</th><th></th></tr></thead>
         <tbody>
           ${list.map(en=>{
             const isEditing = state.editingEntryId === en.id;
@@ -1174,6 +1181,7 @@
               <td>${escapeHtml(en.ddName||'—')}</td>
               <td>${escapeHtml(en.customerName||'—')}</td>
               <td>${isEditing?`<input type="text" class="edit-orderid" value="${escapeAttr(en.orderId)}" style="width:140px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:`${escapeHtml(en.orderId)}${en.ocrOverride?` <span title="${t('此资料未通过OCR自动核实，订单号或金额为参与者手动确认','This entry was not auto-verified by OCR — Order ID or Amount was manually confirmed by the participant')}" style="color:var(--rose);font-weight:700;cursor:help;">⚠</span>`:''}`}</td>
+              <td>${isEditing?`<input type="date" class="edit-orderdate" value="${escapeAttr(en.orderDate||'')}" style="width:140px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:escapeHtml(en.orderDate||'—')}</td>
               <td>${isEditing?`<input type="text" class="edit-amount" value="${escapeAttr(en.amount)}" style="width:90px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:escapeHtml(String(en.amount))}</td>
               <td>${(en.ticketCount>0) ? `${en.ticketCount} ${t('次','')}` : `<span style="color:var(--ink-soft);">${t('0次','0')}</span>`}</td>
               <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">${t('已中奖','Won')}</span>`:`<span class="pill">${t('未中奖','No win')}</span>`}</td>
@@ -1204,7 +1212,8 @@
         const row = btn.closest('tr');
         const orderId = row.querySelector('.edit-orderid').value;
         const amount = row.querySelector('.edit-amount').value;
-        saveEntryEdit(id, orderId, amount, container);
+        const orderDate = row.querySelector('.edit-orderdate').value;
+        saveEntryEdit(id, orderId, amount, orderDate, container);
       };
     });
     container.querySelector('#export-btn').onclick = exportCsv;
@@ -1623,7 +1632,7 @@
         ${d.entries.length===0?`<div class="empty-state">${t('没有资料','No data')}</div>`:`
         <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th></tr></thead>
+          <thead><tr><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('订单日期','Order Date')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th></tr></thead>
           <tbody>
             ${d.entries.map(en=>`
               <tr>
@@ -1632,6 +1641,7 @@
                 <td>${escapeHtml(en.ddName||'—')}</td>
                 <td>${escapeHtml(en.customerName||'—')}</td>
                 <td>${escapeHtml(en.orderId)}</td>
+                <td>${escapeHtml(en.orderDate||'—')}</td>
                 <td>${escapeHtml(String(en.amount))}</td>
                 <td>${en.ticketCount||0} ${t('次','x')}</td>
                 <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">${t('已中奖','Won')}</span>`:`<span class="pill">${t('未中奖','No win')}</span>`}</td>
