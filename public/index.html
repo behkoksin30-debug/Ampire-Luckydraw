@@ -164,6 +164,7 @@
     formErrors: {},
     ocrBusy: false, ocrText: '',
     search: '',
+    historySearch: '',
     showTotalAmount: true,
     lightboxSrc: null,
     drawing: false, drawSelectedPrize: '',
@@ -1419,19 +1420,28 @@
     return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
   }
   function renderAdminHistoryTab(container){
+    const q = (state.historySearch||'').trim().toLowerCase();
+    const filtered = state.draws.filter(d=>{
+      if(!q) return true;
+      return d.winnerName.toLowerCase().includes(q) || d.prizeName.toLowerCase().includes(q)
+        || d.winnerOrderId.toLowerCase().includes(q) || d.winnerContact.toLowerCase().includes(q)
+        || (d.winnerCustomerName||'').toLowerCase().includes(q) || (d.winnerDdName||'').toLowerCase().includes(q);
+    });
     container.innerHTML = state.draws.length===0? `<div class="empty-state">${t('暂无中奖记录','No draw records yet')}</div>` : `
       <div class="toolbar">
-        <div style="font-size:13.5px;color:var(--ink-soft);">${t('共','Total:')} ${state.draws.length} ${t('笔中奖记录','draw records')}</div>
+        <div style="font-size:13.5px;color:var(--ink-soft);">${t('共','Total:')} ${state.draws.length} ${t('笔中奖记录','draw records')} ${q?`· ${t('筛选出','Filtered:')} ${filtered.length}`:''}</div>
         <div style="display:flex;gap:10px;">
           <button class="small-btn ghost" id="export-draws-btn">${t('导出 CSV','Export CSV')}</button>
           <button class="small-btn danger" id="reset-draws-btn">${t('重置全部','Reset All')}</button>
         </div>
       </div>
+      <input class="searchbar" id="history-search-input" placeholder="${t('按姓名 / 奖品 / 订单号 / 联系方式搜索','Search by name / prize / order ID / contact')}" value="${escapeAttr(state.historySearch||'')}">
+      ${filtered.length===0?`<div class="empty-state">${t('暂无符合条件的记录','No matching records')}</div>`:`
       <div style="overflow-x:auto;">
       <table>
         <thead><tr><th>${t('方式','Method')}</th><th>${t('奖品','Prize')}</th><th>${t('价值','Value')}</th><th>${t('姓名','Name')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('联系方式','Contact')}</th><th>${t('订单号','Order ID')}</th><th>${t('时间','Time')}</th><th></th></tr></thead>
         <tbody>
-          ${state.draws.map(d=>{
+          ${filtered.map(d=>{
             const waLink = buildWhatsAppLink(d);
             return `
             <tr>
@@ -1448,12 +1458,20 @@
             </tr>`;}).join('')}
         </tbody>
       </table>
-      </div>`;
+      </div>`}`;
     container.querySelectorAll('[data-revoke]').forEach(btn=>{ btn.onclick = ()=> revokeDraw(btn.getAttribute('data-revoke')); });
     const resetBtn = container.querySelector('#reset-draws-btn');
     if(resetBtn) resetBtn.onclick = resetAllDraws;
     const exportBtn = container.querySelector('#export-draws-btn');
     if(exportBtn) exportBtn.onclick = exportDrawsCsv;
+    const searchInput = container.querySelector('#history-search-input');
+    if(searchInput) searchInput.oninput = e=>{
+      state.historySearch = e.target.value;
+      const cursorPos = e.target.selectionStart;
+      renderAdminHistoryTab(container);
+      const newInput = container.querySelector('#history-search-input');
+      if(newInput){ newInput.focus(); newInput.setSelectionRange(cursorPos, cursorPos); }
+    };
   }
 
   function renderAdminArchivesTab(container){
