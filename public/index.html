@@ -76,7 +76,7 @@
   .tab.active{color:var(--plum);border-color:var(--gold);}
   .admin-content{padding:22px;}
   table{width:100%;border-collapse:collapse;font-size:13.5px;}
-  th{text-align:left;color:var(--ink-soft);font-weight:700;font-size:12px;padding:8px 10px;border-bottom:1.5px solid var(--line);}
+  th{text-align:left;color:var(--ink-soft);font-weight:700;font-size:12px;padding:8px 10px;border-bottom:1.5px solid var(--line);white-space:nowrap;}
   td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
   .mini-thumb{width:38px;height:38px;border-radius:6px;object-fit:cover;cursor:pointer;border:1px solid var(--line);}
   .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:700;background:#eee5d3;color:var(--plum);}
@@ -160,12 +160,13 @@
     entries: [], prizes: [], draws: [],
     eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic' },
     adminPasswordSet: null,
-    form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null },
+    form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null, ocrOverride:false },
     formErrors: {},
     ocrBusy: false, ocrText: '',
     search: '',
     historySearch: '',
     showTotalAmount: true,
+    prizeSortMode: 'value_asc',
     lightboxSrc: null,
     drawing: false, drawSelectedPrize: '',
     rollingName: '', revealedWinner: null,
@@ -348,12 +349,23 @@
       const guess = guessOrderIdAndAmount(text);
       if(guess.orderId) state.form.orderId = guess.orderId;
       if(guess.amount) state.form.amount = guess.amount;
+      state.form.ocrOverride = false;
       showToast((guess.orderId||guess.amount) ? '已自动填入，请核对是否正确 / Auto-filled, please verify' : '未能自动识别，请手动填写并核对 / Could not auto-detect, please fill in and check manually');
     }catch(e){ showToast('OCR识别失败，请手动填写 / OCR failed, please fill in manually'); }
     state.ocrBusy = false; render();
   }
 
   /* ---------------- public submit ---------------- */
+  function computeOcrIssue(){
+    const ocrText = state.ocrText || '';
+    if(!ocrText.trim()) return null;
+    const foundOrderIds = extractElevenDigitOrderIds(ocrText);
+    const orderIdMismatch = foundOrderIds.length===0 || !foundOrderIds.includes(state.form.orderId.trim());
+    const foundAmount = extractOrderAmount(ocrText);
+    const typedAmount = parseFloat(state.form.amount);
+    const amountMismatch = foundAmount===null || isNaN(typedAmount) || Math.abs(typedAmount-foundAmount)>0.01;
+    return { orderIdMismatch, amountMismatch, foundOrderIds, foundAmount, hasIssue: orderIdMismatch||amountMismatch };
+  }
   function validateForm(){
     const errs = {};
     if(!state.form.name.trim()) errs.name = '请输入姓名 / Please enter your name';
@@ -368,18 +380,19 @@
       if(!ocrText.trim()){
         errs.ocr = '请先点击「OCR自动识别」核对照片内容，再提交 / Please click "OCR Auto-Detect" to verify the photo before submitting';
       } else {
-        const foundOrderIds = extractElevenDigitOrderIds(ocrText);
-        if(foundOrderIds.length===0){
-          errs.orderId = '照片中找不到11位数字的订单号，请重新上传清晰的订单详情截图 / Could not find an 11-digit Order ID in the photo, please re-upload a clear order details screenshot';
-        } else if(!foundOrderIds.includes(state.form.orderId.trim())){
-          errs.orderId = '订单号与照片识别内容不符，请核对或重新上传清晰照片 / Order ID does not match the photo, please check or re-upload a clearer photo';
-        }
-        const foundAmount = extractOrderAmount(ocrText);
-        const typedAmount = parseFloat(state.form.amount);
-        if(foundAmount===null){
-          errs.amount = '照片中找不到金额（RM），请核对或重新上传清晰照片 / Could not find an amount (RM) in the photo, please check or re-upload a clearer photo';
-        } else if(isNaN(typedAmount) || Math.abs(typedAmount - foundAmount) > 0.01){
-          errs.amount = '金额与照片识别内容不符，请核对或重新上传清晰照片 / Amount does not match the photo, please check or re-upload a clearer photo';
+        const issue = computeOcrIssue();
+        if(issue && issue.hasIssue && !state.form.ocrOverride){
+          if(issue.orderIdMismatch){
+            errs.orderId = issue.foundOrderIds.length===0
+              ? '照片中找不到11位数字的订单号，请重新上传清晰的订单详情截图，或勾选下方确认框 / Could not find an 11-digit Order ID in the photo, please re-upload a clearer photo or check the box below'
+              : '订单号与照片识别内容不符，请核对，或勾选下方确认框 / Order ID does not match the photo, please check, or check the box below';
+          }
+          if(issue.amountMismatch){
+            errs.amount = issue.foundAmount===null
+              ? '照片中找不到金额（RM），请核对，或勾选下方确认框 / Could not find an amount (RM) in the photo, please check, or check the box below'
+              : '金额与照片识别内容不符，请核对，或勾选下方确认框 / Amount does not match the photo, please check, or check the box below';
+          }
+          errs.ocrOverride = '请勾选确认框以继续提交 / Please check the confirmation box to continue';
         }
 
         const startD = state.eventConfig.regStartDate, endD = state.eventConfig.regEndDate;
@@ -407,10 +420,10 @@
         name: state.form.name.trim(), contact: state.form.contact.trim(),
         ddName: state.form.ddName.trim(), customerName: state.form.customerName.trim(),
         orderId: state.form.orderId.trim(), amount: state.form.amount.toString().trim(),
-        photo: state.form.photo
+        photo: state.form.photo, ocrOverride: !!state.form.ocrOverride
       }});
       state.lastTicket = { id: r.id, name: state.form.name.trim(), customerName: state.form.customerName.trim(), orderId: state.form.orderId.trim() };
-      state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null };
+      state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null, ocrOverride:false };
       state.ocrText=''; state.view='success'; render();
     }catch(e){ showToast(e.message||'提交失败，请重试 / Submission failed, please try again'); }
   }
@@ -943,6 +956,15 @@
               ${errs.amount?`<div class="error-text">${errs.amount}</div>`:''}
             </div>
           </div>
+          ${(()=>{ const issue = state.ocrText ? computeOcrIssue() : null; return (issue && issue.hasIssue) ? `
+          <div class="field" style="background:#fdf1e0;border:1px solid var(--gold);border-radius:8px;padding:12px 14px;">
+            <label style="display:flex;align-items:flex-start;gap:8px;font-weight:400;font-size:13px;cursor:pointer;">
+              <input type="checkbox" id="f-ocroverride" ${f.ocrOverride?'checked':''} style="margin-top:2px;">
+              <span>OCR 识别可能有误，我确认以上填写的订单号/金额正确，愿意承担核实结果 / OCR may have misread the photo — I confirm the Order ID/Amount above are correct</span>
+            </label>
+            ${errs.ocrOverride?`<div class="error-text">${errs.ocrOverride}</div>`:''}
+          </div>
+          `:''; })()}
           <button class="submit-btn" id="submit-btn">提交登记 / Submit</button>
         </div>
       </div>
@@ -952,11 +974,11 @@
     document.getElementById('f-contact').oninput = e=>{ state.form.contact = e.target.value; };
     document.getElementById('f-ddname').oninput = e=>{ state.form.ddName = e.target.value; };
     document.getElementById('f-customername').oninput = e=>{ state.form.customerName = e.target.value; };
-    document.getElementById('f-orderid').oninput = e=>{ state.form.orderId = e.target.value; };
-    document.getElementById('f-amount').oninput = e=>{ state.form.amount = e.target.value; };
+    document.getElementById('f-orderid').oninput = e=>{ state.form.orderId = e.target.value; state.form.ocrOverride = false; };
+    document.getElementById('f-amount').oninput = e=>{ state.form.amount = e.target.value; state.form.ocrOverride = false; };
     document.getElementById('f-photo').onchange = async (e)=>{
       const file = e.target.files[0]; if(!file) return;
-      try{ state.form.photo = await compressImage(file); state.ocrText=''; render(); }
+      try{ state.form.photo = await compressImage(file); state.ocrText=''; state.form.ocrOverride = false; render(); }
       catch(err){ showToast('照片处理失败，请重试 / Photo processing failed, please try again'); }
     };
     const ocrBtn = document.getElementById('ocr-btn'); if(ocrBtn) ocrBtn.onclick = runOcr;
@@ -967,10 +989,13 @@
       state.form.photo = null;
       state.form.orderId = '';
       state.form.amount = '';
+      state.form.ocrOverride = false;
       state.ocrText = '';
       state.formErrors = {};
       render();
     };
+    const ocrOverrideBox = document.getElementById('f-ocroverride');
+    if(ocrOverrideBox) ocrOverrideBox.onchange = e=>{ state.form.ocrOverride = e.target.checked; };
     document.getElementById('submit-btn').onclick = submitEntry;
     document.getElementById('admin-entry-link').onclick = async ()=>{
       await loadAdminStatus();
@@ -1056,14 +1081,13 @@
         ${qualifiedCount!==null?`<div class="stat-card"><div class="stat-num gold">${qualifiedCount}</div><div class="stat-label">${t('幸运轮盘门槛达标','Lucky Wheel eligible')}</div></div>`:''}
       </div>
       ${q?`<div class="stat-filter-note">${t('筛选出','Filtered:')} ${list.length} ${t('位',' entries')}</div>`:''}
-      <div class="toolbar">
-        <div></div>
-        <div style="display:flex;gap:10px;">
+      <div class="toolbar" style="gap:12px;">
+        <input class="searchbar" id="search-input" placeholder="${t('按姓名 / 订单号 / 联系方式 / 编号搜索','Search by name / order ID / contact / entry ID')}" value="${escapeAttr(state.search)}" style="flex:1;min-width:180px;margin-bottom:0;">
+        <div style="display:flex;gap:10px;flex-shrink:0;">
           <button class="small-btn ghost" id="export-btn">${t('导出 CSV','Export CSV')}</button>
           <button class="small-btn danger" id="delete-all-btn">${t('全部删除','Delete All')}</button>
         </div>
       </div>
-      <input class="searchbar" id="search-input" placeholder="${t('按姓名 / 订单号 / 联系方式 / 编号搜索','Search by name / order ID / contact / entry ID')}" value="${escapeAttr(state.search)}">
       ${list.length===0?`<div class="empty-state">${t('暂无符合条件的登记资料','No matching entries')}</div>`:`
       <div style="overflow-x:auto;">
       <table>
@@ -1076,7 +1100,7 @@
               <td>${escapeHtml(en.contact)}</td>
               <td>${escapeHtml(en.ddName||'—')}</td>
               <td>${escapeHtml(en.customerName||'—')}</td>
-              <td>${escapeHtml(en.orderId)}</td>
+              <td>${escapeHtml(en.orderId)}${en.ocrOverride?` <span title="${t('此资料未通过OCR自动核实，订单号或金额为参与者手动确认','This entry was not auto-verified by OCR — Order ID or Amount was manually confirmed by the participant')}" style="color:var(--rose);font-weight:700;cursor:help;">⚠</span>`:''}</td>
               <td>${escapeHtml(String(en.amount))}</td>
               <td>${(en.ticketCount>0) ? `${en.ticketCount} ${t('次','')}` : `<span style="color:var(--ink-soft);">${t('0次','0')}</span>`}</td>
               <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">${t('已中奖','Won')}</span>`:`<span class="pill">${t('未中奖','No win')}</span>`}</td>
@@ -1104,6 +1128,12 @@
   function sortPrizesByValue(prizes){
     return [...prizes].sort((a,b)=> (parseFloat(a.value)||0) - (parseFloat(b.value)||0));
   }
+  function sortPrizesByMode(prizes, mode){
+    const list = [...prizes];
+    if(mode==='value_desc') return list.sort((a,b)=> (parseFloat(b.value)||0) - (parseFloat(a.value)||0));
+    if(mode==='qty_desc') return list.sort((a,b)=> ((b.qty||0)+(b.guaranteedQty||0)) - ((a.qty||0)+(a.guaranteedQty||0)));
+    return list.sort((a,b)=> (parseFloat(a.value)||0) - (parseFloat(b.value)||0));
+  }
   function tierLabel(tier){
     if(tier==='大奖') return t('大奖','Grand Prize');
     if(tier==='二奖') return t('二奖','2nd Prize');
@@ -1119,7 +1149,7 @@
         <div class="stat-card"><div class="stat-num gold">RM${totalValue.toLocaleString(undefined,{maximumFractionDigits:2})}</div><div class="stat-label">${t('总价值','Total value')}</div></div>
       </div>
       <div class="upload-box" style="margin-bottom:12px;">
-        <label class="upload-btn">${t('选择产品图片','Choose product photo')}<input type="file" id="new-prize-photo" accept="image/*"></label>
+        <label class="upload-btn">${t('上载奖品图片','Upload prize photo')}<input type="file" id="new-prize-photo" accept="image/*"></label>
         ${state.newPrizePhoto?`<img class="thumb" src="${state.newPrizePhoto}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('可选，不上传也可以添加奖品','Optional — you can add a prize without a photo')}</span>`}
       </div>
       <div class="add-prize-form">
@@ -1136,8 +1166,18 @@
       </div>
       <label class="checkline" style="margin-bottom:8px;"><input type="checkbox" id="new-prize-guaranteed"> ${t('可用于幸运轮盘','Usable for Lucky Wheel')}</label>
       <div class="field" style="margin-bottom:16px;"><label style="font-size:12.5px;">${t('幸运轮盘预留数量','Reserved for Lucky Wheel')} ${hintIcon(t('从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存','Reserve a portion of stock exclusively for Lucky Wheel, separate from the Main Draw stock'))}</label><input type="number" id="new-prize-guaranteed-qty" min="0" value="0" style="max-width:140px;"></div>
+      ${state.prizes.length>0?`
+      <div class="field" style="max-width:220px;">
+        <label style="font-size:12.5px;">${t('排序方式','Sort by')}</label>
+        <select id="prize-sort-mode">
+          <option value="value_asc" ${state.prizeSortMode==='value_asc'?'selected':''}>${t('最低价值','Lowest value')}</option>
+          <option value="value_desc" ${state.prizeSortMode==='value_desc'?'selected':''}>${t('最高价值','Highest value')}</option>
+          <option value="qty_desc" ${state.prizeSortMode==='qty_desc'?'selected':''}>${t('最多数量','Most quantity')}</option>
+        </select>
+      </div>
+      `:''}
       ${state.prizes.length===0?`<div class="empty-state">${t('还没有添加奖品','No prizes added yet')}</div>`:
-        sortPrizesByValue(state.prizes).map(p=> p.id===state.editingPrizeId ? `
+        sortPrizesByMode(state.prizes, state.prizeSortMode).map(p=> p.id===state.editingPrizeId ? `
           <div class="prize-card" style="flex-direction:column;align-items:stretch;gap:10px;">
             <div class="upload-box">
               <label class="upload-btn">${t('更换图片','Change photo')}<input type="file" class="edit-prize-photo" data-id="${p.id}" accept="image/*"></label>
@@ -1178,6 +1218,8 @@
       try{ state.newPrizePhoto = await compressImage(file); renderAdminPrizesTab(container); }
       catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
     };
+    const sortModeSelect = container.querySelector('#prize-sort-mode');
+    if(sortModeSelect) sortModeSelect.onchange = e=>{ state.prizeSortMode = e.target.value; renderAdminPrizesTab(container); };
     container.querySelector('#add-prize-btn').onclick = ()=> addPrize(container.querySelector('#new-prize-name').value, container.querySelector('#new-prize-qty').value, container.querySelector('#new-prize-value').value, container.querySelector('#new-prize-guaranteed').checked, container.querySelector('#new-prize-guaranteed-qty').value, container.querySelector('#new-prize-tier').value);
     container.querySelectorAll('[data-del-prize]').forEach(btn=>{ btn.onclick = ()=> deletePrize(btn.getAttribute('data-del-prize')); });
     container.querySelectorAll('[data-edit-prize]').forEach(btn=>{
@@ -1428,14 +1470,14 @@
         || (d.winnerCustomerName||'').toLowerCase().includes(q) || (d.winnerDdName||'').toLowerCase().includes(q);
     });
     container.innerHTML = state.draws.length===0? `<div class="empty-state">${t('暂无中奖记录','No draw records yet')}</div>` : `
-      <div class="toolbar">
-        <div style="font-size:13.5px;color:var(--ink-soft);">${t('共','Total:')} ${state.draws.length} ${t('笔中奖记录','draw records')} ${q?`· ${t('筛选出','Filtered:')} ${filtered.length}`:''}</div>
-        <div style="display:flex;gap:10px;">
+      <div class="toolbar" style="gap:12px;">
+        <div style="font-size:13.5px;color:var(--ink-soft);white-space:nowrap;">${t('共','Total:')} ${state.draws.length} ${t('笔中奖记录','draw records')} ${q?`· ${t('筛选出','Filtered:')} ${filtered.length}`:''}</div>
+        <input class="searchbar" id="history-search-input" placeholder="${t('按姓名 / 奖品 / 订单号 / 联系方式搜索','Search by name / prize / order ID / contact')}" value="${escapeAttr(state.historySearch||'')}" style="flex:1;min-width:180px;margin-bottom:0;">
+        <div style="display:flex;gap:10px;flex-shrink:0;">
           <button class="small-btn ghost" id="export-draws-btn">${t('导出 CSV','Export CSV')}</button>
           <button class="small-btn danger" id="reset-draws-btn">${t('重置全部','Reset All')}</button>
         </div>
       </div>
-      <input class="searchbar" id="history-search-input" placeholder="${t('按姓名 / 奖品 / 订单号 / 联系方式搜索','Search by name / prize / order ID / contact')}" value="${escapeAttr(state.historySearch||'')}">
       ${filtered.length===0?`<div class="empty-state">${t('暂无符合条件的记录','No matching records')}</div>`:`
       <div style="overflow-x:auto;">
       <table>
