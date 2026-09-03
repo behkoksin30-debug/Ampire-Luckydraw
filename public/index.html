@@ -161,7 +161,7 @@
     entries: [], prizes: [], draws: [],
     eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, tutorialImage: null, drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic' },
     adminPasswordSet: null,
-    form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null, ocrOverride:false },
+    form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null, originalFile:null, ocrOverride:false },
     formErrors: {},
     ocrBusy: false, ocrText: '',
     search: '',
@@ -298,6 +298,45 @@
     });
   }
 
+  /* ---------------- OCR-optimized image prep (higher res + grayscale/contrast) ---------------- */
+  function prepareOcrImage(file){
+    return new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onload = function(e){
+        const img = new Image();
+        img.onload = function(){
+          const maxDim = 2000;
+          let w = img.width, h = img.height;
+          if(w>maxDim || h>maxDim){
+            if(w>h){ h = Math.round(h*maxDim/w); w = maxDim; }
+            else { w = Math.round(w*maxDim/h); h = maxDim; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width=w; canvas.height=h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img,0,0,w,h);
+          try{
+            const imgData = ctx.getImageData(0,0,w,h);
+            const d = imgData.data;
+            const contrast = 1.35;
+            for(let i=0;i<d.length;i+=4){
+              const lum = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+              let v = (lum-128)*contrast + 128;
+              v = v<0?0:(v>255?255:v);
+              d[i]=d[i+1]=d[i+2]=v;
+            }
+            ctx.putImageData(imgData,0,0);
+          }catch(err){ /* if canvas is tainted or unsupported, fall back to plain resized image */ }
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
   function extractElevenDigitOrderIds(text){
     const matches = (text||'').match(/(?<!\d)\d{11}(?!\d)/g);
     return matches || [];
@@ -344,8 +383,13 @@
     if(window.__ocrLoadFailed || typeof Tesseract === 'undefined'){ showToast('OCR识别暂不可用，请手动填写 / OCR unavailable, please fill in manually'); return; }
     state.ocrBusy = true; render();
     try{
+      let ocrImage = state.form.photo;
+      if(state.form.originalFile){
+        try{ ocrImage = await prepareOcrImage(state.form.originalFile); }
+        catch(prepErr){ /* fall back to the compressed display photo if enhancement fails */ }
+      }
       const result = await new Promise((resolve, reject)=>{
-        Tesseract.recognize(state.form.photo).progress(()=>{}).then(resolve).catch(reject);
+        Tesseract.recognize(ocrImage, {lang:'eng'}).progress(()=>{}).then(resolve).catch(reject);
       });
       const text = (result && result.text) ? result.text : '';
       state.ocrText = text.trim();
@@ -423,7 +467,7 @@
         photo: state.form.photo, ocrOverride: !!state.form.ocrOverride
       }});
       state.lastTicket = { id: r.id, name: state.form.name.trim(), customerName: state.form.customerName.trim(), orderId: state.form.orderId.trim() };
-      state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null, ocrOverride:false };
+      state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null, originalFile:null, ocrOverride:false };
       state.ocrText=''; state.view='success'; render();
     }catch(e){ showToast(e.message||'提交失败，请重试 / Submission failed, please try again'); }
   }
@@ -990,7 +1034,11 @@
     document.getElementById('f-amount').oninput = e=>{ state.form.amount = e.target.value; state.form.ocrOverride = false; };
     document.getElementById('f-photo').onchange = async (e)=>{
       const file = e.target.files[0]; if(!file) return;
-      try{ state.form.photo = await compressImage(file); state.ocrText=''; state.form.ocrOverride = false; render(); }
+      try{
+        state.form.photo = await compressImage(file);
+        state.form.originalFile = file;
+        state.ocrText=''; state.form.ocrOverride = false; render();
+      }
       catch(err){ showToast('照片处理失败，请重试 / Photo processing failed, please try again'); }
     };
     const ocrBtn = document.getElementById('ocr-btn'); if(ocrBtn) ocrBtn.onclick = runOcr;
@@ -1001,6 +1049,7 @@
     const resetPhotoBtn = document.getElementById('reset-photo-btn');
     if(resetPhotoBtn) resetPhotoBtn.onclick = ()=>{
       state.form.photo = null;
+      state.form.originalFile = null;
       state.form.orderId = '';
       state.form.amount = '';
       state.form.ocrOverride = false;
