@@ -245,7 +245,7 @@
     render();
   }
   async function restoreArchive(id){
-    if(!confirm(t('确定要恢复这一场存档吗？目前使用中的资料会先自动存档保存，然后换成这一场的资料继续使用。','Restore this archive? Your current data will be auto-archived first, then replaced with this archive\'s data.'))) return;
+    if(!confirm(t('确定要切换到这一场活动吗？目前的资料会自动存回它原本所在的那个存档，不会重复产生新的备份。','Switch to this event? Your current data will be saved back into its own existing archive slot — no duplicate backup is created.'))) return;
     try{
       await api('/api/archives/'+id+'/restore', {method:'POST', auth:true});
       state.archiveDetail = null;
@@ -253,7 +253,7 @@
       await loadEventConfig();
       await loadAdminData();
       await loadArchives();
-      showToast(t('已恢复，现在使用的是这一场的资料','Restored — this archive\'s data is now active.'));
+      showToast(t('已切换，现在使用的是这一场的资料','Switched — this event\'s data is now active.'));
       state.adminTab = 'entries';
       render();
     }catch(e){ showToast(e.message); }
@@ -1436,7 +1436,7 @@
         <button class="small-btn ghost" id="back-to-archives-btn" style="margin-bottom:16px;">${t('← 返回存档列表','← Back to archive list')}</button>
         <div style="font-size:16px;font-weight:700;color:var(--plum);margin-bottom:4px;">${escapeHtml(d.meta.label)}</div>
         <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:18px;">${t('存档时间','Archived at')}：${new Date(d.meta.createdAt).toLocaleString()} · ${t('活动标题','Event title')}：${escapeHtml(d.config.title||'')}</div>
-        <button class="small-btn" data-restore-archive="${d.meta.id}" style="margin-bottom:20px;">${t('恢复这一场为使用中','Restore this as active')}</button>
+        <button class="small-btn" data-restore-archive="${d.meta.id}" style="margin-bottom:20px;">${t('切换到这一场使用','Use this event')}</button>
 
         <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin:18px 0 8px;">${t('参与名单','Entries')}（${t('共','total')} ${d.entries.length} ${t('位',' ')}）</label>
         ${d.entries.length===0?`<div class="empty-state">${t('没有资料','No data')}</div>`:`
@@ -1490,12 +1490,12 @@
       ${state.archives.map(a=>`
         <div class="prize-card">
           <div>
-            <div class="pname">${escapeHtml(a.label)}</div>
-            <div class="pqty">${new Date(a.createdAt).toLocaleString()} · ${a.entryCount} ${t('位登记','entries')} · ${a.drawCount} ${t('笔中奖','wins')}</div>
+            <div class="pname">${escapeHtml(a.label)}${a.isActive?` <span class="pill win">${t('使用中','Active')}</span>`:''}</div>
+            <div class="pqty">${new Date(a.updatedAt||a.createdAt).toLocaleString()} · ${a.entryCount} ${t('位登记','entries')} · ${a.drawCount} ${t('笔中奖','wins')}</div>
           </div>
           <div style="display:flex;gap:10px;">
             <button class="small-btn ghost" data-view-archive="${a.id}">${t('查看','View')}</button>
-            <button class="small-btn" data-restore-archive="${a.id}">${t('恢复使用','Restore')}</button>
+            ${a.isActive?'':`<button class="small-btn" data-restore-archive="${a.id}">${t('使用','Use')}</button>`}
             <button class="small-btn danger" data-delete-archive="${a.id}">${t('删除','Delete')}</button>
           </div>
         </div>
