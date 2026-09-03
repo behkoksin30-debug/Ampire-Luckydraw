@@ -1413,7 +1413,7 @@
       </div>
       <div class="draw-stage">
         ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); return pz && pz.photo ? `<img class="thumb" style="width:140px;height:140px;margin-bottom:14px;" src="${pz.photo}">` : ''; })()}
-        <div class="draw-prize-label">${state.drawSelectedPrize? t('奖品','Prize')+'：'+escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).name||'')+((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).value?` (RM${escapeHtml((state.prizes.find(p=>p.id===state.drawSelectedPrize)||{}).value)})`:'') : t('请先选择奖品','Please select a prize first')}</div>
+        <div class="draw-prize-label">${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!pz) return t('请先选择奖品','Please select a prize first'); return t('奖品','Prize')+'：'+(pz.tier?`【${escapeHtml(tierLabel(pz.tier))}】`:'')+escapeHtml(pz.name)+(pz.value?` (RM${escapeHtml(pz.value)})`:''); })()}</div>
         <div class="draw-name ${state.drawing?'rolling':''}" id="draw-name-el">${state.revealedWinner ? escapeHtml(state.revealedWinner.name) : (state.drawing ? escapeHtml(state.rollingName||'…') : '—')}</div>
         ${state.revealedWinner?`<div class="draw-sub">${t('顾客','Customer')}：${escapeHtml(state.revealedWinner.customerName||'—')} · ${t('DD名字','DD Name')}：${escapeHtml(state.revealedWinner.ddName||'—')} · ${t('联系方式','Contact')}：${escapeHtml(state.revealedWinner.contact)}</div>`:''}
         <div class="draw-actions">
