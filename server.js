@@ -262,7 +262,7 @@ app.post('/api/entries', (req, res) => {
     }
     return res.status(400).json({ error: '报名已结束 / Registration is closed' });
   }
-  const { name, contact, ddName, customerName, orderId, amount, photo, ocrOverride } = req.body || {};
+  const { name, contact, ddName, customerName, orderId, amount, photo, ocrOverride, orderDate } = req.body || {};
   if (!name || !contact || !ddName || !customerName || !orderId || !amount || !photo) {
     return res.status(400).json({ error: '资料不完整，请填写全部字段并上传照片 / Missing information, please fill in all fields and upload a photo' });
   }
@@ -284,6 +284,7 @@ app.post('/api/entries', (req, res) => {
     customerName: String(customerName).slice(0, 100),
     orderId: String(orderId).slice(0, 100),
     amount: String(amount).slice(0, 50),
+    orderDate: isDateStr(orderDate) ? orderDate : '',
     photo,
     ocrOverride: !!ocrOverride,
     submittedAt: Date.now(),
@@ -311,7 +312,7 @@ app.put('/api/entries/:id', requireAdmin, (req, res) => {
   const file = path.join(ENTRIES_DIR, req.params.id + '.json');
   const entry = readJson(file, null);
   if (!entry) return res.status(404).json({ error: '登记资料不存在' });
-  const { orderId, amount } = req.body || {};
+  const { orderId, amount, orderDate } = req.body || {};
   if (orderId !== undefined) {
     const newOrderId = String(orderId).trim();
     if (!newOrderId) return res.status(400).json({ error: '订单号不能为空' });
@@ -328,6 +329,9 @@ app.put('/api/entries/:id', requireAdmin, (req, res) => {
     const newAmount = String(amount).trim();
     if (!newAmount) return res.status(400).json({ error: '金额不能为空' });
     entry.amount = newAmount.slice(0, 50);
+  }
+  if (orderDate !== undefined) {
+    entry.orderDate = isDateStr(orderDate) ? orderDate : '';
   }
   entry.ocrOverride = false;
   fs.writeFileSync(file, JSON.stringify(entry));
