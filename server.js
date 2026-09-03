@@ -307,6 +307,32 @@ app.get('/api/entries', requireAdmin, (req, res) => {
   list.sort((a, b) => b.submittedAt - a.submittedAt);
   res.json(list);
 });
+app.put('/api/entries/:id', requireAdmin, (req, res) => {
+  const file = path.join(ENTRIES_DIR, req.params.id + '.json');
+  const entry = readJson(file, null);
+  if (!entry) return res.status(404).json({ error: '登记资料不存在' });
+  const { orderId, amount } = req.body || {};
+  if (orderId !== undefined) {
+    const newOrderId = String(orderId).trim();
+    if (!newOrderId) return res.status(400).json({ error: '订单号不能为空' });
+    const newOrderIdNorm = newOrderId.toLowerCase();
+    const existingFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json') && f !== req.params.id + '.json');
+    const isDuplicate = existingFiles.some(f => {
+      const other = readJson(path.join(ENTRIES_DIR, f), null);
+      return other && String(other.orderId || '').trim().toLowerCase() === newOrderIdNorm;
+    });
+    if (isDuplicate) return res.status(400).json({ error: '该订单号已经登记过 / This Order ID has already been registered' });
+    entry.orderId = newOrderId.slice(0, 100);
+  }
+  if (amount !== undefined) {
+    const newAmount = String(amount).trim();
+    if (!newAmount) return res.status(400).json({ error: '金额不能为空' });
+    entry.amount = newAmount.slice(0, 50);
+  }
+  entry.ocrOverride = false;
+  fs.writeFileSync(file, JSON.stringify(entry));
+  res.json({ ok: true });
+});
 app.delete('/api/entries/:id', requireAdmin, (req, res) => {
   const file = path.join(ENTRIES_DIR, req.params.id + '.json');
   if (fs.existsSync(file)) fs.unlinkSync(file);
