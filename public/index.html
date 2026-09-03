@@ -686,8 +686,18 @@
     return pool;
   }
   let rollInterval = null;
-  function startDraw(){
+  async function startDraw(){
     if(!state.drawSelectedPrize){ showToast(t('请先选择奖品','Please select a prize first')); return; }
+    try{
+      state.prizes = await api('/api/prizes', {auth:true});
+    }catch(e){ showToast(e.message); return; }
+    const selectedPrize = state.prizes.find(p=>p.id===state.drawSelectedPrize);
+    if(!selectedPrize || selectedPrize.qty<1){
+      showToast(t('这个奖品的库存已经用完了，请重新选择','This prize is out of stock, please choose another'));
+      state.drawSelectedPrize = '';
+      render();
+      return;
+    }
     const pool = eligibleTicketPool();
     if(pool.length===0){ showToast(t('没有符合条件的参与者','No eligible participants')); return; }
     state.drawing = true; state.revealedWinner = null; render();
@@ -1239,9 +1249,12 @@
     return `<svg viewBox="0 0 200 200" style="width:100%;height:100%;display:block;">${parts}</svg>`;
   }
   let wheelSpinTimeout = null;
-  function startGuaranteedDraw(entryId){
+  async function startGuaranteedDraw(entryId){
+    try{
+      state.prizes = await api('/api/prizes', {auth:true});
+    }catch(e){ showToast(e.message); return; }
     const pool = guaranteedPrizePool();
-    if(pool.length===0){ showToast(t('还没有奖品被设为「可用于幸运轮盘」，请先到奖品管理勾选','No prizes are set as "usable for Lucky Wheel" yet — please enable this in Prize Management first')); return; }
+    if(pool.length===0){ showToast(t('还没有奖品被设为「可用于幸运轮盘」，或库存已经用完，请先到奖品管理确认','No prizes are set as "usable for Lucky Wheel", or they are out of stock — please check Prize Management')); render(); return; }
     const seg = 360/pool.length;
     const winnerIndex = Math.floor(Math.random()*pool.length);
     const winner = pool[winnerIndex];
