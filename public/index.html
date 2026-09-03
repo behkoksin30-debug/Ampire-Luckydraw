@@ -1592,10 +1592,9 @@
           <label style="font-size:13.5px;font-weight:700;color:var(--plum);margin:0;">${t('活动日期范围','Event Date Range')}</label>
           ${hintIcon(t('这个日期范围同时控制两件事：① 报名会自动只在这段期间开放，超出范围自动关闭（上面的开关可以随时手动覆盖）；② 用来核对参与者上传照片里 OCR 识别到的订单日期，不在范围内会拒绝上传。留空代表不限制','This date range controls two things: ① Registration is automatically open only during this period, and closes outside it (the switch above can always manually override this); ② It checks the order date OCR-read from uploaded photos — uploads outside this range are rejected. Leave blank for no limit'))}
         </div>
-        <div class="field"><label>${t('开始日期','Start Date')} ${hintIcon(t('留空代表不限制','Leave blank for no limit'))}</label><input type="date" id="ev-startdate" value="${escapeAttr(state.eventConfig.regStartDate)}"></div>
         <div class="row2">
-          <div class="field"><label>${t('结束日期','End Date')} ${hintIcon(t('留空代表不限制','Leave blank for no limit'))}</label><input type="date" id="ev-enddate" value="${escapeAttr(state.eventConfig.regEndDate)}"></div>
-          <div class="field"><label>${t('报名截止时间','Registration Deadline')} ${hintIcon(t('可选，用来指定结束日期当天的精确时间点（比如晚上6点关闭），不填的话结束日期当天午夜才关闭；填了之后仍可手动重新打开','Optional — set a precise time on the end date (e.g. 6pm), otherwise it closes at midnight on the end date; you can still manually reopen it afterward'))}</label><input type="datetime-local" id="ev-deadline" value="${escapeAttr(isoToLocalInputValue(state.eventConfig.registrationDeadline))}"></div>
+          <div class="field"><label>${t('开始日期','Start Date')} ${hintIcon(t('留空代表不限制','Leave blank for no limit'))}</label><input type="date" id="ev-startdate" value="${escapeAttr(state.eventConfig.regStartDate)}"></div>
+          <div class="field"><label>${t('报名截止时间','Registration Deadline')} ${hintIcon(t('这里的日期就是活动结束日期，会同时用来核对订单照片日期；时间点可以精确到几点几分（比如晚上6点），也可以只填日期，系统会当作那天午夜关闭；填了之后仍可手动重新打开','This date is also the event end date, used to check order photo dates too; you can set an exact time (e.g. 6pm) or just a date, treated as midnight that day; you can still manually reopen afterward'))}</label><input type="datetime-local" id="ev-deadline" value="${escapeAttr(isoToLocalInputValue(state.eventConfig.registrationDeadline))}"></div>
         </div>
       </div>
       <div style="margin-top:22px;">
@@ -1640,17 +1639,15 @@
     container.querySelector('#ev-drawduration').onchange = e=> autoSaveConfig({drawDurationSeconds: e.target.value});
     container.querySelector('#ev-soundtheme').onchange = e=> autoSaveConfig({soundTheme: e.target.value});
     container.querySelector('#ev-startdate').onchange = e=> autoSaveConfig({regStartDate: e.target.value});
-    container.querySelector('#ev-enddate').onchange = e=>{
-      const endDate = e.target.value;
-      const deadlineInput = container.querySelector('#ev-deadline');
-      if(endDate && !deadlineInput.value){
-        const derivedDeadline = endDate + 'T23:59';
-        autoSaveConfig({regEndDate: endDate, registrationDeadline: localInputToISO(derivedDeadline)}, t('已更新（报名截止时间已自动设为结束日期当天午夜）','Updated (Registration Deadline auto-set to midnight on the end date)'));
+    container.querySelector('#ev-deadline').onchange = e=>{
+      const value = e.target.value;
+      if(!value){
+        autoSaveConfig({registrationDeadline: '', regEndDate: ''});
       } else {
-        autoSaveConfig({regEndDate: endDate});
+        const datePart = value.split('T')[0];
+        autoSaveConfig({registrationDeadline: localInputToISO(value), regEndDate: datePart});
       }
     };
-    container.querySelector('#ev-deadline').onchange = e=> autoSaveConfig({registrationDeadline: localInputToISO(e.target.value)});
     container.querySelector('#ev-regopen').onchange = async (e)=>{
       const newValue = e.target.checked;
       try{
