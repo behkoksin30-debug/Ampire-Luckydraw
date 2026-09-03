@@ -46,7 +46,8 @@
   .field input[type=text],.field input[type=number],.field input[type=password]{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:15px;background:var(--paper);color:var(--ink);}
   .field input:focus{outline:none;border-color:var(--gold);}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-  @media (max-width:520px){.row2{grid-template-columns:1fr;}}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  @media (max-width:520px){.row2{grid-template-columns:1fr;} .row3{grid-template-columns:1fr;}}
   .upload-box{border:1.5px dashed var(--line);border-radius:10px;padding:16px;background:#fffaf1;display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
   .upload-box input[type=file]{display:none;}
   .upload-btn{background:var(--plum);color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:600;}
@@ -1509,11 +1510,25 @@
     if(state.draftTiers === null){
       state.draftTiers = (state.eventConfig.tiers||[]).map(tr=>({threshold: String(tr.threshold), bonus: String(tr.bonus)}));
     }
+    async function autoSaveConfig(partialBody, successMsg){
+      try{
+        await api('/api/config', {method:'PUT', auth:true, body: partialBody});
+        await loadEventConfig();
+        showToast(successMsg || t('已保存','Saved'));
+        renderAdminSettingsTab(container);
+      }catch(e){ showToast(e.message); }
+    }
+    async function saveTiers(){
+      const validTiers = state.draftTiers.filter(tr=> tr.threshold.toString().trim() && tr.bonus.toString().trim());
+      await autoSaveConfig({tiers: validTiers}, t('门槛已更新','Tiers updated'));
+    }
     container.innerHTML = `
       <div class="settings-note">${t('提示：抽奖资料（含照片）保存在服务器的 data 目录里，只有知道管理员密码的人能查看，请勿将后台密码告诉参与者。','Note: Draw data (including photos) is stored in the server\'s data folder — only people who know the admin password can view it. Do not share the admin password with participants.')}</div>
       <div style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:16px;margin-bottom:22px;">
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">${t('开始新一场活动','Start New Event')}</label>
-        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">${t('会把目前所有资料（参与名单、奖品、中奖记录）和活动设置整个存档保存，然后系统重置成全新状态。管理员密码不受影响，存档之后可以在「历史存档」查看或恢复。','This archives all current data (entries, prizes, draw history) and settings, then resets the system to a fresh state. Your admin password is not affected — you can view or restore the archive later under "Archives".')}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+          <label style="font-size:13.5px;font-weight:700;color:var(--plum);margin:0;">${t('开始新一场活动','Start New Event')}</label>
+          ${hintIcon(t('会把目前所有资料（参与名单、奖品、中奖记录）和活动设置整个存档保存，然后系统重置成全新状态。管理员密码不受影响，存档之后可以在「历史存档」查看或恢复。','This archives all current data (entries, prizes, draw history) and settings, then resets the system to a fresh state. Your admin password is not affected — you can view or restore the archive later under "Archives".'))}
+        </div>
         <input type="text" id="new-event-label" placeholder="${t('给这次存档取个名字（选填，比如「9月场次」）','Name this archive (optional, e.g. "September Event")')}" style="width:100%;max-width:400px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
         <br><button class="small-btn" id="start-new-event-btn">${t('开始新一场','Start New Event')}</button>
       </div>
@@ -1534,22 +1549,26 @@
         </div>
         <button class="small-btn ghost" id="add-tier-btn" type="button">+ ${t('添加门槛','Add Tier')}</button>
       </div>
-      <div class="field"><label>${t('每人最多可中奖次数','Max Wins Per Person')} ${hintIcon(t('大抽奖 + 幸运轮盘加起来算，填0代表不限制','Main Draw + Lucky Wheel combined, 0 = unlimited'))}</label><input type="text" id="ev-maxwins" value="${escapeAttr(state.eventConfig.maxWinsPerPerson)}"></div>
-      <div class="field"><label>${t('每人抽奖机会上限','Max Chances Per Person')} ${hintIcon(t('不管基础次数+门槛加起来算出多少票，最多不能超过这个数字；填0代表不限制','Regardless of base + tier chances, the total cannot exceed this number; 0 = unlimited'))}</label><input type="text" id="ev-maxtickets" value="${escapeAttr(state.eventConfig.maxTicketsPerPerson)}"></div>
-      <div class="field"><label>${t('幸运轮盘门槛','Lucky Wheel Threshold')} ${hintIcon(t('金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物，每人限领一次；填0代表不启用','People who reach this amount can be given a guaranteed gift by the admin on the Draw page, once per person; 0 = disabled'))}</label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
-      <div class="field"><label>${t('抽奖动画时长（秒）','Draw Animation Duration (sec)')} ${hintIcon(t('大抽奖和幸运轮盘抽礼物共用，3~10秒之间','Shared by Main Draw and Lucky Wheel, 3–10 seconds'))}</label><input type="number" id="ev-drawduration" min="3" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}"></div>
-      <div class="field"><label>${t('抽奖音效主题','Draw Sound Theme')} ${hintIcon(t('大抽奖和转盘共用同一个主题','Shared by Main Draw and the wheel'))}</label>
-        <select id="ev-soundtheme">
-          <option value="classic" ${(!state.eventConfig.soundTheme||state.eventConfig.soundTheme==='classic')?'selected':''}>${t('经典滋答声','Classic Tick')}</option>
-          <option value="electronic" ${state.eventConfig.soundTheme==='electronic'?'selected':''}>${t('电子音效','Electronic')}</option>
-          <option value="drum" ${state.eventConfig.soundTheme==='drum'?'selected':''}>${t('鼓声风','Drum')}</option>
-        </select>
+      <div class="row3">
+        <div class="field"><label>${t('每人最多可中奖次数','Max Wins Per Person')} ${hintIcon(t('大抽奖 + 幸运轮盘加起来算，填0代表不限制','Main Draw + Lucky Wheel combined, 0 = unlimited'))}</label><input type="text" id="ev-maxwins" value="${escapeAttr(state.eventConfig.maxWinsPerPerson)}"></div>
+        <div class="field"><label>${t('每人抽奖机会上限','Max Chances Per Person')} ${hintIcon(t('不管基础次数+门槛加起来算出多少票，最多不能超过这个数字；填0代表不限制','Regardless of base + tier chances, the total cannot exceed this number; 0 = unlimited'))}</label><input type="text" id="ev-maxtickets" value="${escapeAttr(state.eventConfig.maxTicketsPerPerson)}"></div>
+        <div class="field"><label>${t('幸运轮盘门槛','Lucky Wheel Threshold')} ${hintIcon(t('金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物，每人限领一次；填0代表不启用','People who reach this amount can be given a guaranteed gift by the admin on the Draw page, once per person; 0 = disabled'))}</label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>${t('抽奖动画时长（秒）','Draw Animation Duration (sec)')} ${hintIcon(t('大抽奖和幸运轮盘抽礼物共用，3~10秒之间','Shared by Main Draw and Lucky Wheel, 3–10 seconds'))}</label><input type="number" id="ev-drawduration" min="3" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}"></div>
+        <div class="field"><label>${t('抽奖音效主题','Draw Sound Theme')} ${hintIcon(t('大抽奖和转盘共用同一个主题','Shared by Main Draw and the wheel'))}</label>
+          <select id="ev-soundtheme">
+            <option value="classic" ${(!state.eventConfig.soundTheme||state.eventConfig.soundTheme==='classic')?'selected':''}>${t('经典滋答声','Classic Tick')}</option>
+            <option value="electronic" ${state.eventConfig.soundTheme==='electronic'?'selected':''}>${t('电子音效','Electronic')}</option>
+            <option value="drum" ${state.eventConfig.soundTheme==='drum'?'selected':''}>${t('鼓声风','Drum')}</option>
+          </select>
+        </div>
       </div>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
         <div class="toggle-row">
           <div class="toggle-row-text">
             <span class="title">${t('开放报名','Registration Open')}</span>
-            ${hintIcon(t('关闭后，参与者打开页面会看到「报名已结束」，无法再登记；这个开关拖动后立刻生效，不用按下面的保存','When off, participants will see "Registration closed" and cannot register; this switch takes effect immediately — no need to click Save'))}
+            ${hintIcon(t('关闭后，参与者打开页面会看到「报名已结束」，无法再登记；这个开关拖动后立刻生效，不用按保存','When off, participants will see "Registration closed" and cannot register; this switch takes effect immediately — no need to click Save'))}
           </div>
           <label class="switch">
             <input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}>
@@ -1560,22 +1579,24 @@
         <div class="field"><label>${t('报名截止时间','Registration Deadline')} ${hintIcon(t('时间到了会自动关闭「开放报名」，之后仍可手动重新打开；留空代表不设截止时间','Registration will auto-close when this time passes; you can still manually reopen it afterward. Leave blank for no deadline'))}</label><input type="datetime-local" id="ev-deadline" value="${escapeAttr(isoToLocalInputValue(state.eventConfig.registrationDeadline))}"></div>
       </div>
       <div style="margin-top:22px;">
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">${t('允许的订单日期范围','Allowed Order Date Range')}</label>
-        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">${t('用来核对参与者上传照片里 OCR 识别到的订单日期，不在范围内会拒绝上传；留空代表不限制，跟报名开放/关闭无关','Used to check the order date OCR-read from the uploaded photo; uploads outside this range are rejected. Leave blank for no limit — independent of registration open/closed')}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+          <label style="font-size:13.5px;font-weight:700;color:var(--plum);margin:0;">${t('允许的订单日期范围','Allowed Order Date Range')}</label>
+          ${hintIcon(t('用来核对参与者上传照片里 OCR 识别到的订单日期，不在范围内会拒绝上传；留空代表不限制，跟报名开放/关闭无关','Used to check the order date OCR-read from the uploaded photo; uploads outside this range are rejected. Leave blank for no limit — independent of registration open/closed'))}
+        </div>
         <div class="row2">
           <div class="field"><label>${t('开始日期','Start Date')} ${hintIcon(t('留空代表不限制','Leave blank for no limit'))}</label><input type="date" id="ev-startdate" value="${escapeAttr(state.eventConfig.regStartDate)}"></div>
           <div class="field"><label>${t('结束日期','End Date')} ${hintIcon(t('留空代表不限制','Leave blank for no limit'))}</label><input type="date" id="ev-enddate" value="${escapeAttr(state.eventConfig.regEndDate)}"></div>
         </div>
       </div>
       <div style="margin-top:22px;">
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('活动海报','Event Poster')}</label>
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('活动海报','Event Poster')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
         <div class="upload-box">
           <label class="upload-btn">${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?t('更换海报','Change Poster'):t('上传海报','Upload Poster')}<input type="file" id="poster-upload" accept="image/*"></label>
           ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<img class="thumb" style="width:64px;height:64px;" src="${state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页会显示预设标题','Not uploaded yet — the registration page will show the default title')}</span>`}
           ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<button class="small-btn ghost" id="remove-poster-btn" type="button">${t('移除海报','Remove Poster')}</button>`:''}
         </div>
+        <button class="small-btn" id="save-poster-btn" style="margin-top:12px;">${t('保存海报','Save Poster')}</button>
       </div>
-      <button class="small-btn" id="save-event-btn" style="margin-top:20px;">${t('保存','Save')}</button>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
         <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('修改管理员密码','Change Admin Password')}</label>
         <input type="password" id="new-pw" placeholder="${t('新密码（至少4位）','New password (at least 4 characters)')}" style="width:100%;max-width:280px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
@@ -1593,11 +1614,24 @@
       const i = parseInt(row.getAttribute('data-tier-row'), 10);
       row.querySelector('.tier-threshold').oninput = e=>{ state.draftTiers[i].threshold = e.target.value; };
       row.querySelector('.tier-bonus').oninput = e=>{ state.draftTiers[i].bonus = e.target.value; };
+      row.querySelector('.tier-threshold').onchange = saveTiers;
+      row.querySelector('.tier-bonus').onchange = saveTiers;
     });
     container.querySelectorAll('[data-del-tier]').forEach(btn=>{
-      btn.onclick = ()=>{ state.draftTiers.splice(parseInt(btn.getAttribute('data-del-tier'),10), 1); renderAdminSettingsTab(container); };
+      btn.onclick = ()=>{ state.draftTiers.splice(parseInt(btn.getAttribute('data-del-tier'),10), 1); saveTiers(); };
     });
     container.querySelector('#add-tier-btn').onclick = ()=>{ state.draftTiers.push({threshold:'', bonus:''}); renderAdminSettingsTab(container); };
+    container.querySelector('#ev-title').onchange = e=> autoSaveConfig({title: e.target.value});
+    container.querySelector('#ev-subtitle').onchange = e=> autoSaveConfig({subtitle: e.target.value});
+    container.querySelector('#ev-rate').onchange = e=> autoSaveConfig({conversionRate: e.target.value});
+    container.querySelector('#ev-maxwins').onchange = e=> autoSaveConfig({maxWinsPerPerson: e.target.value});
+    container.querySelector('#ev-maxtickets').onchange = e=> autoSaveConfig({maxTicketsPerPerson: e.target.value});
+    container.querySelector('#ev-giftthreshold').onchange = e=> autoSaveConfig({guaranteedGiftThreshold: e.target.value});
+    container.querySelector('#ev-drawduration').onchange = e=> autoSaveConfig({drawDurationSeconds: e.target.value});
+    container.querySelector('#ev-soundtheme').onchange = e=> autoSaveConfig({soundTheme: e.target.value});
+    container.querySelector('#ev-startdate').onchange = e=> autoSaveConfig({regStartDate: e.target.value});
+    container.querySelector('#ev-enddate').onchange = e=> autoSaveConfig({regEndDate: e.target.value});
+    container.querySelector('#ev-deadline').onchange = e=> autoSaveConfig({registrationDeadline: localInputToISO(e.target.value)});
     container.querySelector('#ev-regopen').onchange = async (e)=>{
       const newValue = e.target.checked;
       try{
@@ -1618,21 +1652,15 @@
     };
     const removePosterBtn = container.querySelector('#remove-poster-btn');
     if(removePosterBtn) removePosterBtn.onclick = ()=>{ state.draftPosterImage = null; renderAdminSettingsTab(container); };
-    container.querySelector('#save-event-btn').onclick = ()=> saveEventConfig(
-      container.querySelector('#ev-title').value,
-      container.querySelector('#ev-subtitle').value,
-      container.querySelector('#ev-rate').value,
-      state.draftTiers.filter(tr=> tr.threshold.toString().trim() && tr.bonus.toString().trim()),
-      container.querySelector('#ev-maxwins').value,
-      container.querySelector('#ev-giftthreshold').value,
-      container.querySelector('#ev-maxtickets').value,
-      container.querySelector('#ev-regopen').checked,
-      container.querySelector('#ev-startdate').value,
-      container.querySelector('#ev-enddate').value,
-      container.querySelector('#ev-drawduration').value,
-      localInputToISO(container.querySelector('#ev-deadline').value),
-      container.querySelector('#ev-soundtheme').value
-    );
+    container.querySelector('#save-poster-btn').onclick = async ()=>{
+      try{
+        await api('/api/config', {method:'PUT', auth:true, body:{posterImage: state.draftPosterImage !== undefined ? state.draftPosterImage : state.eventConfig.posterImage}});
+        state.draftPosterImage = undefined;
+        await loadEventConfig();
+        showToast(t('海报已保存','Poster saved'));
+        renderAdminSettingsTab(container);
+      }catch(e){ showToast(e.message); }
+    };
     container.querySelector('#change-pw-btn').onclick = async ()=>{
       const v = container.querySelector('#new-pw').value;
       if(!v || v.length<4){ showToast(t('密码至少4位','Password must be at least 4 characters')); return; }
