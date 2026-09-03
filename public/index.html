@@ -6,7 +6,7 @@
 <title>幸运抽奖系统</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/1.0.17/tesseract.min.js" onerror="window.__ocrLoadFailed=true"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/6.0.1/tesseract.min.js" onerror="window.__ocrLoadFailed=true"></script>
 <style>
   :root{
     --cream:#FBF3E7;
@@ -378,9 +378,18 @@
     return { orderId, amount };
   }
 
+  /* ---------------- OCR worker (v5+ async API, created once and reused) ---------------- */
+  let __ocrWorkerPromise = null;
+  function getOcrWorker(){
+    if(!__ocrWorkerPromise){
+      __ocrWorkerPromise = Tesseract.createWorker('eng').catch(err=>{ __ocrWorkerPromise = null; throw err; });
+    }
+    return __ocrWorkerPromise;
+  }
+
   async function runOcr(){
     if(!state.form.photo){ showToast('请先上传订单截图 / Please upload the order screenshot first'); return; }
-    if(window.__ocrLoadFailed || typeof Tesseract === 'undefined'){ showToast('OCR识别暂不可用，请手动填写 / OCR unavailable, please fill in manually'); return; }
+    if(window.__ocrLoadFailed || typeof Tesseract === 'undefined' || typeof Tesseract.createWorker !== 'function'){ showToast('OCR识别暂不可用，请手动填写 / OCR unavailable, please fill in manually'); return; }
     state.ocrBusy = true; render();
     try{
       let ocrImage = state.form.photo;
@@ -388,10 +397,9 @@
         try{ ocrImage = await prepareOcrImage(state.form.originalFile); }
         catch(prepErr){ /* fall back to the compressed display photo if enhancement fails */ }
       }
-      const result = await new Promise((resolve, reject)=>{
-        Tesseract.recognize(ocrImage, {lang:'eng'}).progress(()=>{}).then(resolve).catch(reject);
-      });
-      const text = (result && result.text) ? result.text : '';
+      const worker = await getOcrWorker();
+      const { data } = await worker.recognize(ocrImage);
+      const text = (data && data.text) ? data.text : '';
       state.ocrText = text.trim();
       const guess = guessOrderIdAndAmount(text);
       if(guess.orderId) state.form.orderId = guess.orderId;
