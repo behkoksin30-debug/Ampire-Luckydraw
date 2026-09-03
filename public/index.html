@@ -793,8 +793,16 @@
 
   function registrationClosedReason(){
     const cfg = state.eventConfig;
-    if(cfg.registrationOpen === false) return 'closed';
+    if(cfg.registrationOpen === false){
+      const today = todayStr();
+      if(cfg.regStartDate && today < cfg.regStartDate) return 'notstarted';
+      return 'closed';
+    }
     return null;
+  }
+  function todayStr(){
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   }
   function formatCountdown(deadlineStr){
     if(!deadlineStr) return null;
@@ -858,7 +866,7 @@
           <div class="perforation"></div>
           <div class="ticket-body" style="text-align:center;padding:40px 30px;">
             <div style="font-size:18px;font-weight:700;color:var(--plum);margin-bottom:8px;">
-              报名已结束 / Registration is closed
+              ${closedReason==='notstarted' ? '报名尚未开始 / Registration has not started yet' : '报名已结束 / Registration is closed'}
             </div>
           </div>
         </div>
@@ -1534,20 +1542,22 @@
       </div>
       <div class="field"><label>${t('活动标题','Event Title')}</label><input type="text" id="ev-title" value="${escapeAttr(state.eventConfig.title)}"></div>
       <div class="field"><label>${t('活动说明','Event Subtitle')}</label><input type="text" id="ev-subtitle" value="${escapeAttr(state.eventConfig.subtitle)}"></div>
-      <div class="field"><label>${t('换算比例','Conversion Rate')} ${hintIcon(t('每 RM 多少 = 1次抽奖机会（取整数向下），这是基础次数','Every RM how much = 1 chance (rounded down) — this is the base chance count'))}</label><input type="text" id="ev-rate" value="${escapeAttr(state.eventConfig.conversionRate)}"></div>
-      <div class="field">
-        <label>${t('奖励门槛','Bonus Tiers')} ${hintIcon(t('金额达到门槛时，在基础次数上额外加送次数（可叠加多档，跟基础次数相加）','When spending reaches a tier, extra chances are added on top of the base count (multiple tiers stack, added to the base)'))}</label>
-        <div id="tiers-list">
-          ${state.draftTiers.length===0?`<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">${t('还没有设置门槛','No tiers set yet')}</div>`:
-            state.draftTiers.map((tr,i)=>`
-              <div class="add-prize-form" style="margin-bottom:8px;" data-tier-row="${i}">
-                <input type="text" class="tier-threshold" placeholder="${t('满 RM 多少','Spend RM')}" value="${escapeAttr(tr.threshold)}">
-                <input type="text" class="tier-bonus" placeholder="${t('额外加送次数','Bonus chances')}" value="${escapeAttr(tr.bonus)}" style="max-width:140px;">
-                <button class="del-btn" data-del-tier="${i}">${t('删除','Delete')}</button>
-              </div>
-            `).join('')}
+      <div class="row2">
+        <div class="field"><label>${t('换算比例','Conversion Rate')} ${hintIcon(t('每 RM 多少 = 1次抽奖机会（取整数向下），这是基础次数','Every RM how much = 1 chance (rounded down) — this is the base chance count'))}</label><input type="text" id="ev-rate" value="${escapeAttr(state.eventConfig.conversionRate)}"></div>
+        <div class="field">
+          <label>${t('奖励门槛','Bonus Tiers')} ${hintIcon(t('金额达到门槛时，在基础次数上额外加送次数（可叠加多档，跟基础次数相加）','When spending reaches a tier, extra chances are added on top of the base count (multiple tiers stack, added to the base)'))}</label>
+          <div id="tiers-list">
+            ${state.draftTiers.length===0?`<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">${t('还没有设置门槛','No tiers set yet')}</div>`:
+              state.draftTiers.map((tr,i)=>`
+                <div class="add-prize-form" style="margin-bottom:8px;" data-tier-row="${i}">
+                  <input type="text" class="tier-threshold" placeholder="${t('满 RM 多少','Spend RM')}" value="${escapeAttr(tr.threshold)}">
+                  <input type="text" class="tier-bonus" placeholder="${t('额外加送次数','Bonus chances')}" value="${escapeAttr(tr.bonus)}" style="max-width:140px;">
+                  <button class="del-btn" data-del-tier="${i}">${t('删除','Delete')}</button>
+                </div>
+              `).join('')}
+          </div>
+          <button class="small-btn ghost" id="add-tier-btn" type="button">+ ${t('添加门槛','Add Tier')}</button>
         </div>
-        <button class="small-btn ghost" id="add-tier-btn" type="button">+ ${t('添加门槛','Add Tier')}</button>
       </div>
       <div class="row3">
         <div class="field"><label>${t('每人最多可中奖次数','Max Wins Per Person')} ${hintIcon(t('大抽奖 + 幸运轮盘加起来算，填0代表不限制','Main Draw + Lucky Wheel combined, 0 = unlimited'))}</label><input type="text" id="ev-maxwins" value="${escapeAttr(state.eventConfig.maxWinsPerPerson)}"></div>
@@ -1568,24 +1578,24 @@
         <div class="toggle-row">
           <div class="toggle-row-text">
             <span class="title">${t('开放报名','Registration Open')}</span>
-            ${hintIcon(t('关闭后，参与者打开页面会看到「报名已结束」，无法再登记；这个开关拖动后立刻生效，不用按保存','When off, participants will see "Registration closed" and cannot register; this switch takes effect immediately — no need to click Save'))}
+            ${hintIcon(t('这个开关拖动后立刻生效，不用按保存。系统也会依照下面的活动日期范围自动开放/关闭，但这个开关随时可以手动覆盖系统的自动判断','This switch takes effect immediately — no need to click Save. The system also auto opens/closes based on the event date range below, but this switch can always manually override the automatic behavior'))}
           </div>
           <label class="switch">
             <input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}>
             <span class="slider"></span>
           </label>
         </div>
-        <div class="toggle-state-note" style="margin-bottom:14px;">${state.eventConfig.registrationOpen? t('当前：开放中，参与者可以正常登记','Currently: Open — participants can register') : t('当前：已关闭，参与者会看到「报名已结束」','Currently: Closed — participants will see "Registration closed"')}</div>
-        <div class="field"><label>${t('报名截止时间','Registration Deadline')} ${hintIcon(t('时间到了会自动关闭「开放报名」，之后仍可手动重新打开；留空代表不设截止时间','Registration will auto-close when this time passes; you can still manually reopen it afterward. Leave blank for no deadline'))}</label><input type="datetime-local" id="ev-deadline" value="${escapeAttr(isoToLocalInputValue(state.eventConfig.registrationDeadline))}"></div>
+        <div class="toggle-state-note" style="margin-bottom:14px;">${state.eventConfig.registrationOpen? t('当前：开放中，参与者可以正常登记','Currently: Open — participants can register') : t('当前：已关闭，参与者会看到「报名已结束」或「报名尚未开始」','Currently: Closed — participants will see "Registration closed" or "Registration has not started yet"')}</div>
       </div>
       <div style="margin-top:22px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
-          <label style="font-size:13.5px;font-weight:700;color:var(--plum);margin:0;">${t('允许的订单日期范围','Allowed Order Date Range')}</label>
-          ${hintIcon(t('用来核对参与者上传照片里 OCR 识别到的订单日期，不在范围内会拒绝上传；留空代表不限制，跟报名开放/关闭无关','Used to check the order date OCR-read from the uploaded photo; uploads outside this range are rejected. Leave blank for no limit — independent of registration open/closed'))}
+          <label style="font-size:13.5px;font-weight:700;color:var(--plum);margin:0;">${t('活动日期范围','Event Date Range')}</label>
+          ${hintIcon(t('这个日期范围同时控制两件事：① 报名会自动只在这段期间开放，超出范围自动关闭（上面的开关可以随时手动覆盖）；② 用来核对参与者上传照片里 OCR 识别到的订单日期，不在范围内会拒绝上传。留空代表不限制','This date range controls two things: ① Registration is automatically open only during this period, and closes outside it (the switch above can always manually override this); ② It checks the order date OCR-read from uploaded photos — uploads outside this range are rejected. Leave blank for no limit'))}
         </div>
+        <div class="field"><label>${t('开始日期','Start Date')} ${hintIcon(t('留空代表不限制','Leave blank for no limit'))}</label><input type="date" id="ev-startdate" value="${escapeAttr(state.eventConfig.regStartDate)}"></div>
         <div class="row2">
-          <div class="field"><label>${t('开始日期','Start Date')} ${hintIcon(t('留空代表不限制','Leave blank for no limit'))}</label><input type="date" id="ev-startdate" value="${escapeAttr(state.eventConfig.regStartDate)}"></div>
           <div class="field"><label>${t('结束日期','End Date')} ${hintIcon(t('留空代表不限制','Leave blank for no limit'))}</label><input type="date" id="ev-enddate" value="${escapeAttr(state.eventConfig.regEndDate)}"></div>
+          <div class="field"><label>${t('报名截止时间','Registration Deadline')} ${hintIcon(t('可选，用来指定结束日期当天的精确时间点（比如晚上6点关闭），不填的话结束日期当天午夜才关闭；填了之后仍可手动重新打开','Optional — set a precise time on the end date (e.g. 6pm), otherwise it closes at midnight on the end date; you can still manually reopen it afterward'))}</label><input type="datetime-local" id="ev-deadline" value="${escapeAttr(isoToLocalInputValue(state.eventConfig.registrationDeadline))}"></div>
         </div>
       </div>
       <div style="margin-top:22px;">
@@ -1630,7 +1640,16 @@
     container.querySelector('#ev-drawduration').onchange = e=> autoSaveConfig({drawDurationSeconds: e.target.value});
     container.querySelector('#ev-soundtheme').onchange = e=> autoSaveConfig({soundTheme: e.target.value});
     container.querySelector('#ev-startdate').onchange = e=> autoSaveConfig({regStartDate: e.target.value});
-    container.querySelector('#ev-enddate').onchange = e=> autoSaveConfig({regEndDate: e.target.value});
+    container.querySelector('#ev-enddate').onchange = e=>{
+      const endDate = e.target.value;
+      const deadlineInput = container.querySelector('#ev-deadline');
+      if(endDate && !deadlineInput.value){
+        const derivedDeadline = endDate + 'T23:59';
+        autoSaveConfig({regEndDate: endDate, registrationDeadline: localInputToISO(derivedDeadline)}, t('已更新（报名截止时间已自动设为结束日期当天午夜）','Updated (Registration Deadline auto-set to midnight on the end date)'));
+      } else {
+        autoSaveConfig({regEndDate: endDate});
+      }
+    };
     container.querySelector('#ev-deadline').onchange = e=> autoSaveConfig({registrationDeadline: localInputToISO(e.target.value)});
     container.querySelector('#ev-regopen').onchange = async (e)=>{
       const newValue = e.target.checked;
