@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/6.0.1/tesseract.min.js" onerror="window.__ocrLoadFailed=true"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" onerror="window.__confettiLoadFailed=true"></script>
 <style>
   :root{
     --cream:#FBF3E7;
@@ -740,6 +741,30 @@
       }
     }catch(e){}
   }
+  /* ---------------- win confetti ---------------- */
+  const CONFETTI_PALETTE = ['#C6963C','#F0D9A0','#3E1638','#55204c','#A73347'];
+  function burstConfetti(){
+    if(!window.confetti || window.__confettiLoadFailed) return;
+    try{ confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: CONFETTI_PALETTE }); }catch(e){}
+  }
+  function fireworksConfetti(){
+    if(!window.confetti || window.__confettiLoadFailed) return;
+    try{
+      const end = Date.now() + 1200;
+      (function frame(){
+        confetti({ particleCount: 30, angle: 60, spread: 55, origin: { x: 0.2, y: 0.6 }, colors: CONFETTI_PALETTE });
+        confetti({ particleCount: 30, angle: 120, spread: 55, origin: { x: 0.8, y: 0.6 }, colors: CONFETTI_PALETTE });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      })();
+    }catch(e){}
+  }
+  function celebrateMainDrawWin(prize){
+    const specialTier = prize && (prize.tier==='大奖' || prize.tier==='二奖' || prize.tier==='三奖');
+    if(specialTier) fireworksConfetti(); else burstConfetti();
+  }
+  function celebrateGuaranteedWin(){
+    fireworksConfetti();
+  }
   function drawTickCount(){
     const seconds = state.eventConfig.drawDurationSeconds || 5;
     return Math.max(4, Math.round(seconds*1000/90));
@@ -809,6 +834,7 @@
         state.revealedWinner = pool[Math.floor(Math.random()*pool.length)];
         state.drawing = false;
         playWinChime();
+        celebrateMainDrawWin(selectedPrize);
         render();
       }
     }, 90);
@@ -1440,6 +1466,7 @@
       state.guaranteedRevealedPrize = winner;
       state.guaranteedSpinning = false;
       playWinChime();
+      celebrateGuaranteedWin();
       render();
     }, duration*1000 + 150);
     scheduleWheelTicks(duration);
