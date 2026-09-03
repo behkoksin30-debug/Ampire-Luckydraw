@@ -161,7 +161,7 @@
     entries: [], prizes: [], draws: [],
     eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, tutorialImage: null, drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic' },
     adminPasswordSet: null,
-    form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null, originalFile:null, ocrOverride:false },
+    form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false },
     formErrors: {},
     ocrBusy: false, ocrText: '',
     search: '',
@@ -410,8 +410,10 @@
       const guess = guessOrderIdAndAmount(text);
       if(guess.orderId) state.form.orderId = guess.orderId;
       if(guess.amount) state.form.amount = guess.amount;
+      const guessedDate = guessOrderDate(text, state.eventConfig.regStartDate, state.eventConfig.regEndDate);
+      if(guessedDate) state.form.orderDate = guessedDate;
       state.form.ocrOverride = false;
-      showToast((guess.orderId||guess.amount) ? '已自动填入，请核对是否正确 / Auto-filled, please verify' : '未能自动识别，请手动填写并核对 / Could not auto-detect, please fill in and check manually');
+      showToast((guess.orderId||guess.amount||guessedDate) ? '已自动填入，请核对是否正确 / Auto-filled, please verify' : '未能自动识别，请手动填写并核对 / Could not auto-detect, please fill in and check manually');
     }catch(e){ showToast('OCR识别失败，请手动填写 / OCR failed, please fill in manually'); }
     state.ocrBusy = false; render();
   }
@@ -425,13 +427,14 @@
     const foundAmount = extractOrderAmount(ocrText);
     const typedAmount = parseFloat(state.form.amount);
     const amountMismatch = foundAmount===null || isNaN(typedAmount) || Math.abs(typedAmount-foundAmount)>0.01;
-    let dateMismatch = false;
+    const foundDates = extractOrderDatesISO(ocrText);
+    const typedDate = (state.form.orderDate||'').trim();
     const startD = state.eventConfig.regStartDate, endD = state.eventConfig.regEndDate;
-    if(startD || endD){
-      const foundDates = extractOrderDatesISO(ocrText);
-      dateMismatch = foundDates.length===0 || !foundDates.some(d => (!startD || d>=startD) && (!endD || d<=endD));
+    let dateMismatch = !typedDate || foundDates.length===0 || !foundDates.includes(typedDate);
+    if(!dateMismatch && (startD || endD)){
+      dateMismatch = !((!startD || typedDate>=startD) && (!endD || typedDate<=endD));
     }
-    return { orderIdMismatch, amountMismatch, dateMismatch, foundOrderIds, foundAmount, hasIssue: orderIdMismatch||amountMismatch||dateMismatch };
+    return { orderIdMismatch, amountMismatch, dateMismatch, foundOrderIds, foundAmount, foundDates, typedDate, hasIssue: orderIdMismatch||amountMismatch||dateMismatch };
   }
   function validateForm(){
     const errs = {};
@@ -461,8 +464,16 @@
           }
           if(issue.dateMismatch){
             const startD = state.eventConfig.regStartDate, endD = state.eventConfig.regEndDate;
-            errs.orderDate = '订单日期不在允许范围内或无法识别，请核对，或勾选下方确认框 / Order date is outside the allowed range or could not be detected, please check, or check the box below'
-              + (startD?(' ('+startD+(endD?(' ~ '+endD):'')+')'):(endD?(' (~ '+endD+')'):''));
+            if(!issue.typedDate){
+              errs.orderDate = '请输入订单日期，或勾选下方确认框 / Please enter the order date, or check the box below';
+            } else if(issue.foundDates.length===0){
+              errs.orderDate = '照片中找不到订单日期，请重新上传清晰的订单详情截图，或勾选下方确认框 / Could not find an order date in the photo, please re-upload a clearer photo, or check the box below';
+            } else if(!issue.foundDates.includes(issue.typedDate)){
+              errs.orderDate = '订单日期与照片识别内容不符，请核对，或勾选下方确认框 / Order date does not match the photo, please check, or check the box below';
+            } else {
+              errs.orderDate = '订单日期不在允许范围内，请核对，或勾选下方确认框 / Order date is outside the allowed range, please check, or check the box below'
+                + (startD?(' ('+startD+(endD?(' ~ '+endD):'')+')'):(endD?(' (~ '+endD+')'):''));
+            }
           }
           errs.ocrOverride = '请勾选确认框以继续提交 / Please check the confirmation box to continue';
         }
@@ -474,15 +485,14 @@
   async function submitEntry(){
     if(!validateForm()){ render(); return; }
     try{
-      const orderDate = guessOrderDate(state.ocrText, state.eventConfig.regStartDate, state.eventConfig.regEndDate);
       const r = await api('/api/entries', {method:'POST', body:{
         name: state.form.name.trim(), contact: state.form.contact.trim(),
         ddName: state.form.ddName.trim(), customerName: state.form.customerName.trim(),
         orderId: state.form.orderId.trim(), amount: state.form.amount.toString().trim(),
-        photo: state.form.photo, ocrOverride: !!state.form.ocrOverride, orderDate: orderDate
+        photo: state.form.photo, ocrOverride: !!state.form.ocrOverride, orderDate: (state.form.orderDate||'').trim()
       }});
       state.lastTicket = { id: r.id, name: state.form.name.trim(), customerName: state.form.customerName.trim(), orderId: state.form.orderId.trim() };
-      state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null, originalFile:null, ocrOverride:false };
+      state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false };
       state.ocrText=''; state.view='success'; render();
     }catch(e){ showToast(e.message||'提交失败，请重试 / Submission failed, please try again'); }
   }
@@ -1014,13 +1024,16 @@
             </div>
             ${errs.photo?`<div class="error-text">${errs.photo}</div>`:''}
             ${errs.ocr?`<div class="error-text">${errs.ocr}</div>`:''}
-            ${errs.orderDate?`<div class="error-text">${errs.orderDate}</div>`:''}
             ${state.ocrText?`<div class="ocr-note">识别到的原始文字（供核对）：/ Recognized text (for checking):</div><div class="ocr-text">${escapeHtml(state.ocrText)}</div>`:''}
           </div>
-          <div class="row2">
+          <div class="row3">
             <div class="field"><label>订单号 / Order Details</label>
               <input type="text" id="f-orderid" value="${escapeAttr(f.orderId)}" placeholder="请核对或手动输入 / Check or enter manually">
               ${errs.orderId?`<div class="error-text">${errs.orderId}</div>`:''}
+            </div>
+            <div class="field"><label>订单日期 / Order Date</label>
+              <input type="date" id="f-orderdate" value="${escapeAttr(f.orderDate)}">
+              ${errs.orderDate?`<div class="error-text">${errs.orderDate}</div>`:''}
             </div>
             <div class="field"><label>金额 / Amount (RM)</label>
               <input type="text" id="f-amount" value="${escapeAttr(f.amount)}" placeholder="例如 88.00 / e.g. 88.00">
@@ -1046,6 +1059,7 @@
     document.getElementById('f-ddname').oninput = e=>{ state.form.ddName = e.target.value; };
     document.getElementById('f-customername').oninput = e=>{ state.form.customerName = e.target.value; };
     document.getElementById('f-orderid').oninput = e=>{ state.form.orderId = e.target.value; state.form.ocrOverride = false; };
+    document.getElementById('f-orderdate').oninput = e=>{ state.form.orderDate = e.target.value; state.form.ocrOverride = false; };
     document.getElementById('f-amount').oninput = e=>{ state.form.amount = e.target.value; state.form.ocrOverride = false; };
     document.getElementById('f-photo').onchange = async (e)=>{
       const file = e.target.files[0]; if(!file) return;
@@ -1066,6 +1080,7 @@
       state.form.photo = null;
       state.form.originalFile = null;
       state.form.orderId = '';
+      state.form.orderDate = '';
       state.form.amount = '';
       state.form.ocrOverride = false;
       state.ocrText = '';
