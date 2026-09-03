@@ -26,6 +26,7 @@ function defaultConfig() {
     regStartDate: '',
     regEndDate: '',
     posterImage: null,
+    tutorialImage: null,
     drawDurationSeconds: 5,
     registrationDeadline: '',
     soundTheme: 'classic',
@@ -152,6 +153,7 @@ app.get('/api/config', (req, res) => {
     regStartDate: cfg.regStartDate || '',
     regEndDate: cfg.regEndDate || '',
     posterImage: cfg.posterImage || null,
+    tutorialImage: cfg.tutorialImage || null,
     drawDurationSeconds: cfg.drawDurationSeconds || 5,
     registrationDeadline: cfg.registrationDeadline || '',
     soundTheme: cfg.soundTheme || 'classic'
@@ -194,6 +196,9 @@ app.put('/api/config', requireAdmin, (req, res) => {
   }
   if (req.body.posterImage !== undefined) {
     cfg.posterImage = req.body.posterImage || null;
+  }
+  if (req.body.tutorialImage !== undefined) {
+    cfg.tutorialImage = req.body.tutorialImage || null;
   }
   if (req.body.drawDurationSeconds !== undefined) {
     const ds = parseFloat(req.body.drawDurationSeconds);
