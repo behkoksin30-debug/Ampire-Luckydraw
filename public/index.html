@@ -951,7 +951,7 @@
           <div class="field"><label>上传订单截图 / Upload Order Screenshot</label>
             ${state.eventConfig.tutorialImage?`<a id="tutorial-link" href="javascript:void(0)" style="font-size:12.5px;color:var(--gold);font-weight:700;text-decoration:underline;margin-left:8px;">如何截图？ / How to screenshot?</a>`:''}
             <div class="upload-box">
-              <label class="upload-btn">选择照片 / Choose Photo<input type="file" id="f-photo" accept="image/*"></label>
+              <label class="upload-btn">点击选择照片 / Click to Choose Photo<input type="file" id="f-photo" accept="image/*"></label>
               ${f.photo?`<img class="thumb" id="entry-photo-preview" src="${f.photo}" style="cursor:pointer;">`:''}
               ${f.photo?`<button class="ocr-btn" id="ocr-btn" ${state.ocrBusy?'disabled':''}>${state.ocrBusy?'识别中… / Recognizing…':'OCR自动识别 / OCR Auto-Detect'}</button>`:''}
               ${f.photo?`<button class="small-btn ghost" id="reset-photo-btn" type="button">Reset</button>`:''}
@@ -962,7 +962,7 @@
             ${state.ocrText?`<div class="ocr-note">识别到的原始文字（供核对）：/ Recognized text (for checking):</div><div class="ocr-text">${escapeHtml(state.ocrText)}</div>`:''}
           </div>
           <div class="row2">
-            <div class="field"><label>订单号 / Order ID</label>
+            <div class="field"><label>订单号 / Order Details</label>
               <input type="text" id="f-orderid" value="${escapeAttr(f.orderId)}" placeholder="请核对或手动输入 / Check or enter manually">
               ${errs.orderId?`<div class="error-text">${errs.orderId}</div>`:''}
             </div>
