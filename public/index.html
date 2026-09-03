@@ -167,6 +167,7 @@
     historySearch: '',
     showTotalAmount: true,
     prizeSortMode: 'value_asc',
+    editingEntryId: null,
     lightboxSrc: null,
     drawing: false, drawSelectedPrize: '',
     rollingName: '', revealedWinner: null,
@@ -434,6 +435,17 @@
     if(!confirm(t('确定要删除这条登记资料吗？此操作无法撤销。','Delete this registration? This cannot be undone.'))) return;
     try{ await api('/api/entries/'+id, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
     catch(e){ showToast(e.message); }
+  }
+  async function saveEntryEdit(id, orderId, amount, container){
+    if(!orderId.trim()){ showToast(t('订单号不能为空','Order ID cannot be empty')); return; }
+    if(!amount.toString().trim()){ showToast(t('金额不能为空','Amount cannot be empty')); return; }
+    try{
+      await api('/api/entries/'+id, {method:'PUT', auth:true, body:{orderId: orderId.trim(), amount: amount.toString().trim()}});
+      state.editingEntryId = null;
+      await loadAdminData();
+      showToast(t('已保存','Saved'));
+      renderAdminEntriesTab(container);
+    }catch(e){ showToast(e.message); }
   }
   async function deleteAllEntries(){
     if(state.entries.length===0){ showToast(t('目前没有资料','No entries yet')); return; }
@@ -1097,26 +1109,49 @@
       <table>
         <thead><tr><th>${t('照片','Photo')}</th><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th><th>${t('时间','Time')}</th><th></th></tr></thead>
         <tbody>
-          ${list.map(en=>`
+          ${list.map(en=>{
+            const isEditing = state.editingEntryId === en.id;
+            return `
             <tr>
               <td><img class="mini-thumb" data-src="${en.photo}" src="${en.photo}"></td>
               <td>${escapeHtml(en.name)}</td>
               <td>${escapeHtml(en.contact)}</td>
               <td>${escapeHtml(en.ddName||'—')}</td>
               <td>${escapeHtml(en.customerName||'—')}</td>
-              <td>${escapeHtml(en.orderId)}${en.ocrOverride?` <span title="${t('此资料未通过OCR自动核实，订单号或金额为参与者手动确认','This entry was not auto-verified by OCR — Order ID or Amount was manually confirmed by the participant')}" style="color:var(--rose);font-weight:700;cursor:help;">⚠</span>`:''}</td>
-              <td>${escapeHtml(String(en.amount))}</td>
+              <td>${isEditing?`<input type="text" class="edit-orderid" value="${escapeAttr(en.orderId)}" style="width:140px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:`${escapeHtml(en.orderId)}${en.ocrOverride?` <span title="${t('此资料未通过OCR自动核实，订单号或金额为参与者手动确认','This entry was not auto-verified by OCR — Order ID or Amount was manually confirmed by the participant')}" style="color:var(--rose);font-weight:700;cursor:help;">⚠</span>`:''}`}</td>
+              <td>${isEditing?`<input type="text" class="edit-amount" value="${escapeAttr(en.amount)}" style="width:90px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:escapeHtml(String(en.amount))}</td>
               <td>${(en.ticketCount>0) ? `${en.ticketCount} ${t('次','')}` : `<span style="color:var(--ink-soft);">${t('0次','0')}</span>`}</td>
               <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">${t('已中奖','Won')}</span>`:`<span class="pill">${t('未中奖','No win')}</span>`}</td>
               <td>${new Date(en.submittedAt).toLocaleDateString()}</td>
-              <td><button class="del-btn" data-del="${en.id}">${t('删除','Delete')}</button></td>
-            </tr>`).join('')}
+              <td>${isEditing?`
+                <button class="del-btn" data-save-entry="${en.id}" style="color:var(--plum);">${t('保存','Save')}</button>
+                <button class="del-btn" data-cancel-entry="${en.id}">${t('取消','Cancel')}</button>
+              `:`
+                <button class="del-btn" data-edit-entry="${en.id}" style="color:var(--plum);">${t('编辑','Edit')}</button>
+                <button class="del-btn" data-del="${en.id}">${t('删除','Delete')}</button>
+              `}</td>
+            </tr>`;}).join('')}
         </tbody>
       </table>
       </div>`}
     `;
     container.querySelectorAll('.mini-thumb').forEach(img=>{ img.onclick = ()=>{ state.lightboxSrc = img.getAttribute('data-src'); render(); }; });
     container.querySelectorAll('[data-del]').forEach(btn=>{ btn.onclick = ()=> deleteEntry(btn.getAttribute('data-del')); });
+    container.querySelectorAll('[data-edit-entry]').forEach(btn=>{
+      btn.onclick = ()=>{ state.editingEntryId = btn.getAttribute('data-edit-entry'); renderAdminEntriesTab(container); };
+    });
+    container.querySelectorAll('[data-cancel-entry]').forEach(btn=>{
+      btn.onclick = ()=>{ state.editingEntryId = null; renderAdminEntriesTab(container); };
+    });
+    container.querySelectorAll('[data-save-entry]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const id = btn.getAttribute('data-save-entry');
+        const row = btn.closest('tr');
+        const orderId = row.querySelector('.edit-orderid').value;
+        const amount = row.querySelector('.edit-amount').value;
+        saveEntryEdit(id, orderId, amount, container);
+      };
+    });
     container.querySelector('#export-btn').onclick = exportCsv;
     container.querySelector('#delete-all-btn').onclick = deleteAllEntries;
     container.querySelector('#toggle-total-amount-btn').onclick = ()=>{ state.showTotalAmount = !state.showTotalAmount; renderAdminEntriesTab(container); };
