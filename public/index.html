@@ -367,7 +367,13 @@
     const foundAmount = extractOrderAmount(ocrText);
     const typedAmount = parseFloat(state.form.amount);
     const amountMismatch = foundAmount===null || isNaN(typedAmount) || Math.abs(typedAmount-foundAmount)>0.01;
-    return { orderIdMismatch, amountMismatch, foundOrderIds, foundAmount, hasIssue: orderIdMismatch||amountMismatch };
+    let dateMismatch = false;
+    const startD = state.eventConfig.regStartDate, endD = state.eventConfig.regEndDate;
+    if(startD || endD){
+      const foundDates = extractOrderDatesISO(ocrText);
+      dateMismatch = foundDates.length===0 || !foundDates.some(d => (!startD || d>=startD) && (!endD || d<=endD));
+    }
+    return { orderIdMismatch, amountMismatch, dateMismatch, foundOrderIds, foundAmount, hasIssue: orderIdMismatch||amountMismatch||dateMismatch };
   }
   function validateForm(){
     const errs = {};
@@ -395,21 +401,12 @@
               ? '照片中找不到金额（RM），请核对，或勾选下方确认框 / Could not find an amount (RM) in the photo, please check, or check the box below'
               : '金额与照片识别内容不符，请核对，或勾选下方确认框 / Amount does not match the photo, please check, or check the box below';
           }
-          errs.ocrOverride = '请勾选确认框以继续提交 / Please check the confirmation box to continue';
-        }
-
-        const startD = state.eventConfig.regStartDate, endD = state.eventConfig.regEndDate;
-        if(startD || endD){
-          const foundDates = extractOrderDatesISO(ocrText);
-          if(foundDates.length===0){
-            errs.orderDate = '照片中找不到订单日期，请重新上传清晰的订单详情截图 / Could not find an order date in the photo, please re-upload a clear order details screenshot';
-          } else {
-            const anyInRange = foundDates.some(d => (!startD || d>=startD) && (!endD || d<=endD));
-            if(!anyInRange){
-              errs.orderDate = '订单日期不在允许范围内 / Order date is outside the allowed range'
-                + (startD?(' ('+startD+(endD?(' ~ '+endD):'')+')'):(endD?(' (~ '+endD+')'):''));
-            }
+          if(issue.dateMismatch){
+            const startD = state.eventConfig.regStartDate, endD = state.eventConfig.regEndDate;
+            errs.orderDate = '订单日期不在允许范围内或无法识别，请核对，或勾选下方确认框 / Order date is outside the allowed range or could not be detected, please check, or check the box below'
+              + (startD?(' ('+startD+(endD?(' ~ '+endD):'')+')'):(endD?(' (~ '+endD+')'):''));
           }
+          errs.ocrOverride = '请勾选确认框以继续提交 / Please check the confirmation box to continue';
         }
       }
     }
@@ -975,7 +972,7 @@
           <div class="field" style="background:#fdf1e0;border:1px solid var(--gold);border-radius:8px;padding:12px 14px;">
             <label style="display:flex;align-items:flex-start;gap:8px;font-weight:400;font-size:13px;cursor:pointer;">
               <input type="checkbox" id="f-ocroverride" ${f.ocrOverride?'checked':''} style="margin-top:2px;">
-              <span>OCR 识别可能有误，我确认以上填写的订单号/金额正确，愿意承担核实结果 / OCR may have misread the photo — I confirm the Order ID/Amount above are correct</span>
+              <span>OCR 识别可能有误，我确认以上填写的日期/订单号/金额正确，愿意承担核实结果 / OCR may have misread the photo — I confirm the date/Order ID/Amount above are correct</span>
             </label>
             ${errs.ocrOverride?`<div class="error-text">${errs.ocrOverride}</div>`:''}
           </div>
