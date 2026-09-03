@@ -158,7 +158,7 @@
     token: localStorage.getItem('ld_admin_token') || null,
     lastTicket: null,
     entries: [], prizes: [], draws: [],
-    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic' },
+    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, tutorialImage: null, drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic' },
     adminPasswordSet: null,
     form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', amount:'', photo:null, ocrOverride:false },
     formErrors: {},
@@ -174,6 +174,7 @@
     editingPrizeId: null, editPrizePhoto: null,
     draftTiers: null,
     draftPosterImage: undefined,
+    draftTutorialImage: undefined,
     archives: [], archiveDetail: null, newEventLabel: '',
     guaranteedDrawEntryId: null, guaranteedRevealedPrize: null, guaranteedSending: false, guaranteedSpinning: false, guaranteedWheelPool: null
   };
@@ -228,7 +229,7 @@
     try{
       await api('/api/archives', {method:'POST', auth:true, body:{label: (label||'').trim()}});
       state.newEventLabel = '';
-      state.draftTiers = null; state.draftPosterImage = undefined;
+      state.draftTiers = null; state.draftPosterImage = undefined; state.draftTutorialImage = undefined;
       await loadEventConfig();
       await loadAdminData();
       await loadArchives();
@@ -251,7 +252,7 @@
     try{
       await api('/api/archives/'+id+'/restore', {method:'POST', auth:true});
       state.archiveDetail = null;
-      state.draftTiers = null; state.draftPosterImage = undefined;
+      state.draftTiers = null; state.draftPosterImage = undefined; state.draftTutorialImage = undefined;
       await loadEventConfig();
       await loadAdminData();
       await loadArchives();
@@ -935,6 +936,7 @@
             ${errs.customerName?`<div class="error-text">${errs.customerName}</div>`:''}
           </div>
           <div class="field"><label>上传订单截图 / Upload Order Screenshot</label>
+            ${state.eventConfig.tutorialImage?`<a id="tutorial-link" href="javascript:void(0)" style="font-size:12.5px;color:var(--gold);font-weight:700;text-decoration:underline;margin-left:8px;">如何截图？ / How to screenshot?</a>`:''}
             <div class="upload-box">
               <label class="upload-btn">选择照片 / Choose Photo<input type="file" id="f-photo" accept="image/*"></label>
               ${f.photo?`<img class="thumb" id="entry-photo-preview" src="${f.photo}" style="cursor:pointer;">`:''}
@@ -984,6 +986,8 @@
     const ocrBtn = document.getElementById('ocr-btn'); if(ocrBtn) ocrBtn.onclick = runOcr;
     const photoPreview = document.getElementById('entry-photo-preview');
     if(photoPreview) photoPreview.onclick = ()=>{ state.lightboxSrc = f.photo; render(); };
+    const tutorialLink = document.getElementById('tutorial-link');
+    if(tutorialLink) tutorialLink.onclick = ()=>{ state.lightboxSrc = state.eventConfig.tutorialImage; render(); };
     const resetPhotoBtn = document.getElementById('reset-photo-btn');
     if(resetPhotoBtn) resetPhotoBtn.onclick = ()=>{
       state.form.photo = null;
@@ -1711,6 +1715,16 @@
           <br><button class="small-btn ghost" id="change-pw-btn">${t('更新密码','Update Password')}</button>
         </div>
       </div>
+      <div style="margin-top:22px;">
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('订单截图教学图','Order Screenshot Tutorial Image')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
+        <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">${t('参与者登记页的「上传订单截图」旁边会多一个「如何截图？」连结，点了会弹出这张图，教他们去哪里找订单截图','A "How to screenshot?" link will appear next to "Upload Order Screenshot" on the registration page — clicking it pops up this image to guide participants')}</div>
+        <div class="upload-box">
+          <label class="upload-btn">${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?t('更换教学图','Change Tutorial Image'):t('上传教学图','Upload Tutorial Image')}<input type="file" id="tutorial-upload" accept="image/*"></label>
+          ${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?`<img class="thumb" style="width:64px;height:64px;" src="${state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页不会显示「如何截图？」连结','Not uploaded yet — the "How to screenshot?" link will not appear on the registration page')}</span>`}
+          ${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?`<button class="small-btn ghost" id="remove-tutorial-btn" type="button">${t('移除教学图','Remove Tutorial Image')}</button>`:''}
+        </div>
+        <button class="small-btn" id="save-tutorial-btn" style="margin-top:12px;">${t('保存教学图','Save Tutorial Image')}</button>
+      </div>
     `;
     container.querySelectorAll('[data-tier-row]').forEach(row=>{
       const i = parseInt(row.getAttribute('data-tier-row'), 10);
@@ -1776,6 +1790,22 @@
       if(!v || v.length<4){ showToast(t('密码至少4位','Password must be at least 4 characters')); return; }
       try{ await api('/api/admin/change-password', {method:'POST', auth:true, body:{password:v}}); showToast(t('密码已更新','Password updated')); }
       catch(e){ showToast(e.message); }
+    };
+    container.querySelector('#tutorial-upload').onchange = async (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      try{ state.draftTutorialImage = await compressImage(file); renderAdminSettingsTab(container); }
+      catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
+    };
+    const removeTutorialBtn = container.querySelector('#remove-tutorial-btn');
+    if(removeTutorialBtn) removeTutorialBtn.onclick = ()=>{ state.draftTutorialImage = null; renderAdminSettingsTab(container); };
+    container.querySelector('#save-tutorial-btn').onclick = async ()=>{
+      try{
+        await api('/api/config', {method:'PUT', auth:true, body:{tutorialImage: state.draftTutorialImage !== undefined ? state.draftTutorialImage : state.eventConfig.tutorialImage}});
+        state.draftTutorialImage = undefined;
+        await loadEventConfig();
+        showToast(t('教学图已保存','Tutorial image saved'));
+        renderAdminSettingsTab(container);
+      }catch(e){ showToast(e.message); }
     };
     container.querySelector('#ev-adminlang').onchange = e=>{
       state.adminLang = e.target.value;
