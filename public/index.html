@@ -1716,13 +1716,25 @@
       <div class="admin-wrap">
         <div class="admin-header">
           <div><h2>${t('抽奖后台管理','Lucky Draw Admin')}</h2><div class="sub">${escapeHtml(state.eventConfig.title)}</div></div>
-          <button class="logout-btn" id="logout-btn">${t('退出管理','Log Out')}</button>
+          <div style="display:flex;gap:10px;">
+            <button class="logout-btn" id="refresh-btn" type="button">${t('刷新','Refresh')}</button>
+            <button class="logout-btn" id="logout-btn">${t('退出管理','Log Out')}</button>
+          </div>
         </div>
         ${state.eventConfig.registrationDeadline?`<div id="countdown-admin" style="background:#fdf1e0;color:var(--rose);font-weight:700;font-size:12.5px;padding:8px 14px;"></div>`:''}
         <div class="tabs">${tabs.map(tb=>`<div class="tab ${state.adminTab===tb[0]?'active':''}" data-tab="${tb[0]}">${tb[1]}</div>`).join('')}</div>
         <div class="admin-content" id="admin-content"></div>
       </div>`;
     document.getElementById('logout-btn').onclick = logout;
+    document.getElementById('refresh-btn').onclick = async ()=>{
+      try{
+        const tasks = [loadEventConfig(), loadAdminData()];
+        if(state.adminTab==='archives') tasks.push(loadArchives());
+        await Promise.all(tasks);
+        showToast(t('已刷新','Refreshed'));
+        render();
+      }catch(e){ showToast(e.message); }
+    };
     app.querySelectorAll('.tab').forEach(tabEl=>{
       tabEl.onclick = ()=>{
         const newTab = tabEl.getAttribute('data-tab');
