@@ -266,6 +266,9 @@ app.post('/api/entries', (req, res) => {
   if (!name || !contact || !ddName || !customerName || !orderId || !amount || !photo) {
     return res.status(400).json({ error: '资料不完整，请填写全部字段并上传照片 / Missing information, please fill in all fields and upload a photo' });
   }
+  if (!orderDate && !ocrOverride) {
+    return res.status(400).json({ error: '请输入订单日期，或勾选OCR确认框 / Please enter the order date, or check the OCR confirmation box' });
+  }
   const orderIdNorm = String(orderId).trim().toLowerCase();
   const existingFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
   const isDuplicate = existingFiles.some(f => {
