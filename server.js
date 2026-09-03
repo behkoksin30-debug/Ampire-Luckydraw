@@ -28,8 +28,13 @@ function defaultConfig() {
     posterImage: null,
     drawDurationSeconds: 5,
     registrationDeadline: '',
-    soundTheme: 'classic'
+    soundTheme: 'classic',
+    startGateEnforcedFor: ''
   };
+}
+function serverTodayStr(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 function enforceDeadline(cfg){
   if(cfg.registrationDeadline){
@@ -37,6 +42,19 @@ function enforceDeadline(cfg){
     if(!isNaN(deadlineMs) && Date.now() >= deadlineMs && cfg.registrationOpen !== false){
       cfg.registrationOpen = false;
       cfg.registrationDeadline = '';
+      writeConfig(cfg);
+    }
+  }
+  if(cfg.regStartDate){
+    const today = serverTodayStr();
+    if(today < cfg.regStartDate){
+      if(cfg.registrationOpen !== false && cfg.startGateEnforcedFor !== cfg.regStartDate){
+        cfg.registrationOpen = false;
+        cfg.startGateEnforcedFor = cfg.regStartDate;
+        writeConfig(cfg);
+      }
+    } else if(cfg.startGateEnforcedFor){
+      cfg.startGateEnforcedFor = '';
       writeConfig(cfg);
     }
   }
@@ -233,6 +251,10 @@ app.post('/api/admin/change-password', requireAdmin, (req, res) => {
 app.post('/api/entries', (req, res) => {
   const cfg = enforceDeadline(readConfig());
   if (cfg.registrationOpen === false) {
+    const today = serverTodayStr();
+    if (cfg.regStartDate && today < cfg.regStartDate) {
+      return res.status(400).json({ error: '报名尚未开始 / Registration has not started yet' });
+    }
     return res.status(400).json({ error: '报名已结束 / Registration is closed' });
   }
   const { name, contact, ddName, customerName, orderId, amount, photo } = req.body || {};
