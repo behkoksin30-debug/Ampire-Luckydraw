@@ -434,8 +434,18 @@ app.delete('/api/draws', requireAdmin, (req, res) => {
 });
 
 /* ---------------- archives (snapshot current event, start fresh, restore) ---------------- */
+const ACTIVE_ARCHIVE_FILE = path.join(DATA_DIR, 'active-archive.json');
+function readActiveArchiveId() {
+  const d = readJson(ACTIVE_ARCHIVE_FILE, { archiveId: null });
+  return d.archiveId || null;
+}
+function writeActiveArchiveId(id) {
+  writeJson(ACTIVE_ARCHIVE_FILE, { archiveId: id || null });
+}
 function snapshotActiveInto(archiveDir, label) {
   fs.mkdirSync(path.join(archiveDir, 'entries'), { recursive: true });
+  const oldEntryFiles = fs.readdirSync(path.join(archiveDir, 'entries'));
+  oldEntryFiles.forEach(f => fs.unlinkSync(path.join(archiveDir, 'entries', f)));
   const entryFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
   entryFiles.forEach(f => {
     fs.copyFileSync(path.join(ENTRIES_DIR, f), path.join(archiveDir, 'entries', f));
@@ -445,10 +455,12 @@ function snapshotActiveInto(archiveDir, label) {
   fs.copyFileSync(CONFIG_FILE, path.join(archiveDir, 'config.json'));
   const draws = readJson(DRAWS_FILE, []);
   const cfg = readConfig();
+  const existingMeta = readJson(path.join(archiveDir, 'meta.json'), null);
   const meta = {
     id: path.basename(archiveDir),
-    label: label || (cfg.title || '未命名活动') + ' - ' + new Date().toLocaleString(),
-    createdAt: Date.now(),
+    label: label || (existingMeta && existingMeta.label) || (cfg.title || '未命名活动') + ' - ' + new Date().toLocaleString(),
+    createdAt: (existingMeta && existingMeta.createdAt) || Date.now(),
+    updatedAt: Date.now(),
     entryCount: entryFiles.length,
     drawCount: draws.length,
     title: cfg.title || ''
@@ -471,7 +483,9 @@ function clearActiveData() {
 app.get('/api/archives', requireAdmin, (req, res) => {
   const ids = fs.readdirSync(ARCHIVES_DIR).filter(f => fs.statSync(path.join(ARCHIVES_DIR, f)).isDirectory());
   const list = ids.map(id => readJson(path.join(ARCHIVES_DIR, id, 'meta.json'), null)).filter(Boolean);
-  list.sort((a, b) => b.createdAt - a.createdAt);
+  list.sort((a, b) => (b.updatedAt||b.createdAt) - (a.updatedAt||a.createdAt));
+  const activeId = readActiveArchiveId();
+  list.forEach(m => { m.isActive = m.id === activeId; });
   res.json(list);
 });
 app.post('/api/archives', requireAdmin, (req, res) => {
@@ -479,6 +493,7 @@ app.post('/api/archives', requireAdmin, (req, res) => {
   const archiveDir = path.join(ARCHIVES_DIR, id);
   const meta = snapshotActiveInto(archiveDir, (req.body && req.body.label) || '');
   clearActiveData();
+  writeActiveArchiveId(null);
   res.json(meta);
 });
 app.get('/api/archives/:id', requireAdmin, (req, res) => {
@@ -507,8 +522,16 @@ app.post('/api/archives/:id/restore', requireAdmin, (req, res) => {
   const meta = readJson(path.join(archiveDir, 'meta.json'), null);
   if (!meta) return res.status(404).json({ error: '存档不存在' });
 
-  const autoArchiveId = genId('AR-', 8);
-  snapshotActiveInto(path.join(ARCHIVES_DIR, autoArchiveId), '恢复前自动存档 - ' + new Date().toLocaleString());
+  const currentActiveId = readActiveArchiveId();
+  if (currentActiveId && currentActiveId !== req.params.id) {
+    const currentArchiveDir = path.join(ARCHIVES_DIR, currentActiveId);
+    if (fs.existsSync(currentArchiveDir)) {
+      snapshotActiveInto(currentArchiveDir, null);
+    }
+  } else if (!currentActiveId) {
+    const autoArchiveId = genId('AR-', 8);
+    snapshotActiveInto(path.join(ARCHIVES_DIR, autoArchiveId), '自动备份 - ' + new Date().toLocaleString());
+  }
   clearActiveData();
 
   const entriesDir = path.join(archiveDir, 'entries');
@@ -528,7 +551,8 @@ app.post('/api/archives/:id/restore', requireAdmin, (req, res) => {
   archivedConfig.passwordSalt = currentCfg.passwordSalt;
   writeConfig(archivedConfig);
 
-  res.json({ ok: true, autoArchivedAs: autoArchiveId });
+  writeActiveArchiveId(req.params.id);
+  res.json({ ok: true });
 });
 function rimraf(dir) {
   if (!fs.existsSync(dir)) return;
@@ -544,6 +568,7 @@ app.delete('/api/archives/:id', requireAdmin, (req, res) => {
   const meta = readJson(path.join(archiveDir, 'meta.json'), null);
   if (!meta) return res.status(404).json({ error: '存档不存在' });
   rimraf(archiveDir);
+  if (readActiveArchiveId() === req.params.id) writeActiveArchiveId(null);
   res.json({ ok: true });
 });
 
