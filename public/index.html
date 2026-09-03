@@ -1664,8 +1664,9 @@
       if(!value){
         autoSaveConfig({registrationDeadline: '', regEndDate: ''});
       } else {
-        const datePart = value.split('T')[0];
-        autoSaveConfig({registrationDeadline: localInputToISO(value), regEndDate: datePart});
+        const [datePart, timePart] = value.split('T');
+        const effectiveValue = (timePart==='00:00') ? (datePart+'T23:59') : value;
+        autoSaveConfig({registrationDeadline: localInputToISO(effectiveValue), regEndDate: datePart});
       }
     };
     container.querySelector('#ev-regopen').onchange = async (e)=>{
