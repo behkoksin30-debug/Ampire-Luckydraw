@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const multer = require('multer');
 
 const app = express();
 app.use(express.json({ limit: '12mb' }));
@@ -12,6 +13,7 @@ const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const PRIZES_FILE = path.join(DATA_DIR, 'prizes.json');
 const DRAWS_FILE = path.join(DATA_DIR, 'draws.json');
 const ARCHIVES_DIR = path.join(DATA_DIR, 'archives');
+const MEDIA_DIR = path.join(DATA_DIR, 'media');
 
 function defaultConfig() {
   return {
@@ -27,6 +29,8 @@ function defaultConfig() {
     regEndDate: '',
     posterImage: null,
     tutorialImage: null,
+    posterMediaType: 'image',
+    posterVideoUrl: '',
     drawDurationSeconds: 5,
     registrationDeadline: '',
     soundTheme: 'classic',
@@ -65,6 +69,7 @@ function enforceDeadline(cfg){
 function ensureDirs() {
   fs.mkdirSync(ENTRIES_DIR, { recursive: true });
   fs.mkdirSync(ARCHIVES_DIR, { recursive: true });
+  fs.mkdirSync(MEDIA_DIR, { recursive: true });
   if (!fs.existsSync(CONFIG_FILE)) {
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(defaultConfig(), null, 2));
   }
@@ -154,6 +159,8 @@ app.get('/api/config', (req, res) => {
     regEndDate: cfg.regEndDate || '',
     posterImage: cfg.posterImage || null,
     tutorialImage: cfg.tutorialImage || null,
+    posterMediaType: cfg.posterMediaType || 'image',
+    posterVideoUrl: cfg.posterVideoUrl || '',
     drawDurationSeconds: cfg.drawDurationSeconds || 5,
     registrationDeadline: cfg.registrationDeadline || '',
     soundTheme: cfg.soundTheme || 'classic'
@@ -196,6 +203,7 @@ app.put('/api/config', requireAdmin, (req, res) => {
   }
   if (req.body.posterImage !== undefined) {
     cfg.posterImage = req.body.posterImage || null;
+    if (req.body.posterImage) cfg.posterMediaType = 'image';
   }
   if (req.body.tutorialImage !== undefined) {
     cfg.tutorialImage = req.body.tutorialImage || null;
@@ -215,6 +223,51 @@ app.put('/api/config', requireAdmin, (req, res) => {
   if (req.body.soundTheme !== undefined) {
     cfg.soundTheme = ['classic','electronic','drum'].includes(req.body.soundTheme) ? req.body.soundTheme : (cfg.soundTheme || 'classic');
   }
+  writeConfig(cfg);
+  res.json({ ok: true });
+});
+
+/* ---------------- poster video upload ---------------- */
+app.use('/media', express.static(MEDIA_DIR));
+const posterVideoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, MEDIA_DIR),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase() || '.mp4';
+      cb(null, 'poster-' + Date.now() + ext);
+    }
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype || !file.mimetype.startsWith('video/')) {
+      return cb(new Error('只支持上传视频文件 / Only video files are supported'));
+    }
+    cb(null, true);
+  }
+});
+function deleteOldPosterVideo(cfg) {
+  if (cfg.posterVideoUrl) {
+    const oldPath = path.join(MEDIA_DIR, path.basename(cfg.posterVideoUrl));
+    try { if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath); } catch (e) {}
+  }
+}
+app.post('/api/admin/poster-video', requireAdmin, (req, res) => {
+  posterVideoUpload.single('video')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message || '视频上传失败 / Video upload failed' });
+    if (!req.file) return res.status(400).json({ error: '没有收到视频文件 / No video file received' });
+    const cfg = readConfig();
+    deleteOldPosterVideo(cfg);
+    cfg.posterMediaType = 'video';
+    cfg.posterVideoUrl = '/media/' + req.file.filename;
+    writeConfig(cfg);
+    res.json({ posterMediaType: cfg.posterMediaType, posterVideoUrl: cfg.posterVideoUrl });
+  });
+});
+app.delete('/api/admin/poster-video', requireAdmin, (req, res) => {
+  const cfg = readConfig();
+  deleteOldPosterVideo(cfg);
+  cfg.posterVideoUrl = '';
+  cfg.posterMediaType = 'image';
   writeConfig(cfg);
   res.json({ ok: true });
 });
