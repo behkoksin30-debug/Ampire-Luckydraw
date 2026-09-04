@@ -1759,21 +1759,26 @@
     }
     container.innerHTML = `
       <div class="settings-note">${t('提示：抽奖资料（含照片）保存在服务器的 data 目录里，只有知道管理员密码的人能查看，请勿将后台密码告诉参与者。','Note: Draw data (including photos) is stored in the server\'s data folder — only people who know the admin password can view it. Do not share the admin password with participants.')}</div>
-      <div class="row2" style="align-items:start;">
-        <div style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:16px;margin-bottom:22px;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
-            <label style="font-size:13.5px;font-weight:700;color:var(--plum);margin:0;">${t('开始新一场活动','Start New Event')}</label>
-            ${hintIcon(t('会把目前所有资料（参与名单、奖品、中奖记录）和活动设置整个存档保存，然后系统重置成全新状态。管理员密码不受影响，存档之后可以在「历史存档」查看或恢复。','This archives all current data (entries, prizes, draw history) and settings, then resets the system to a fresh state. Your admin password is not affected — you can view or restore the archive later under "Archives".'))}
-          </div>
-          <input type="text" id="new-event-label" placeholder="${t('给这次存档取个名字（选填，比如「9月场次」）','Name this archive (optional, e.g. "September Event")')}" style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
-          <br><button class="small-btn" id="start-new-event-btn">${t('开始新一场','Start New Event')}</button>
+      <div style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:16px;margin-bottom:22px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+          <label style="font-size:13.5px;font-weight:700;color:var(--plum);margin:0;">${t('开始新一场活动','Start New Event')}</label>
+          ${hintIcon(t('会把目前所有资料（参与名单、奖品、中奖记录）和活动设置整个存档保存，然后系统重置成全新状态。管理员密码不受影响，存档之后可以在「历史存档」查看或恢复。','This archives all current data (entries, prizes, draw history) and settings, then resets the system to a fresh state. Your admin password is not affected — you can view or restore the archive later under "Archives".'))}
         </div>
+        <input type="text" id="new-event-label" placeholder="${t('给这次存档取个名字（选填，比如「9月场次」）','Name this archive (optional, e.g. "September Event")')}" style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
+        <br><button class="small-btn" id="start-new-event-btn">${t('开始新一场','Start New Event')}</button>
+      </div>
+      <div class="row2" style="align-items:start;">
         <div style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:16px;margin-bottom:22px;">
           <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('后台语言','Admin Language')}</label>
           <select id="ev-adminlang">
             <option value="zh" ${state.adminLang==='zh'?'selected':''}>中文</option>
             <option value="en" ${state.adminLang==='en'?'selected':''}>English</option>
           </select>
+        </div>
+        <div style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:16px;margin-bottom:22px;">
+          <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('修改管理员密码','Change Admin Password')}</label>
+          <input type="password" id="new-pw" placeholder="${t('新密码（至少4位）','New password (at least 4 characters)')}" style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
+          <br><button class="small-btn ghost" id="change-pw-btn">${t('更新密码','Update Password')}</button>
         </div>
       </div>
       <div class="field"><label>${t('活动标题','Event Title')}</label><input type="text" id="ev-title" value="${escapeAttr(state.eventConfig.title)}"></div>
@@ -1854,20 +1859,15 @@
           <button class="small-btn" id="save-poster-btn" style="margin-top:12px;">${t('保存海报','Save Poster')}</button>
         </div>
         <div>
-          <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('修改管理员密码','Change Admin Password')}</label>
-          <input type="password" id="new-pw" placeholder="${t('新密码（至少4位）','New password (at least 4 characters)')}" style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
-          <br><button class="small-btn ghost" id="change-pw-btn">${t('更新密码','Update Password')}</button>
+          <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('订单截图教学图','Order Screenshot Tutorial Image')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
+          <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">${t('参与者登记页的「上传订单截图」旁边会多一个「如何截图？」连结，点了会弹出这张图，教他们去哪里找订单截图','A "How to screenshot?" link will appear next to "Upload Order Screenshot" on the registration page — clicking it pops up this image to guide participants')}</div>
+          <div class="upload-box">
+            <label class="upload-btn">${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?t('更换教学图','Change Tutorial Image'):t('上传教学图','Upload Tutorial Image')}<input type="file" id="tutorial-upload" accept="image/*"></label>
+            ${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?`<img class="thumb" style="width:64px;height:64px;" src="${state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页不会显示「如何截图？」连结','Not uploaded yet — the "How to screenshot?" link will not appear on the registration page')}</span>`}
+            ${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?`<button class="small-btn ghost" id="remove-tutorial-btn" type="button">${t('移除教学图','Remove Tutorial Image')}</button>`:''}
+          </div>
+          <button class="small-btn" id="save-tutorial-btn" style="margin-top:12px;">${t('保存教学图','Save Tutorial Image')}</button>
         </div>
-      </div>
-      <div style="margin-top:22px;">
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('订单截图教学图','Order Screenshot Tutorial Image')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
-        <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">${t('参与者登记页的「上传订单截图」旁边会多一个「如何截图？」连结，点了会弹出这张图，教他们去哪里找订单截图','A "How to screenshot?" link will appear next to "Upload Order Screenshot" on the registration page — clicking it pops up this image to guide participants')}</div>
-        <div class="upload-box">
-          <label class="upload-btn">${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?t('更换教学图','Change Tutorial Image'):t('上传教学图','Upload Tutorial Image')}<input type="file" id="tutorial-upload" accept="image/*"></label>
-          ${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?`<img class="thumb" style="width:64px;height:64px;" src="${state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页不会显示「如何截图？」连结','Not uploaded yet — the "How to screenshot?" link will not appear on the registration page')}</span>`}
-          ${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?`<button class="small-btn ghost" id="remove-tutorial-btn" type="button">${t('移除教学图','Remove Tutorial Image')}</button>`:''}
-        </div>
-        <button class="small-btn" id="save-tutorial-btn" style="margin-top:12px;">${t('保存教学图','Save Tutorial Image')}</button>
       </div>
     `;
     container.querySelectorAll('[data-tier-row]').forEach(row=>{
