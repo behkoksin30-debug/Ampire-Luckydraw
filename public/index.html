@@ -616,8 +616,8 @@
       }
     }catch(e){}
   }
-  function playWinChime(){
-    const theme = state.eventConfig.soundTheme || 'classic';
+  function playWinChime(previewTheme){
+    const theme = previewTheme || state.eventConfig.soundTheme || 'classic';
     try{
       const ctx = getAudioCtx();
       if(theme==='drum'){
@@ -1816,11 +1816,14 @@
       <div class="row2">
         <div class="field"><label>${t('抽奖动画时长（秒）','Draw Animation Duration (sec)')} ${hintIcon(t('大抽奖和幸运轮盘抽礼物共用，3~10秒之间','Shared by Main Draw and Lucky Wheel, 3–10 seconds'))}</label><input type="number" id="ev-drawduration" min="3" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}"></div>
         <div class="field"><label>${t('抽奖音效主题','Draw Sound Theme')} ${hintIcon(t('大抽奖和转盘共用同一个主题','Shared by Main Draw and the wheel'))}</label>
-          <select id="ev-soundtheme">
-            <option value="classic" ${(!state.eventConfig.soundTheme||state.eventConfig.soundTheme==='classic')?'selected':''}>${t('经典滋答声','Classic Tick')}</option>
-            <option value="electronic" ${state.eventConfig.soundTheme==='electronic'?'selected':''}>${t('电子音效','Electronic')}</option>
-            <option value="drum" ${state.eventConfig.soundTheme==='drum'?'selected':''}>${t('鼓声风','Drum')}</option>
-          </select>
+          <div style="display:flex;gap:8px;">
+            <select id="ev-soundtheme" style="flex:1;">
+              <option value="classic" ${(!state.eventConfig.soundTheme||state.eventConfig.soundTheme==='classic')?'selected':''}>${t('经典滋答声','Classic Tick')}</option>
+              <option value="electronic" ${state.eventConfig.soundTheme==='electronic'?'selected':''}>${t('电子音效','Electronic')}</option>
+              <option value="drum" ${state.eventConfig.soundTheme==='drum'?'selected':''}>${t('鼓声风','Drum')}</option>
+            </select>
+            <button class="small-btn ghost" id="preview-soundtheme-btn" type="button" style="flex-shrink:0;">${t('试听','Preview')}</button>
+          </div>
         </div>
       </div>
       <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
@@ -1892,7 +1895,8 @@
     container.querySelector('#ev-maxtickets').onchange = e=> autoSaveConfig({maxTicketsPerPerson: e.target.value});
     container.querySelector('#ev-giftthreshold').onchange = e=> autoSaveConfig({guaranteedGiftThreshold: e.target.value});
     container.querySelector('#ev-drawduration').onchange = e=> autoSaveConfig({drawDurationSeconds: e.target.value});
-    container.querySelector('#ev-soundtheme').onchange = e=> autoSaveConfig({soundTheme: e.target.value});
+    container.querySelector('#ev-soundtheme').onchange = e=>{ playWinChime(e.target.value); autoSaveConfig({soundTheme: e.target.value}); };
+    container.querySelector('#preview-soundtheme-btn').onclick = ()=>{ playWinChime(container.querySelector('#ev-soundtheme').value); };
     container.querySelector('#ev-startdate').onchange = e=> autoSaveConfig({regStartDate: e.target.value});
     container.querySelector('#set-deadline-btn').onclick = ()=>{
       const value = container.querySelector('#ev-deadline').value;
