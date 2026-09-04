@@ -1778,8 +1778,10 @@
         </div>
         <div style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:16px;margin-bottom:22px;">
           <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('修改管理员密码','Change Admin Password')}</label>
-          <input type="password" id="new-pw" placeholder="${t('新密码（至少4位）','New password (at least 4 characters)')}" style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
-          <br><button class="small-btn ghost" id="change-pw-btn">${t('更新密码','Update Password')}</button>
+          <div style="display:flex;gap:8px;">
+            <input type="password" id="new-pw" placeholder="${t('新密码（至少4位）','New password (at least 4 characters)')}" style="flex:1;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;">
+            <button class="small-btn ghost" id="change-pw-btn" style="flex-shrink:0;">${t('更新密码','Update Password')}</button>
+          </div>
         </div>
       </div>
       <div class="field"><label>${t('活动标题','Event Title')}</label><input type="text" id="ev-title" value="${escapeAttr(state.eventConfig.title)}"></div>
