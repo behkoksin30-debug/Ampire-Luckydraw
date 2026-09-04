@@ -30,6 +30,7 @@
   button{font-family:inherit;cursor:pointer;}
   input,select{font-family:inherit;}
   #app{max-width:900px;margin:0 auto;padding:28px 18px 60px;min-height:100vh;}
+  #app.app-wide{max-width:1400px;}
   .eyebrow{font-size:13px;color:var(--ink-soft);letter-spacing:.02em;margin:0 0 6px;}
 
   .ticket{background:var(--paper);border-radius:var(--radius);box-shadow:0 1px 0 rgba(62,22,56,.06), 0 12px 32px rgba(62,22,56,.10);overflow:hidden;border:1px solid var(--line);}
@@ -77,6 +78,7 @@
   .tab.active{color:var(--plum);border-color:var(--gold);}
   .admin-content{padding:22px;}
   table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table th, table td{white-space:nowrap;}
   th{text-align:left;color:var(--ink-soft);font-weight:700;font-size:12px;padding:8px 10px;border-bottom:1.5px solid var(--line);white-space:nowrap;}
   td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
   th:last-child,td:last-child{position:sticky;right:0;background:var(--paper);box-shadow:-4px 0 6px -4px rgba(0,0,0,.12);white-space:nowrap;}
@@ -2001,6 +2003,7 @@
   }
 
   function render(){
+    app.classList.toggle('app-wide', state.view==='admin');
     if(state.view==='entry') renderEntryView();
     else if(state.view==='success') renderSuccessView();
     else if(state.view==='adminLogin') renderAdminLoginView();
