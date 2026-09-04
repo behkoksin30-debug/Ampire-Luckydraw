@@ -162,7 +162,7 @@
     token: localStorage.getItem('ld_admin_token') || null,
     lastTicket: null,
     entries: [], prizes: [], draws: [],
-    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, tutorialImage: null, drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic' },
+    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, tutorialImage: null, posterMediaType: 'image', posterVideoUrl: '', drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic' },
     adminPasswordSet: null,
     form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false },
     formErrors: {},
@@ -179,6 +179,7 @@
     editingPrizeId: null, editPrizePhoto: null,
     draftTiers: null,
     draftPosterImage: undefined,
+    posterVideoUploading: false,
     draftTutorialImage: undefined,
     archives: [], archiveDetail: null, newEventLabel: '',
     guaranteedDrawEntryId: null, guaranteedRevealedPrize: null, guaranteedSending: false, guaranteedSpinning: false, guaranteedWheelPool: null
@@ -984,12 +985,34 @@
     }
   }
   setInterval(tickCountdown, 1000);
+  function renderPosterMedia(){
+    const cfg = state.eventConfig;
+    if(cfg.posterMediaType==='video' && cfg.posterVideoUrl){
+      return `<div style="position:relative;">
+        <video id="poster-video" src="${cfg.posterVideoUrl}" autoplay muted loop playsinline style="width:100%;display:block;"></video>
+        <button id="poster-unmute-btn" type="button" style="position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:12.5px;cursor:pointer;">🔊 ${t('开声音','Unmute')}</button>
+      </div>`;
+    }
+    if(cfg.posterImage) return `<img src="${cfg.posterImage}" style="width:100%;display:block;">`;
+    return '';
+  }
+  function wirePosterMedia(){
+    const video = document.getElementById('poster-video');
+    const btn = document.getElementById('poster-unmute-btn');
+    if(video && btn){
+      btn.onclick = ()=>{
+        video.muted = false;
+        video.play().catch(()=>{});
+        btn.style.display = 'none';
+      };
+    }
+  }
   function renderEntryView(){
     const closedReason = registrationClosedReason();
     if(closedReason){
       app.innerHTML = `
         <div class="ticket">
-          ${state.eventConfig.posterImage?`<img src="${state.eventConfig.posterImage}" style="width:100%;display:block;">`:''}
+          ${renderPosterMedia()}
           <div class="ticket-head">
             <div class="eyebrow" style="color:var(--gold-light);opacity:.85;">LUCKY DRAW ENTRY</div>
             <h1>${escapeHtml(state.eventConfig.title)}</h1>
@@ -1004,6 +1027,7 @@
         </div>
         <div class="admin-link"><a id="admin-entry-link">管理员入口 / Admin</a></div>
       `;
+      wirePosterMedia();
       document.getElementById('admin-entry-link').onclick = async ()=>{
         await loadAdminStatus();
         if(state.token){
@@ -1017,7 +1041,7 @@
     const f = state.form, errs = state.formErrors;
     app.innerHTML = `
       <div class="ticket">
-        ${state.eventConfig.posterImage?`<img src="${state.eventConfig.posterImage}" style="width:100%;display:block;">`:''}
+        ${renderPosterMedia()}
         <div class="ticket-head">
           <div class="eyebrow" style="color:var(--gold-light);opacity:.85;">LUCKY DRAW ENTRY</div>
           <h1>${escapeHtml(state.eventConfig.title)}</h1>
@@ -1082,6 +1106,7 @@
       </div>
       <div class="admin-link"><a id="admin-entry-link">管理员入口 / Admin</a></div>
     `;
+    wirePosterMedia();
     document.getElementById('f-name').oninput = e=>{ state.form.name = e.target.value; };
     document.getElementById('f-contact').oninput = e=>{ state.form.contact = e.target.value; };
     document.getElementById('f-ddname').oninput = e=>{ state.form.ddName = e.target.value; };
@@ -1857,13 +1882,21 @@
       <div class="row2" style="margin-top:22px;align-items:start;">
         <div>
           <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('活动海报','Event Poster')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
-          <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;visibility:hidden;">&nbsp;</div>
+          <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">${t('图片和视频只会显示其中一个：目前显示','Only one of image/video is shown at a time — currently showing:')} <b style="color:var(--plum);">${state.eventConfig.posterMediaType==='video'&&state.eventConfig.posterVideoUrl?t('视频','Video'):t('图片','Image')}</b></div>
           <div class="upload-box">
             <label class="upload-btn">${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?t('更换海报','Change Poster'):t('上传海报','Upload Poster')}<input type="file" id="poster-upload" accept="image/*"></label>
             ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage}" src="${state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页会显示预设标题','Not uploaded yet — the registration page will show the default title')}</span>`}
             ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<button class="small-btn ghost" id="remove-poster-btn" type="button">${t('移除海报','Remove Poster')}</button>`:''}
           </div>
           <button class="small-btn" id="save-poster-btn" style="margin-top:12px;">${t('保存海报','Save Poster')}</button>
+          <div style="margin-top:16px;padding-top:16px;border-top:1px dashed var(--line);">
+            <div style="font-size:12px;color:var(--ink-soft);margin-bottom:8px;">${t('或者上传视频海报（会自动静音播放，参与者可以点击画面上的按钮打开声音）','Or upload a video poster (autoplays muted — participants can click the on-screen button to unmute)')}</div>
+            <div class="upload-box">
+              <label class="upload-btn">${state.eventConfig.posterMediaType==='video'&&state.eventConfig.posterVideoUrl?t('更换视频','Change Video'):t('上传视频','Upload Video')}<input type="file" id="poster-video-upload" accept="video/*"></label>
+              ${state.eventConfig.posterMediaType==='video'&&state.eventConfig.posterVideoUrl?`<video src="${state.eventConfig.posterVideoUrl}" muted style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--line);"></video><button class="small-btn ghost" id="remove-poster-video-btn" type="button">${t('移除视频','Remove Video')}</button>`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传视频，最大50MB','No video uploaded yet, max 50MB')}</span>`}
+            </div>
+            ${state.posterVideoUploading?`<div style="font-size:12px;color:var(--gold);margin-top:8px;">${t('视频上传中，请稍候…','Uploading video, please wait…')}</div>`:''}
+          </div>
         </div>
         <div>
           <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('订单截图教学图','Order Screenshot Tutorial Image')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
@@ -1936,6 +1969,35 @@
         showToast(t('海报已保存','Poster saved'));
         renderAdminSettingsTab(container);
       }catch(e){ showToast(e.message); }
+    };
+    container.querySelector('#poster-video-upload').onchange = async (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      if(!file.type.startsWith('video/')){ showToast(t('只支持视频文件','Only video files are supported')); return; }
+      if(file.size > 50*1024*1024){ showToast(t('视频不能超过50MB','Video cannot exceed 50MB')); return; }
+      state.posterVideoUploading = true; renderAdminSettingsTab(container);
+      try{
+        const fd = new FormData();
+        fd.append('video', file);
+        const headers = {};
+        if(state.token) headers['Authorization'] = 'Bearer '+state.token;
+        const res = await fetch('/api/admin/poster-video', {method:'POST', headers, body: fd});
+        const data = await res.json().catch(()=>null);
+        if(!res.ok) throw new Error((data&&data.error)||t('视频上传失败','Video upload failed'));
+        state.eventConfig.posterMediaType = data.posterMediaType;
+        state.eventConfig.posterVideoUrl = data.posterVideoUrl;
+        showToast(t('视频海报已保存','Video poster saved'));
+      }catch(err){ showToast(err.message); }
+      state.posterVideoUploading = false; renderAdminSettingsTab(container);
+    };
+    const removePosterVideoBtn = container.querySelector('#remove-poster-video-btn');
+    if(removePosterVideoBtn) removePosterVideoBtn.onclick = async ()=>{
+      try{
+        await api('/api/admin/poster-video', {method:'DELETE', auth:true});
+        state.eventConfig.posterMediaType = 'image';
+        state.eventConfig.posterVideoUrl = '';
+        showToast(t('视频海报已移除','Video poster removed'));
+        renderAdminSettingsTab(container);
+      }catch(err){ showToast(err.message); }
     };
     container.querySelector('#change-pw-btn').onclick = async ()=>{
       const v = container.querySelector('#new-pw').value;
