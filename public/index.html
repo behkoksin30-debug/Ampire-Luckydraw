@@ -1212,7 +1212,7 @@
       ${list.length===0?`<div class="empty-state">${t('暂无符合条件的登记资料','No matching entries')}</div>`:`
       <div style="overflow-x:auto;">
       <table>
-        <thead><tr><th>${t('照片','Photo')}</th><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('订单日期','Order Date')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th><th>${t('时间','Time')}</th><th></th></tr></thead>
+        <thead><tr><th>${t('照片','Photo')}</th><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('订单日期','Order Date')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th><th>${t('中奖次数','Wins')}</th><th>${t('时间','Time')}</th><th></th></tr></thead>
         <tbody>
           ${list.map(en=>{
             const isEditing = state.editingEntryId === en.id;
@@ -1228,6 +1228,7 @@
               <td>${isEditing?`<input type="text" class="edit-amount" value="${escapeAttr(en.amount)}" style="width:90px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:escapeHtml(String(en.amount))}</td>
               <td>${(en.ticketCount>0) ? `${en.ticketCount} ${t('次','')}` : `<span style="color:var(--ink-soft);">${t('0次','0')}</span>`}</td>
               <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">${t('已中奖','Won')}</span>`:`<span class="pill">${t('未中奖','No win')}</span>`}</td>
+              <td>${(en.wonPrizes&&en.wonPrizes.length) ? `${en.wonPrizes.length} ${t('次','x')}` : `<span style="color:var(--ink-soft);">${t('0次','0')}</span>`}</td>
               <td>${new Date(en.submittedAt).toLocaleDateString()}</td>
               <td>${isEditing?`
                 <button class="del-btn" data-save-entry="${en.id}" style="color:var(--plum);">${t('保存','Save')}</button>
@@ -1853,7 +1854,7 @@
           <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('活动海报','Event Poster')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
           <div class="upload-box">
             <label class="upload-btn">${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?t('更换海报','Change Poster'):t('上传海报','Upload Poster')}<input type="file" id="poster-upload" accept="image/*"></label>
-            ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<img class="thumb" style="width:64px;height:64px;" src="${state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页会显示预设标题','Not uploaded yet — the registration page will show the default title')}</span>`}
+            ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage}" src="${state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页会显示预设标题','Not uploaded yet — the registration page will show the default title')}</span>`}
             ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<button class="small-btn ghost" id="remove-poster-btn" type="button">${t('移除海报','Remove Poster')}</button>`:''}
           </div>
           <button class="small-btn" id="save-poster-btn" style="margin-top:12px;">${t('保存海报','Save Poster')}</button>
@@ -1863,7 +1864,7 @@
           <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">${t('参与者登记页的「上传订单截图」旁边会多一个「如何截图？」连结，点了会弹出这张图，教他们去哪里找订单截图','A "How to screenshot?" link will appear next to "Upload Order Screenshot" on the registration page — clicking it pops up this image to guide participants')}</div>
           <div class="upload-box">
             <label class="upload-btn">${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?t('更换教学图','Change Tutorial Image'):t('上传教学图','Upload Tutorial Image')}<input type="file" id="tutorial-upload" accept="image/*"></label>
-            ${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?`<img class="thumb" style="width:64px;height:64px;" src="${state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页不会显示「如何截图？」连结','Not uploaded yet — the "How to screenshot?" link will not appear on the registration page')}</span>`}
+            ${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?`<img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage}" src="${state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页不会显示「如何截图？」连结','Not uploaded yet — the "How to screenshot?" link will not appear on the registration page')}</span>`}
             ${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?`<button class="small-btn ghost" id="remove-tutorial-btn" type="button">${t('移除教学图','Remove Tutorial Image')}</button>`:''}
           </div>
           <button class="small-btn" id="save-tutorial-btn" style="margin-top:12px;">${t('保存教学图','Save Tutorial Image')}</button>
@@ -1956,6 +1957,7 @@
       localStorage.setItem('ld_admin_lang', state.adminLang);
       render();
     };
+    container.querySelectorAll('.mini-thumb').forEach(img=>{ img.onclick = ()=>{ state.lightboxSrc = img.getAttribute('data-src'); render(); }; });
   }
 
   function renderAdminView(){
