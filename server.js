@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
+const http = require('http');
+const { WebSocketServer } = require('ws');
 
 const app = express();
 app.use(express.json({ limit: '12mb' }));
@@ -692,4 +694,25 @@ app.get('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('幸运抽奖系统 running on port ' + PORT));
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+wss.on('connection', (ws) => {
+  ws.on('message', (raw) => {
+    let msg;
+    try { msg = JSON.parse(raw); } catch (e) { return; }
+    if (!msg || (msg.type !== 'draw_start' && msg.type !== 'draw_reveal')) return;
+    // only a logged-in admin session may broadcast live draw events
+    const token = msg.token;
+    const expiry = token && tokens.get(token);
+    if (!expiry || expiry < Date.now()) return;
+    const outbound = Object.assign({}, msg);
+    delete outbound.token;
+    const payload = JSON.stringify(outbound);
+    wss.clients.forEach((client) => {
+      if (client !== ws && client.readyState === 1) {
+        try { client.send(payload); } catch (e) {}
+      }
+    });
+  });
+});
+server.listen(PORT, () => console.log('幸运抽奖系统 running on port ' + PORT));
