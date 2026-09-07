@@ -768,6 +768,84 @@
   function celebrateGuaranteedWin(){
     fireworksConfetti();
   }
+  /* ---------------- live draw sync (WebSocket) ---------------- */
+  let liveSocket = null;
+  let liveRollInterval = null;
+  function connectLiveSocket(){
+    if(liveSocket && (liveSocket.readyState===0 || liveSocket.readyState===1)) return liveSocket;
+    try{
+      const proto = location.protocol==='https:' ? 'wss:' : 'ws:';
+      liveSocket = new WebSocket(proto+'//'+location.host);
+      liveSocket.onmessage = (ev)=>{
+        try{ handleLiveMessage(JSON.parse(ev.data)); }catch(e){}
+      };
+    }catch(e){ liveSocket = null; }
+    return liveSocket;
+  }
+  function sendLiveMessage(msg){
+    try{
+      const ws = connectLiveSocket();
+      if(!ws) return;
+      const payload = Object.assign({}, msg, {token: state.token});
+      if(ws.readyState===1) ws.send(JSON.stringify(payload));
+      else ws.addEventListener('open', ()=>{ try{ ws.send(JSON.stringify(payload)); }catch(e){} }, {once:true});
+    }catch(e){}
+  }
+  function handleLiveMessage(msg){
+    if(state.view!=='live') return;
+    const statusEl = document.getElementById('live-status');
+    const contextEl = document.getElementById('live-context');
+    const rollEl = document.getElementById('live-rolling');
+    const revealEl = document.getElementById('live-reveal');
+    if(!statusEl) return;
+    if(msg.type==='draw_start'){
+      clearInterval(liveRollInterval);
+      revealEl.style.display = 'none';
+      rollEl.style.display = 'block';
+      statusEl.textContent = msg.mode==='wheel' ? t('幸运轮盘抽奖中…','Lucky Wheel spinning…') : t('大抽奖进行中…','Main Draw in progress…');
+      contextEl.textContent = msg.context || '';
+      const items = (msg.rollingItems && msg.rollingItems.length) ? msg.rollingItems : ['—'];
+      let i = 0;
+      rollEl.textContent = items[0];
+      liveRollInterval = setInterval(()=>{ i++; rollEl.textContent = items[i % items.length]; }, 90);
+    } else if(msg.type==='draw_reveal'){
+      clearInterval(liveRollInterval);
+      rollEl.style.display = 'none';
+      statusEl.textContent = t('揭晓结果 🎉','Winner revealed 🎉');
+      contextEl.textContent = '';
+      document.getElementById('live-reveal-title').textContent = msg.resultTitle || '';
+      document.getElementById('live-reveal-sub').textContent = msg.resultSub || '';
+      revealEl.style.display = 'block';
+      playWinChime();
+      if(msg.mode==='wheel'){ fireworksConfetti(); }
+      else { (msg.prizeTier==='大奖'||msg.prizeTier==='二奖'||msg.prizeTier==='三奖') ? fireworksConfetti() : burstConfetti(); }
+    }
+  }
+  function renderLiveView(){
+    app.innerHTML = `
+      <div class="ticket">
+        ${renderPosterMedia()}
+        <div class="ticket-head">
+          <div class="eyebrow" style="color:var(--gold-light);opacity:.85;">LIVE DRAW</div>
+          <h1>${t('现场同步','Live Draw')}</h1>
+          <p>${t('抽奖进行时会自动同步画面','The screen updates automatically while a draw is happening')}</p>
+        </div>
+        <div class="perforation"></div>
+        <div class="ticket-body" style="text-align:center;padding:50px 30px;min-height:220px;">
+          <div id="live-status" style="font-size:15px;color:var(--ink-soft);margin-bottom:8px;">${t('等待管理员开始抽奖…','Waiting for the draw to start…')}</div>
+          <div id="live-context" style="font-size:13px;color:var(--gold);margin-bottom:18px;"></div>
+          <div id="live-rolling" style="font-size:28px;font-weight:700;color:var(--plum);display:none;"></div>
+          <div id="live-reveal" style="display:none;">
+            <div id="live-reveal-title" style="font-family:var(--serif,inherit);font-size:32px;font-weight:700;color:var(--plum);"></div>
+            <div id="live-reveal-sub" style="font-size:14px;color:var(--ink-soft);margin-top:8px;"></div>
+          </div>
+        </div>
+        <div class="admin-link"><a id="back-to-entry-link">${t('← 返回报名','← Back to entry')}</a></div>
+      </div>
+    `;
+    document.getElementById('back-to-entry-link').onclick = ()=>{ clearInterval(liveRollInterval); state.view='entry'; render(); };
+    connectLiveSocket();
+  }
   function drawTickCount(){
     const seconds = state.eventConfig.drawDurationSeconds || 5;
     return Math.max(4, Math.round(seconds*1000/90));
@@ -823,6 +901,7 @@
     const pool = eligibleTicketPool();
     if(pool.length===0){ showToast(t('没有符合条件的参与者','No eligible participants')); return; }
     state.drawing = true; state.revealedWinner = null; render();
+    sendLiveMessage({type:'draw_start', mode:'main', rollingItems: Array.from(new Set(pool.map(p=>p.name))), context: selectedPrize.name, durationSeconds: state.eventConfig.drawDurationSeconds || 5});
     let count = 0; const totalTicks = drawTickCount();
     clearInterval(rollInterval);
     rollInterval = setInterval(()=>{
@@ -838,6 +917,7 @@
         state.drawing = false;
         playWinChime();
         celebrateMainDrawWin(selectedPrize);
+        sendLiveMessage({type:'draw_reveal', mode:'main', resultTitle: state.revealedWinner.name, resultSub: selectedPrize.name, prizeTier: selectedPrize.tier});
         render();
       }
     }, 90);
@@ -1025,9 +1105,10 @@
             </div>
           </div>
         </div>
-        <div class="admin-link"><a id="admin-entry-link">管理员入口 / Admin</a></div>
+        <div class="admin-link"><a id="live-entry-link">${t('🔴 现场同步','🔴 Live Draw')}</a> · <a id="admin-entry-link">管理员入口 / Admin</a></div>
       `;
       wirePosterMedia();
+      document.getElementById('live-entry-link').onclick = ()=>{ state.view='live'; render(); };
       document.getElementById('admin-entry-link').onclick = async ()=>{
         await loadAdminStatus();
         if(state.token){
@@ -1104,9 +1185,10 @@
           <button class="submit-btn" id="submit-btn">提交登记 / Submit</button>
         </div>
       </div>
-      <div class="admin-link"><a id="admin-entry-link">管理员入口 / Admin</a></div>
+      <div class="admin-link"><a id="live-entry-link">${t('🔴 现场同步','🔴 Live Draw')}</a> · <a id="admin-entry-link">管理员入口 / Admin</a></div>
     `;
     wirePosterMedia();
+    document.getElementById('live-entry-link').onclick = ()=>{ state.view='live'; render(); };
     document.getElementById('f-name').oninput = e=>{ state.form.name = e.target.value; };
     document.getElementById('f-contact').oninput = e=>{ state.form.contact = e.target.value; };
     document.getElementById('f-ddname').oninput = e=>{ state.form.ddName = e.target.value; };
@@ -1470,6 +1552,7 @@
     }catch(e){ showToast(e.message); return; }
     const pool = guaranteedPrizePool();
     if(pool.length===0){ showToast(t('还没有奖品被设为「可用于幸运轮盘」，或库存已经用完，请先到奖品管理确认','No prizes are set as "usable for Lucky Wheel", or they are out of stock — please check Prize Management')); render(); return; }
+    const spinningEntry = state.entries.find(e=>e.id===entryId);
     const seg = 360/pool.length;
     const winnerIndex = Math.floor(Math.random()*pool.length);
     const winner = pool[winnerIndex];
@@ -1482,6 +1565,7 @@
     state.guaranteedSpinning = true;
     state.guaranteedWheelPool = pool;
     render();
+    sendLiveMessage({type:'draw_start', mode:'wheel', rollingItems: pool.map(p=>p.name), context: (spinningEntry?spinningEntry.name:''), durationSeconds: duration});
     requestAnimationFrame(()=>{
       const wheelEl = document.getElementById('wheel-'+entryId);
       if(wheelEl){
@@ -1495,6 +1579,7 @@
       state.guaranteedSpinning = false;
       playWinChime();
       celebrateGuaranteedWin();
+      sendLiveMessage({type:'draw_reveal', mode:'wheel', resultTitle: winner.name, resultSub: (spinningEntry?spinningEntry.name:'')});
       render();
     }, duration*1000 + 150);
     scheduleWheelTicks(duration);
@@ -2079,6 +2164,7 @@
     else if(state.view==='success') renderSuccessView();
     else if(state.view==='adminLogin') renderAdminLoginView();
     else if(state.view==='admin') renderAdminView();
+    else if(state.view==='live') renderLiveView();
     document.querySelectorAll('.lightbox').forEach(el=> el.remove());
     if(state.lightboxSrc){
       const lb = el(`<div class="lightbox"><button class="lightbox-close" type="button">✕ 关闭</button><img src="${state.lightboxSrc}"></div>`);
