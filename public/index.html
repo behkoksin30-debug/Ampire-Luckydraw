@@ -803,15 +803,31 @@
     const contextEl = document.getElementById('live-context');
     const rollEl = document.getElementById('live-rolling');
     const revealEl = document.getElementById('live-reveal');
+    const photoEl = document.getElementById('live-focus-photo');
+    const wheelEl = document.getElementById('live-focus-wheel');
     if(!statusEl) return;
     if(msg.type==='focus'){
       revealEl.style.display = 'none';
       rollEl.style.display = 'none';
-      statusEl.textContent = t('等待管理员开始抽奖…','Waiting for the draw to start…');
-      contextEl.textContent = msg.context || '';
+      photoEl.style.display = 'none';
+      wheelEl.style.display = 'none';
+      if(msg.mode==='main'){
+        statusEl.textContent = t('大抽奖 · 即将抽出','Main Draw · Coming up');
+        contextEl.textContent = (msg.prizeTier?`【${msg.prizeTier}】`:'') + (msg.prizeName||'') + (msg.prizeValue?` (RM${msg.prizeValue})`:'');
+        if(msg.prizePhoto){ photoEl.src = msg.prizePhoto; photoEl.style.display = 'inline-block'; }
+      } else if(msg.mode==='wheel'){
+        statusEl.textContent = t('幸运轮盘 · 即将抽出','Lucky Wheel · Coming up');
+        contextEl.textContent = msg.context || '';
+        wheelEl.style.display = 'block';
+      } else {
+        statusEl.textContent = t('等待管理员开始抽奖…','Waiting for the draw to start…');
+        contextEl.textContent = msg.context || '';
+      }
     } else if(msg.type==='prize_selected'){
       revealEl.style.display = 'none';
       rollEl.style.display = 'none';
+      photoEl.style.display = 'none';
+      wheelEl.style.display = 'none';
       if(msg.prizeName){
         statusEl.textContent = t('即将抽出','Coming up');
         contextEl.textContent = (msg.prizeTier?`【${msg.prizeTier}】`:'') + msg.prizeName;
@@ -822,6 +838,8 @@
     } else if(msg.type==='draw_start'){
       clearInterval(liveRollInterval);
       revealEl.style.display = 'none';
+      photoEl.style.display = 'none';
+      wheelEl.style.display = 'none';
       rollEl.style.display = 'block';
       statusEl.textContent = msg.mode==='wheel' ? t('幸运轮盘抽奖中…','Lucky Wheel spinning…') : t('大抽奖进行中…','Main Draw in progress…');
       contextEl.textContent = msg.context || '';
@@ -832,6 +850,8 @@
     } else if(msg.type==='draw_reveal'){
       clearInterval(liveRollInterval);
       rollEl.style.display = 'none';
+      photoEl.style.display = 'none';
+      wheelEl.style.display = 'none';
       statusEl.textContent = t('揭晓结果 🎉','Winner revealed 🎉');
       contextEl.textContent = '';
       document.getElementById('live-reveal-title').textContent = msg.resultTitle || '';
@@ -854,6 +874,8 @@
         <div class="perforation"></div>
         <div class="ticket-body" style="text-align:center;padding:50px 30px;min-height:220px;">
           <div id="live-status" style="font-size:15px;color:var(--ink-soft);margin-bottom:8px;">${t('等待管理员开始抽奖…','Waiting for the draw to start…')}</div>
+          <img id="live-focus-photo" style="width:120px;height:120px;border-radius:8px;object-fit:cover;margin:0 auto 12px;display:none;">
+          <div id="live-focus-wheel" style="width:120px;height:120px;border-radius:50%;margin:0 auto 12px;border:3px solid var(--plum);display:none;background:conic-gradient(var(--gold) 0deg 60deg,var(--gold-light) 60deg 120deg,var(--rose) 120deg 180deg,var(--plum-2) 180deg 240deg,var(--plum) 240deg 300deg,var(--gold) 300deg 360deg);"></div>
           <div id="live-context" style="font-size:13px;color:var(--gold);margin-bottom:18px;"></div>
           <div id="live-rolling" style="font-size:28px;font-weight:700;color:var(--plum);display:none;"></div>
           <div id="live-reveal" style="display:none;">
@@ -1656,7 +1678,7 @@
         </label>
       </div>
       <div style="margin-bottom:20px;">
-        <button class="small-btn ghost" id="focus-live-btn" type="button" ${state.eventConfig.liveDrawEnabled?'':'disabled'}>🔴 ${t('立即同步参与者画面','Focus Participants Now')}</button>
+        <button class="small-btn ghost" id="focus-live-btn" type="button" ${state.eventConfig.liveDrawEnabled?'':'disabled'}>🔴 ${t('现在抽','Draw Focus')}</button>
         ${!state.eventConfig.liveDrawEnabled?`<span style="font-size:12px;color:var(--ink-soft);margin-left:8px;">${t('请先打开上面的开关','Turn on the switch above first')}</span>`:`<span style="font-size:12px;color:var(--ink-soft);margin-left:8px;">${t('点一下，正在看报名页的人会立刻跳转到现场同步画面','Click once — anyone on the entry page will jump straight to the live view')}</span>`}
       </div>
       <div class="select-row">
@@ -1697,7 +1719,7 @@
                 </div>
                 ${!isActive?`
                 <div style="display:flex;gap:8px;flex-shrink:0;">
-                  <button class="small-btn ghost" data-focus-guaranteed="${en.id}" type="button" ${state.eventConfig.liveDrawEnabled?'':'disabled'} title="${t('先点这个让参与者画面同步过来，再点抽礼物开始转','Click this first to bring participants into the live view, then click Spin Wheel')}">🔴 ${t('同步','Focus')}</button>
+                  <button class="small-btn ghost" data-focus-guaranteed="${en.id}" type="button" ${state.eventConfig.liveDrawEnabled?'':'disabled'} title="${t('先点这个让参与者画面聚焦过来，再点抽礼物开始转','Click this first to focus participants into the live view, then click Spin Wheel')}">🔴 ${t('现在抽','Draw Focus')}</button>
                   <button class="small-btn" data-draw-guaranteed="${en.id}">${t('抽礼物','Spin Wheel')}</button>
                 </div>
                 `:`
@@ -1742,7 +1764,8 @@
     };
     const focusLiveBtn = container.querySelector('#focus-live-btn');
     if(focusLiveBtn) focusLiveBtn.onclick = ()=>{
-      sendLiveMessage({type:'focus'});
+      const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize);
+      sendLiveMessage({type:'focus', mode:'main', prizeName: pz?pz.name:'', prizeTier: pz?pz.tier:'', prizeValue: pz?pz.value:'', prizePhoto: pz?pz.photo:''});
       showToast(t('已发出同步信号','Focus signal sent'));
     };
     container.querySelector('#prize-select').onchange = e=>{ state.drawSelectedPrize = e.target.value; state.revealedWinner=null; broadcastPrizeSelection(); renderAdminDrawTab(container); };
@@ -1756,7 +1779,8 @@
     container.querySelectorAll('[data-focus-guaranteed]').forEach(btn=>{
       btn.onclick = ()=>{
         const en = state.entries.find(e=>e.id===btn.getAttribute('data-focus-guaranteed'));
-        sendLiveMessage({type:'focus', context: en?en.name:''});
+        const context = en ? (en.name + (en.customerName?` · ${t('顾客','Customer')} ${en.customerName}`:'')) : '';
+        sendLiveMessage({type:'focus', mode:'wheel', context});
         showToast(t('已发出同步信号','Focus signal sent'));
       };
     });
