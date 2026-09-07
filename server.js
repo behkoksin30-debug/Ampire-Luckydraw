@@ -709,7 +709,7 @@ wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
     let msg;
     try { msg = JSON.parse(raw); } catch (e) { return; }
-    if (!msg || (msg.type !== 'draw_start' && msg.type !== 'draw_reveal' && msg.type !== 'prize_selected')) return;
+    if (!msg || (msg.type !== 'draw_start' && msg.type !== 'draw_reveal' && msg.type !== 'prize_selected' && msg.type !== 'focus')) return;
     // only a logged-in admin session may broadcast live draw events
     const token = msg.token;
     const expiry = token && tokens.get(token);
