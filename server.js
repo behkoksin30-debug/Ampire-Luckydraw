@@ -33,6 +33,7 @@ function defaultConfig() {
     tutorialImage: null,
     posterMediaType: 'image',
     posterVideoUrl: '',
+    liveDrawEnabled: false,
     drawDurationSeconds: 5,
     registrationDeadline: '',
     soundTheme: 'classic',
@@ -163,6 +164,7 @@ app.get('/api/config', (req, res) => {
     tutorialImage: cfg.tutorialImage || null,
     posterMediaType: cfg.posterMediaType || 'image',
     posterVideoUrl: cfg.posterVideoUrl || '',
+    liveDrawEnabled: !!cfg.liveDrawEnabled,
     drawDurationSeconds: cfg.drawDurationSeconds || 5,
     registrationDeadline: cfg.registrationDeadline || '',
     soundTheme: cfg.soundTheme || 'classic'
@@ -224,6 +226,9 @@ app.put('/api/config', requireAdmin, (req, res) => {
   }
   if (req.body.soundTheme !== undefined) {
     cfg.soundTheme = ['classic','electronic','drum'].includes(req.body.soundTheme) ? req.body.soundTheme : (cfg.soundTheme || 'classic');
+  }
+  if (req.body.liveDrawEnabled !== undefined) {
+    cfg.liveDrawEnabled = !!req.body.liveDrawEnabled;
   }
   writeConfig(cfg);
   res.json({ ok: true });
@@ -696,17 +701,22 @@ app.get('*', (req, res) => {
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
+let lastLiveState = null;
 wss.on('connection', (ws) => {
+  if (lastLiveState) {
+    try { ws.send(JSON.stringify(lastLiveState)); } catch (e) {}
+  }
   ws.on('message', (raw) => {
     let msg;
     try { msg = JSON.parse(raw); } catch (e) { return; }
-    if (!msg || (msg.type !== 'draw_start' && msg.type !== 'draw_reveal')) return;
+    if (!msg || (msg.type !== 'draw_start' && msg.type !== 'draw_reveal' && msg.type !== 'prize_selected')) return;
     // only a logged-in admin session may broadcast live draw events
     const token = msg.token;
     const expiry = token && tokens.get(token);
     if (!expiry || expiry < Date.now()) return;
     const outbound = Object.assign({}, msg);
     delete outbound.token;
+    lastLiveState = outbound;
     const payload = JSON.stringify(outbound);
     wss.clients.forEach((client) => {
       if (client !== ws && client.readyState === 1) {
