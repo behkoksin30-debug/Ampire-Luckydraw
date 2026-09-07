@@ -783,6 +783,7 @@
     return liveSocket;
   }
   function sendLiveMessage(msg){
+    if(!state.eventConfig.liveDrawEnabled) return;
     try{
       const ws = connectLiveSocket();
       if(!ws) return;
@@ -793,7 +794,7 @@
   }
   function handleLiveMessage(msg){
     if(state.view!=='live'){
-      const isProgressMsg = (msg.type==='prize_selected' && msg.prizeName) || msg.type==='draw_start';
+      const isProgressMsg = (msg.type==='prize_selected' && msg.prizeName) || msg.type==='draw_start' || msg.type==='focus';
       const canAutoSwitch = state.eventConfig.liveDrawEnabled && (state.view==='entry' || state.view==='success');
       if(isProgressMsg && canAutoSwitch){ state.view='live'; render(); }
       else return;
@@ -803,7 +804,12 @@
     const rollEl = document.getElementById('live-rolling');
     const revealEl = document.getElementById('live-reveal');
     if(!statusEl) return;
-    if(msg.type==='prize_selected'){
+    if(msg.type==='focus'){
+      revealEl.style.display = 'none';
+      rollEl.style.display = 'none';
+      statusEl.textContent = t('等待管理员开始抽奖…','Waiting for the draw to start…');
+      contextEl.textContent = '';
+    } else if(msg.type==='prize_selected'){
       revealEl.style.display = 'none';
       rollEl.style.display = 'none';
       if(msg.prizeName){
@@ -1639,6 +1645,20 @@
     const selectedPrize = state.prizes.find(p=>p.id===state.drawSelectedPrize);
     const selectedTotalQty = selectedPrize ? (selectedPrize.qty||0)+(selectedPrize.guaranteedQty||0) : null;
     container.innerHTML = `
+      <div class="toggle-row" style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:12px 16px;margin-bottom:10px;">
+        <div class="toggle-row-text">
+          <span class="title">${t('现场同步','Live Sync')}</span>
+          ${hintIcon(t('打开后，参与者报名页可以看到「现场同步」连结；开关本身不会主动切换他们的画面——点下面的「立即同步」按钮才会把大家的画面拉过来。关闭时参与者完全看不到抽奖过程','When on, participants can see a "Live Draw" link on the entry page; the switch itself does not switch their screen — click "Focus Now" below to pull everyone into the live view. When off, participants cannot see the draw at all'))}
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="ev-livedraw" ${state.eventConfig.liveDrawEnabled?'checked':''}>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div style="margin-bottom:20px;">
+        <button class="small-btn ghost" id="focus-live-btn" type="button" ${state.eventConfig.liveDrawEnabled?'':'disabled'}>🔴 ${t('立即同步参与者画面','Focus Participants Now')}</button>
+        ${!state.eventConfig.liveDrawEnabled?`<span style="font-size:12px;color:var(--ink-soft);margin-left:8px;">${t('请先打开上面的开关','Turn on the switch above first')}</span>`:`<span style="font-size:12px;color:var(--ink-soft);margin-left:8px;">${t('点一下，正在看报名页的人会立刻跳转到现场同步画面','Click once — anyone on the entry page will jump straight to the live view')}</span>`}
+      </div>
       <div class="select-row">
         <select id="prize-select">
           <option value="">${t('选择要抽取的奖品','Select a prize to draw')}</option>
@@ -1705,6 +1725,23 @@
         `}
       </div>
     `;
+    container.querySelector('#ev-livedraw').onchange = async (e)=>{
+      const newValue = e.target.checked;
+      try{
+        await api('/api/config', {method:'PUT', auth:true, body:{liveDrawEnabled: newValue}});
+        state.eventConfig.liveDrawEnabled = newValue;
+        showToast(newValue ? t('现场同步已开启','Live sync turned on') : t('现场同步已关闭','Live sync turned off'));
+        renderAdminDrawTab(container);
+      }catch(err){
+        e.target.checked = !newValue;
+        showToast(err.message);
+      }
+    };
+    const focusLiveBtn = container.querySelector('#focus-live-btn');
+    if(focusLiveBtn) focusLiveBtn.onclick = ()=>{
+      sendLiveMessage({type:'focus'});
+      showToast(t('已发出同步信号','Focus signal sent'));
+    };
     container.querySelector('#prize-select').onchange = e=>{ state.drawSelectedPrize = e.target.value; state.revealedWinner=null; broadcastPrizeSelection(); renderAdminDrawTab(container); };
     const startBtn = container.querySelector('#start-draw-btn'); if(startBtn) startBtn.onclick = startDraw;
     const confirmBtn = container.querySelector('#confirm-winner-btn'); if(confirmBtn) confirmBtn.onclick = confirmWinner;
@@ -1970,17 +2007,6 @@
           </label>
         </div>
         <div class="toggle-state-note" style="margin-bottom:14px;">${state.eventConfig.registrationOpen? t('当前：开放中，参与者可以正常登记','Currently: Open — participants can register') : t('当前：已关闭，参与者会看到「报名已结束」或「报名尚未开始」','Currently: Closed — participants will see "Registration closed" or "Registration has not started yet"')}</div>
-        <div class="toggle-row">
-          <div class="toggle-row-text">
-            <span class="title">${t('现场同步','Live Draw')}</span>
-            ${hintIcon(t('打开后，参与者报名页会出现「现场同步」连结，可以看到后台抽奖时滚动、揭晓的画面。关闭时连结不会出现，等于隐藏这个功能','When on, a "Live Draw" link appears on the entry page, letting participants watch the draw roll and reveal in real time. When off, the link is hidden and the feature is unavailable'))}
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="ev-livedraw" ${state.eventConfig.liveDrawEnabled?'checked':''}>
-            <span class="slider"></span>
-          </label>
-        </div>
-        <div class="toggle-state-note">${state.eventConfig.liveDrawEnabled? t('当前：已开启，参与者能看到「现场同步」连结','Currently: On — participants will see the "Live Draw" link') : t('当前：已关闭，参与者看不到「现场同步」连结','Currently: Off — participants will not see the "Live Draw" link')}</div>
       </div>
       <div style="margin-top:22px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
@@ -2065,18 +2091,6 @@
         await api('/api/config', {method:'PUT', auth:true, body:{registrationOpen: newValue}});
         state.eventConfig.registrationOpen = newValue;
         showToast(newValue ? t('已开放报名','Registration opened') : t('已关闭报名','Registration closed'));
-        renderAdminSettingsTab(container);
-      }catch(err){
-        e.target.checked = !newValue;
-        showToast(err.message);
-      }
-    };
-    container.querySelector('#ev-livedraw').onchange = async (e)=>{
-      const newValue = e.target.checked;
-      try{
-        await api('/api/config', {method:'PUT', auth:true, body:{liveDrawEnabled: newValue}});
-        state.eventConfig.liveDrawEnabled = newValue;
-        showToast(newValue ? t('现场同步已开启','Live Draw turned on') : t('现场同步已关闭','Live Draw turned off'));
         renderAdminSettingsTab(container);
       }catch(err){
         e.target.checked = !newValue;
