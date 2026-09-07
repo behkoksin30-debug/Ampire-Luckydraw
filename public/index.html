@@ -162,7 +162,7 @@
     token: localStorage.getItem('ld_admin_token') || null,
     lastTicket: null,
     entries: [], prizes: [], draws: [],
-    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, tutorialImage: null, posterMediaType: 'image', posterVideoUrl: '', drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic' },
+    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, tutorialImage: null, posterMediaType: 'image', posterVideoUrl: '', drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic', liveDrawEnabled: false },
     adminPasswordSet: null,
     form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false },
     formErrors: {},
@@ -792,13 +792,28 @@
     }catch(e){}
   }
   function handleLiveMessage(msg){
-    if(state.view!=='live') return;
+    if(state.view!=='live'){
+      const isProgressMsg = (msg.type==='prize_selected' && msg.prizeName) || msg.type==='draw_start';
+      const canAutoSwitch = state.eventConfig.liveDrawEnabled && (state.view==='entry' || state.view==='success');
+      if(isProgressMsg && canAutoSwitch){ state.view='live'; render(); }
+      else return;
+    }
     const statusEl = document.getElementById('live-status');
     const contextEl = document.getElementById('live-context');
     const rollEl = document.getElementById('live-rolling');
     const revealEl = document.getElementById('live-reveal');
     if(!statusEl) return;
-    if(msg.type==='draw_start'){
+    if(msg.type==='prize_selected'){
+      revealEl.style.display = 'none';
+      rollEl.style.display = 'none';
+      if(msg.prizeName){
+        statusEl.textContent = t('即将抽出','Coming up');
+        contextEl.textContent = (msg.prizeTier?`【${msg.prizeTier}】`:'') + msg.prizeName;
+      } else {
+        statusEl.textContent = t('等待管理员开始抽奖…','Waiting for the draw to start…');
+        contextEl.textContent = '';
+      }
+    } else if(msg.type==='draw_start'){
       clearInterval(liveRollInterval);
       revealEl.style.display = 'none';
       rollEl.style.display = 'block';
@@ -886,6 +901,10 @@
     return pool;
   }
   let rollInterval = null;
+  function broadcastPrizeSelection(){
+    const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize);
+    sendLiveMessage({type:'prize_selected', prizeName: pz?pz.name:'', prizeTier: pz?pz.tier:''});
+  }
   async function startDraw(){
     if(!state.drawSelectedPrize){ showToast(t('请先选择奖品','Please select a prize first')); return; }
     try{
@@ -1105,10 +1124,11 @@
             </div>
           </div>
         </div>
-        <div class="admin-link"><a id="live-entry-link">${t('🔴 现场同步','🔴 Live Draw')}</a> · <a id="admin-entry-link">管理员入口 / Admin</a></div>
+        <div class="admin-link">${state.eventConfig.liveDrawEnabled?`<a id="live-entry-link">${t('🔴 现场同步','🔴 Live Draw')}</a> · `:''}<a id="admin-entry-link">管理员入口 / Admin</a></div>
       `;
       wirePosterMedia();
-      document.getElementById('live-entry-link').onclick = ()=>{ state.view='live'; render(); };
+      if(state.eventConfig.liveDrawEnabled) connectLiveSocket();
+      const liveEntryLink = document.getElementById('live-entry-link'); if(liveEntryLink) liveEntryLink.onclick = ()=>{ state.view='live'; render(); };
       document.getElementById('admin-entry-link').onclick = async ()=>{
         await loadAdminStatus();
         if(state.token){
@@ -1185,10 +1205,11 @@
           <button class="submit-btn" id="submit-btn">提交登记 / Submit</button>
         </div>
       </div>
-      <div class="admin-link"><a id="live-entry-link">${t('🔴 现场同步','🔴 Live Draw')}</a> · <a id="admin-entry-link">管理员入口 / Admin</a></div>
+      <div class="admin-link">${state.eventConfig.liveDrawEnabled?`<a id="live-entry-link">${t('🔴 现场同步','🔴 Live Draw')}</a> · `:''}<a id="admin-entry-link">管理员入口 / Admin</a></div>
     `;
     wirePosterMedia();
-    document.getElementById('live-entry-link').onclick = ()=>{ state.view='live'; render(); };
+    if(state.eventConfig.liveDrawEnabled) connectLiveSocket();
+    const liveEntryLink = document.getElementById('live-entry-link'); if(liveEntryLink) liveEntryLink.onclick = ()=>{ state.view='live'; render(); };
     document.getElementById('f-name').oninput = e=>{ state.form.name = e.target.value; };
     document.getElementById('f-contact').oninput = e=>{ state.form.contact = e.target.value; };
     document.getElementById('f-ddname').oninput = e=>{ state.form.ddName = e.target.value; };
@@ -1257,6 +1278,7 @@
       </div>
     `;
     document.getElementById('again-btn').onclick = ()=>{ state.view='entry'; render(); };
+    if(state.eventConfig.liveDrawEnabled) connectLiveSocket();
   }
 
   function renderAdminLoginView(){
@@ -1683,7 +1705,7 @@
         `}
       </div>
     `;
-    container.querySelector('#prize-select').onchange = e=>{ state.drawSelectedPrize = e.target.value; state.revealedWinner=null; renderAdminDrawTab(container); };
+    container.querySelector('#prize-select').onchange = e=>{ state.drawSelectedPrize = e.target.value; state.revealedWinner=null; broadcastPrizeSelection(); renderAdminDrawTab(container); };
     const startBtn = container.querySelector('#start-draw-btn'); if(startBtn) startBtn.onclick = startDraw;
     const confirmBtn = container.querySelector('#confirm-winner-btn'); if(confirmBtn) confirmBtn.onclick = confirmWinner;
     const redrawBtn = container.querySelector('#redraw-btn'); if(redrawBtn) redrawBtn.onclick = ()=>{ discardDraw(); startDraw(); };
@@ -1948,6 +1970,17 @@
           </label>
         </div>
         <div class="toggle-state-note" style="margin-bottom:14px;">${state.eventConfig.registrationOpen? t('当前：开放中，参与者可以正常登记','Currently: Open — participants can register') : t('当前：已关闭，参与者会看到「报名已结束」或「报名尚未开始」','Currently: Closed — participants will see "Registration closed" or "Registration has not started yet"')}</div>
+        <div class="toggle-row">
+          <div class="toggle-row-text">
+            <span class="title">${t('现场同步','Live Draw')}</span>
+            ${hintIcon(t('打开后，参与者报名页会出现「现场同步」连结，可以看到后台抽奖时滚动、揭晓的画面。关闭时连结不会出现，等于隐藏这个功能','When on, a "Live Draw" link appears on the entry page, letting participants watch the draw roll and reveal in real time. When off, the link is hidden and the feature is unavailable'))}
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="ev-livedraw" ${state.eventConfig.liveDrawEnabled?'checked':''}>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="toggle-state-note">${state.eventConfig.liveDrawEnabled? t('当前：已开启，参与者能看到「现场同步」连结','Currently: On — participants will see the "Live Draw" link') : t('当前：已关闭，参与者看不到「现场同步」连结','Currently: Off — participants will not see the "Live Draw" link')}</div>
       </div>
       <div style="margin-top:22px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
@@ -2032,6 +2065,18 @@
         await api('/api/config', {method:'PUT', auth:true, body:{registrationOpen: newValue}});
         state.eventConfig.registrationOpen = newValue;
         showToast(newValue ? t('已开放报名','Registration opened') : t('已关闭报名','Registration closed'));
+        renderAdminSettingsTab(container);
+      }catch(err){
+        e.target.checked = !newValue;
+        showToast(err.message);
+      }
+    };
+    container.querySelector('#ev-livedraw').onchange = async (e)=>{
+      const newValue = e.target.checked;
+      try{
+        await api('/api/config', {method:'PUT', auth:true, body:{liveDrawEnabled: newValue}});
+        state.eventConfig.liveDrawEnabled = newValue;
+        showToast(newValue ? t('现场同步已开启','Live Draw turned on') : t('现场同步已关闭','Live Draw turned off'));
         renderAdminSettingsTab(container);
       }catch(err){
         e.target.checked = !newValue;
@@ -2145,6 +2190,7 @@
         if(newTab==='archives' && state.adminTab!=='archives'){ state.archiveDetail = null; }
         state.adminTab = newTab;
         if(state.adminTab==='archives' && state.archives.length===0){ loadArchives().then(render); }
+        if(state.adminTab==='draw') broadcastPrizeSelection();
         render();
       };
     });
