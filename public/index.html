@@ -808,7 +808,7 @@
       revealEl.style.display = 'none';
       rollEl.style.display = 'none';
       statusEl.textContent = t('等待管理员开始抽奖…','Waiting for the draw to start…');
-      contextEl.textContent = '';
+      contextEl.textContent = msg.context || '';
     } else if(msg.type==='prize_selected'){
       revealEl.style.display = 'none';
       rollEl.style.display = 'none';
@@ -1696,7 +1696,10 @@
                   <div class="pqty">${t('金额','Amount')} RM${escapeHtml(String(en.amount))} · ${t('已中','Won')} ${(en.wonPrizes||[]).length} ${t('次','x')} · ${t('编号','ID')} ${en.id}</div>
                 </div>
                 ${!isActive?`
-                <button class="small-btn" data-draw-guaranteed="${en.id}">${t('抽礼物','Spin Wheel')}</button>
+                <div style="display:flex;gap:8px;flex-shrink:0;">
+                  <button class="small-btn ghost" data-focus-guaranteed="${en.id}" type="button" ${state.eventConfig.liveDrawEnabled?'':'disabled'} title="${t('先点这个让参与者画面同步过来，再点抽礼物开始转','Click this first to bring participants into the live view, then click Spin Wheel')}">🔴 ${t('同步','Focus')}</button>
+                  <button class="small-btn" data-draw-guaranteed="${en.id}">${t('抽礼物','Spin Wheel')}</button>
+                </div>
                 `:`
                 <div class="draw-stage" style="padding:22px 14px;margin-top:10px;">
                   ${!state.guaranteedRevealedPrize?`
@@ -1749,6 +1752,13 @@
     const cancelBtn = container.querySelector('#cancel-draw-btn'); if(cancelBtn) cancelBtn.onclick = discardDraw;
     container.querySelectorAll('[data-draw-guaranteed]').forEach(btn=>{
       btn.onclick = ()=> startGuaranteedDraw(btn.getAttribute('data-draw-guaranteed'));
+    });
+    container.querySelectorAll('[data-focus-guaranteed]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const en = state.entries.find(e=>e.id===btn.getAttribute('data-focus-guaranteed'));
+        sendLiveMessage({type:'focus', context: en?en.name:''});
+        showToast(t('已发出同步信号','Focus signal sent'));
+      };
     });
     container.querySelectorAll('[data-confirm-guaranteed]').forEach(btn=>{
       btn.onclick = ()=> confirmGuaranteedGift(btn.getAttribute('data-confirm-guaranteed'));
