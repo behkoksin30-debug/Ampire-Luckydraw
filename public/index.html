@@ -162,7 +162,7 @@
     token: localStorage.getItem('ld_admin_token') || null,
     lastTicket: null,
     entries: [], prizes: [], draws: [],
-    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, tutorialImage: null, posterMediaType: 'image', posterVideoUrl: '', drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic', liveDrawEnabled: false },
+    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, tutorialImage: null, tutorialImages: [], posterMediaType: 'image', posterVideoUrl: '', drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic', liveDrawEnabled: false },
     adminPasswordSet: null,
     form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false },
     formErrors: {},
@@ -173,6 +173,8 @@
     prizeSortMode: 'value_asc',
     editingEntryId: null,
     lightboxSrc: null,
+    lightboxSrcs: null,
+    lightboxIndex: 0,
     drawing: false, drawSelectedPrize: '',
     rollingName: '', revealedWinner: null,
     newPrizePhoto: null,
@@ -180,7 +182,7 @@
     draftTiers: null,
     draftPosterImage: undefined,
     posterVideoUploading: false,
-    draftTutorialImage: undefined,
+    draftTutorialImages: undefined,
     archives: [], archiveDetail: null, newEventLabel: '',
     guaranteedDrawEntryId: null, guaranteedRevealedPrize: null, guaranteedSending: false, guaranteedSpinning: false, guaranteedWheelPool: null
   };
@@ -235,7 +237,7 @@
     try{
       await api('/api/archives', {method:'POST', auth:true, body:{label: (label||'').trim()}});
       state.newEventLabel = '';
-      state.draftTiers = null; state.draftPosterImage = undefined; state.draftTutorialImage = undefined;
+      state.draftTiers = null; state.draftPosterImage = undefined; state.draftTutorialImages = undefined;
       await loadEventConfig();
       await loadAdminData();
       await loadArchives();
@@ -258,7 +260,7 @@
     try{
       await api('/api/archives/'+id+'/restore', {method:'POST', auth:true});
       state.archiveDetail = null;
-      state.draftTiers = null; state.draftPosterImage = undefined; state.draftTutorialImage = undefined;
+      state.draftTiers = null; state.draftPosterImage = undefined; state.draftTutorialImages = undefined;
       await loadEventConfig();
       await loadAdminData();
       await loadArchives();
@@ -1196,7 +1198,7 @@
             ${errs.customerName?`<div class="error-text">${errs.customerName}</div>`:''}
           </div>
           <div class="field"><label>上传订单截图 / Upload Order Screenshot</label>
-            ${state.eventConfig.tutorialImage?`<a id="tutorial-link" href="javascript:void(0)" style="font-size:12.5px;color:var(--gold);font-weight:700;text-decoration:underline;margin-left:8px;">如何截图？ / How to screenshot?</a>`:''}
+            ${(state.eventConfig.tutorialImages&&state.eventConfig.tutorialImages.length)?`<a id="tutorial-link" href="javascript:void(0)" style="font-size:12.5px;color:var(--gold);font-weight:700;text-decoration:underline;margin-left:8px;">如何截图？ / How to screenshot?</a>`:''}
             <div class="upload-box">
               <label class="upload-btn">点击选择照片 / Click to Choose Photo<input type="file" id="f-photo" accept="image/*"></label>
               ${f.photo?`<img class="thumb" id="entry-photo-preview" src="${f.photo}" style="cursor:pointer;">`:''}
@@ -1258,7 +1260,7 @@
     const photoPreview = document.getElementById('entry-photo-preview');
     if(photoPreview) photoPreview.onclick = ()=>{ state.lightboxSrc = f.photo; render(); };
     const tutorialLink = document.getElementById('tutorial-link');
-    if(tutorialLink) tutorialLink.onclick = ()=>{ state.lightboxSrc = state.eventConfig.tutorialImage; render(); };
+    if(tutorialLink) tutorialLink.onclick = ()=>{ state.lightboxSrcs = state.eventConfig.tutorialImages; state.lightboxIndex = 0; render(); };
     const resetPhotoBtn = document.getElementById('reset-photo-btn');
     if(resetPhotoBtn) resetPhotoBtn.onclick = ()=>{
       state.form.photo = null;
@@ -2077,14 +2079,22 @@
           </div>
         </div>
         <div>
-          <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('订单截图教学图','Order Screenshot Tutorial Image')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
-          <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">${t('参与者登记页的「上传订单截图」旁边会多一个「如何截图？」连结，点了会弹出这张图，教他们去哪里找订单截图','A "How to screenshot?" link will appear next to "Upload Order Screenshot" on the registration page — clicking it pops up this image to guide participants')}</div>
+          <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('订单截图教学图','Order Screenshot Tutorial Images')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
+          <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">${t('参与者登记页的「上传订单截图」旁边会多一个「如何截图？」连结，点了会弹出教学图，可以上传多张（比如分步骤），教他们去哪里找订单截图','A "How to screenshot?" link will appear next to "Upload Order Screenshot" on the registration page. You can upload several images (e.g. step by step) to guide participants')}</div>
+          ${(()=>{ const imgs = state.draftTutorialImages!==undefined ? state.draftTutorialImages : (state.eventConfig.tutorialImages||[]); return `
           <div class="upload-box">
-            <label class="upload-btn">${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?t('更换教学图','Change Tutorial Image'):t('上传教学图','Upload Tutorial Image')}<input type="file" id="tutorial-upload" accept="image/*"></label>
-            ${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?`<img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage}" src="${state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页不会显示「如何截图？」连结','Not uploaded yet — the "How to screenshot?" link will not appear on the registration page')}</span>`}
-            ${(state.draftTutorialImage!==undefined?state.draftTutorialImage:state.eventConfig.tutorialImage)?`<button class="small-btn ghost" id="remove-tutorial-btn" type="button">${t('移除教学图','Remove Tutorial Image')}</button>`:''}
+            <label class="upload-btn">${t('添加教学图','Add Tutorial Image(s)')}<input type="file" id="tutorial-upload" accept="image/*" multiple></label>
+            ${imgs.length===0?`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页不会显示「如何截图？」连结','Not uploaded yet — the "How to screenshot?" link will not appear on the registration page')}</span>`:''}
           </div>
-          <button class="small-btn" id="save-tutorial-btn" style="margin-top:12px;">${t('保存教学图','Save Tutorial Image')}</button>
+          ${imgs.length?`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;">
+            ${imgs.map((src,i)=>`
+              <div style="position:relative;">
+                <img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${src}" data-gallery-idx="${i}" src="${src}">
+                <button class="small-btn ghost" data-remove-tutorial-idx="${i}" type="button" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;padding:0;line-height:1;border-radius:50%;font-size:12px;">✕</button>
+              </div>`).join('')}
+          </div>`:''}
+          `; })()}
+          <button class="small-btn" id="save-tutorial-btn" style="margin-top:12px;">${t('保存教学图','Save Tutorial Images')}</button>
         </div>
       </div>
     `;
@@ -2184,16 +2194,27 @@
       catch(e){ showToast(e.message); }
     };
     container.querySelector('#tutorial-upload').onchange = async (e)=>{
-      const file = e.target.files[0]; if(!file) return;
-      try{ state.draftTutorialImage = await compressImage(file); renderAdminSettingsTab(container); }
-      catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
+      const files = Array.from(e.target.files||[]); if(!files.length) return;
+      if(state.draftTutorialImages===undefined) state.draftTutorialImages = (state.eventConfig.tutorialImages||[]).slice();
+      try{
+        for(const file of files){ state.draftTutorialImages.push(await compressImage(file)); }
+        renderAdminSettingsTab(container);
+      }catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
     };
-    const removeTutorialBtn = container.querySelector('#remove-tutorial-btn');
-    if(removeTutorialBtn) removeTutorialBtn.onclick = ()=>{ state.draftTutorialImage = null; renderAdminSettingsTab(container); };
+    container.querySelectorAll('[data-remove-tutorial-idx]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const idx = parseInt(btn.getAttribute('data-remove-tutorial-idx'),10);
+        const imgs = (state.draftTutorialImages!==undefined ? state.draftTutorialImages : (state.eventConfig.tutorialImages||[])).slice();
+        imgs.splice(idx,1);
+        state.draftTutorialImages = imgs;
+        renderAdminSettingsTab(container);
+      };
+    });
     container.querySelector('#save-tutorial-btn').onclick = async ()=>{
       try{
-        await api('/api/config', {method:'PUT', auth:true, body:{tutorialImage: state.draftTutorialImage !== undefined ? state.draftTutorialImage : state.eventConfig.tutorialImage}});
-        state.draftTutorialImage = undefined;
+        const imgs = state.draftTutorialImages !== undefined ? state.draftTutorialImages : (state.eventConfig.tutorialImages||[]);
+        await api('/api/config', {method:'PUT', auth:true, body:{tutorialImages: imgs}});
+        state.draftTutorialImages = undefined;
         await loadEventConfig();
         showToast(t('教学图已保存','Tutorial image saved'));
         renderAdminSettingsTab(container);
@@ -2204,7 +2225,17 @@
       localStorage.setItem('ld_admin_lang', state.adminLang);
       render();
     };
-    container.querySelectorAll('.mini-thumb').forEach(img=>{ img.onclick = ()=>{ state.lightboxSrc = img.getAttribute('data-src'); render(); }; });
+    container.querySelectorAll('.mini-thumb').forEach(img=>{
+      img.onclick = ()=>{
+        if(img.hasAttribute('data-gallery-idx')){
+          state.lightboxSrcs = state.draftTutorialImages!==undefined ? state.draftTutorialImages : (state.eventConfig.tutorialImages||[]);
+          state.lightboxIndex = parseInt(img.getAttribute('data-gallery-idx'),10) || 0;
+        } else {
+          state.lightboxSrc = img.getAttribute('data-src');
+        }
+        render();
+      };
+    });
   }
 
   function renderAdminView(){
@@ -2260,7 +2291,25 @@
     else if(state.view==='admin') renderAdminView();
     else if(state.view==='live') renderLiveView();
     document.querySelectorAll('.lightbox').forEach(el=> el.remove());
-    if(state.lightboxSrc){
+    if(state.lightboxSrcs && state.lightboxSrcs.length){
+      const total = state.lightboxSrcs.length;
+      const idx = Math.max(0, Math.min(state.lightboxIndex||0, total-1));
+      const lb = el(`<div class="lightbox">
+        <button class="lightbox-close" type="button">✕ 关闭</button>
+        <img src="${state.lightboxSrcs[idx]}">
+        ${total>1?`<div style="position:fixed;bottom:24px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:16px;">
+          <button class="small-btn ghost" id="lightbox-prev" type="button">‹ ${t('上一张','Prev')}</button>
+          <span style="color:#fff;font-size:13px;">${idx+1} / ${total}</span>
+          <button class="small-btn ghost" id="lightbox-next" type="button">${t('下一张','Next')} ›</button>
+        </div>`:''}
+      </div>`);
+      lb.onclick = (e)=>{
+        if(e.target.closest('#lightbox-prev')){ e.stopPropagation(); state.lightboxIndex = (idx-1+total)%total; render(); return; }
+        if(e.target.closest('#lightbox-next')){ e.stopPropagation(); state.lightboxIndex = (idx+1)%total; render(); return; }
+        if(e.target===lb || e.target.closest('.lightbox-close')){ state.lightboxSrcs=null; render(); }
+      };
+      document.body.appendChild(lb);
+    } else if(state.lightboxSrc){
       const lb = el(`<div class="lightbox"><button class="lightbox-close" type="button">✕ 关闭</button><img src="${state.lightboxSrc}"></div>`);
       lb.onclick = (e)=>{ if(e.target===lb || e.target.closest('.lightbox-close')){ state.lightboxSrc=null; render(); } };
       document.body.appendChild(lb);
