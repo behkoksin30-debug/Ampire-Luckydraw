@@ -2294,20 +2294,31 @@
     if(state.lightboxSrcs && state.lightboxSrcs.length){
       const total = state.lightboxSrcs.length;
       const idx = Math.max(0, Math.min(state.lightboxIndex||0, total-1));
+      const arrowBtnStyle = 'position:fixed;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;border:1.5px solid rgba(255,255,255,.4);font-size:20px;line-height:1;z-index:51;display:flex;align-items:center;justify-content:center;';
       const lb = el(`<div class="lightbox">
         <button class="lightbox-close" type="button">✕ 关闭</button>
+        ${total>1?`<button id="lightbox-prev" type="button" style="${arrowBtnStyle}left:14px;">‹</button>`:''}
         <img src="${state.lightboxSrcs[idx]}">
-        ${total>1?`<div style="position:fixed;bottom:24px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:16px;">
-          <button class="small-btn ghost" id="lightbox-prev" type="button">‹ ${t('上一张','Prev')}</button>
-          <span style="color:#fff;font-size:13px;">${idx+1} / ${total}</span>
-          <button class="small-btn ghost" id="lightbox-next" type="button">${t('下一张','Next')} ›</button>
-        </div>`:''}
+        ${total>1?`<button id="lightbox-next" type="button" style="${arrowBtnStyle}right:14px;">›</button>
+        <div style="position:fixed;bottom:24px;left:0;right:0;text-align:center;color:#fff;font-size:13px;">${idx+1} / ${total}</div>`:''}
       </div>`);
       lb.onclick = (e)=>{
         if(e.target.closest('#lightbox-prev')){ e.stopPropagation(); state.lightboxIndex = (idx-1+total)%total; render(); return; }
         if(e.target.closest('#lightbox-next')){ e.stopPropagation(); state.lightboxIndex = (idx+1)%total; render(); return; }
         if(e.target===lb || e.target.closest('.lightbox-close')){ state.lightboxSrcs=null; render(); }
       };
+      if(total>1){
+        let touchStartX = null;
+        lb.addEventListener('touchstart', (e)=>{ touchStartX = e.touches[0].clientX; }, {passive:true});
+        lb.addEventListener('touchend', (e)=>{
+          if(touchStartX===null) return;
+          const dx = e.changedTouches[0].clientX - touchStartX;
+          touchStartX = null;
+          if(Math.abs(dx) < 40) return;
+          state.lightboxIndex = dx < 0 ? (idx+1)%total : (idx-1+total)%total;
+          render();
+        }, {passive:true});
+      }
       document.body.appendChild(lb);
     } else if(state.lightboxSrc){
       const lb = el(`<div class="lightbox"><button class="lightbox-close" type="button">✕ 关闭</button><img src="${state.lightboxSrc}"></div>`);
