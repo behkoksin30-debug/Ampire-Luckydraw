@@ -31,6 +31,7 @@ function defaultConfig() {
     regEndDate: '',
     posterImage: null,
     tutorialImage: null,
+    tutorialImages: [],
     posterMediaType: 'image',
     posterVideoUrl: '',
     liveDrawEnabled: false,
@@ -162,6 +163,7 @@ app.get('/api/config', (req, res) => {
     regEndDate: cfg.regEndDate || '',
     posterImage: cfg.posterImage || null,
     tutorialImage: cfg.tutorialImage || null,
+    tutorialImages: (Array.isArray(cfg.tutorialImages) && cfg.tutorialImages.length) ? cfg.tutorialImages : (cfg.tutorialImage ? [cfg.tutorialImage] : []),
     posterMediaType: cfg.posterMediaType || 'image',
     posterVideoUrl: cfg.posterVideoUrl || '',
     liveDrawEnabled: !!cfg.liveDrawEnabled,
@@ -211,6 +213,10 @@ app.put('/api/config', requireAdmin, (req, res) => {
   }
   if (req.body.tutorialImage !== undefined) {
     cfg.tutorialImage = req.body.tutorialImage || null;
+  }
+  if (req.body.tutorialImages !== undefined) {
+    cfg.tutorialImages = Array.isArray(req.body.tutorialImages) ? req.body.tutorialImages.filter(Boolean).slice(0, 20) : [];
+    cfg.tutorialImage = cfg.tutorialImages[0] || null;
   }
   if (req.body.drawDurationSeconds !== undefined) {
     const ds = parseFloat(req.body.drawDurationSeconds);
