@@ -497,7 +497,7 @@
         orderId: state.form.orderId.trim(), amount: state.form.amount.toString().trim(),
         photo: state.form.photo, ocrOverride: !!state.form.ocrOverride, orderDate: (state.form.orderDate||'').trim()
       }});
-      state.lastTicket = { id: r.id, name: state.form.name.trim(), customerName: state.form.customerName.trim(), orderId: state.form.orderId.trim() };
+      state.lastTicket = { id: r.id, name: state.form.name.trim(), customerName: state.form.customerName.trim(), orderId: state.form.orderId.trim(), ticketCount: r.ticketCount||0, wheelEligible: !!r.wheelEligible };
       state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false };
       state.ocrText=''; state.view='success'; render();
     }catch(e){ showToast(e.message||'提交失败，请重试 / Submission failed, please try again'); }
@@ -1302,6 +1302,8 @@
             <div class="label">您的抽奖编号 / Your Entry Number</div>
             <div class="code">${t.id}</div>
             <div class="label">顾客 / Customer：${escapeHtml(t.customerName)} · 订单号 / Order ID ${escapeHtml(t.orderId)}</div>
+            <div class="label" style="margin-top:10px;">抽奖次数 / Draw Chances：${t.ticketCount||0}</div>
+            <div class="label">幸运轮盘次数 / Lucky Wheel：${t.wheelEligible ? '1' : '0'}</div>
           </div>
           <button class="again-btn" id="again-btn">再登记一位 / Register Another</button>
         </div>
