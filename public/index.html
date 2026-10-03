@@ -1371,7 +1371,7 @@
       ${list.length===0?`<div class="empty-state">${t('暂无符合条件的登记资料','No matching entries')}</div>`:`
       <div style="overflow-x:auto;">
       <table>
-        <thead><tr><th>${t('照片','Photo')}</th><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('订单日期','Order Date')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th><th>${t('中奖次数','Wins')}</th><th>${t('时间','Time')}</th><th></th></tr></thead>
+        <thead><tr><th>${t('照片','Photo')}</th><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('订单日期','Order Date')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th><th>${t('中奖次数','Wins')}</th><th>${t('幸运轮盘次数','Wheel')}</th><th>${t('时间','Time')}</th><th></th></tr></thead>
         <tbody>
           ${list.map(en=>{
             const isEditing = state.editingEntryId === en.id;
@@ -1388,6 +1388,7 @@
               <td>${(en.ticketCount>0) ? `${en.ticketCount} ${t('次','')}` : `<span style="color:var(--ink-soft);">${t('0次','0')}</span>`}</td>
               <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">${t('已中奖','Won')}</span>`:`<span class="pill">${t('未中奖','No win')}</span>`}</td>
               <td>${(en.wonPrizes&&en.wonPrizes.length) ? `${en.wonPrizes.length} ${t('次','x')}` : `<span style="color:var(--ink-soft);">${t('0次','0')}</span>`}</td>
+              <td>${(()=>{ const ws=wheelStatusFor(en); return ws.count>0 ? ws.label : `<span style="color:var(--ink-soft);">${ws.label}</span>`; })()}</td>
               <td>${new Date(en.submittedAt).toLocaleDateString()}</td>
               <td>${isEditing?`
                 <button class="del-btn" data-save-entry="${en.id}" style="color:var(--plum);">${t('保存','Save')}</button>
@@ -1556,6 +1557,21 @@
     });
   }
 
+  function wheelStatusFor(en){
+    const threshold = state.eventConfig.guaranteedGiftThreshold || 0;
+    if(threshold<=0 || (parseFloat(en.amount)||0) < threshold){
+      return { label: t('未达标','Not eligible'), count: 0 };
+    }
+    const guaranteedWinnerIds = new Set(state.draws.filter(d=>d.guaranteed).map(d=>d.entryId));
+    if(guaranteedWinnerIds.has(en.id)){
+      return { label: t('已使用','Used'), count: 0 };
+    }
+    const maxWins = state.eventConfig.maxWinsPerPerson || 0;
+    if(maxWins>0 && (en.wonPrizes||[]).length >= maxWins){
+      return { label: t('已达中奖上限','Win cap reached'), count: 0 };
+    }
+    return { label: '1'+t('次','x'), count: 1 };
+  }
   function eligibleGuaranteedEntries(){
     const threshold = state.eventConfig.guaranteedGiftThreshold || 0;
     if(threshold<=0) return [];
