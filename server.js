@@ -360,7 +360,13 @@ app.post('/api/entries', (req, res) => {
     wonPrizes: []
   };
   fs.writeFileSync(path.join(ENTRIES_DIR, id + '.json'), JSON.stringify(entry));
-  res.json({ id });
+  const rate = cfg.conversionRate || 100;
+  const tiers = cfg.tiers || [];
+  const maxTickets = cfg.maxTicketsPerPerson || 0;
+  const ticketCount = computeTicketCount(entry.amount, rate, tiers, maxTickets);
+  const threshold = cfg.guaranteedGiftThreshold || 0;
+  const wheelEligible = threshold > 0 && (parseFloat(entry.amount) || 0) >= threshold;
+  res.json({ id, ticketCount, wheelEligible });
 });
 app.get('/api/entries', requireAdmin, (req, res) => {
   const cfg = readConfig();
