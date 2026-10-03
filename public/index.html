@@ -162,7 +162,7 @@
     token: localStorage.getItem('ld_admin_token') || null,
     lastTicket: null,
     entries: [], prizes: [], draws: [],
-    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, tutorialImage: null, tutorialImages: [], posterMediaType: 'image', posterVideoUrl: '', drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic', liveDrawEnabled: false },
+    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, tutorialImage: null, tutorialImages: [], helpImages: [], posterMediaType: 'image', posterVideoUrl: '', drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic', liveDrawEnabled: false },
     adminPasswordSet: null,
     form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false },
     formErrors: {},
@@ -183,6 +183,7 @@
     draftPosterImage: undefined,
     posterVideoUploading: false,
     draftTutorialImages: undefined,
+    draftHelpImages: undefined,
     archives: [], archiveDetail: null, newEventLabel: '',
     guaranteedDrawEntryId: null, guaranteedRevealedPrize: null, guaranteedSending: false, guaranteedSpinning: false, guaranteedWheelPool: null
   };
@@ -1136,10 +1137,19 @@
       };
     }
   }
+  function renderHelpIcon(){
+    if(!(state.eventConfig.helpImages && state.eventConfig.helpImages.length)) return '';
+    return `<button id="help-icon-btn" type="button" title="${t('不懂请点我','Click me if unsure')}" style="position:fixed;top:16px;right:16px;z-index:40;width:40px;height:40px;border-radius:50%;background:var(--plum);color:var(--gold-light);border:2px solid var(--gold);font-size:18px;cursor:pointer;box-shadow:0 4px 12px rgba(62,22,56,.3);">❓</button>`;
+  }
+  function wireHelpIcon(){
+    const btn = document.getElementById('help-icon-btn');
+    if(btn) btn.onclick = ()=>{ state.lightboxSrcs = state.eventConfig.helpImages; state.lightboxIndex = 0; render(); };
+  }
   function renderEntryView(){
     const closedReason = registrationClosedReason();
     if(closedReason){
       app.innerHTML = `
+        ${renderHelpIcon()}
         <div class="ticket">
           ${renderPosterMedia()}
           <div class="ticket-head">
@@ -1157,6 +1167,7 @@
         <div class="admin-link">${state.eventConfig.liveDrawEnabled?`<a id="live-entry-link">${t('🔴 现场同步','🔴 Live Draw')}</a> · `:''}<a id="admin-entry-link">管理员入口 / Admin</a></div>
       `;
       wirePosterMedia();
+      wireHelpIcon();
       if(state.eventConfig.liveDrawEnabled) connectLiveSocket();
       const liveEntryLink = document.getElementById('live-entry-link'); if(liveEntryLink) liveEntryLink.onclick = ()=>{ state.view='live'; render(); };
       document.getElementById('admin-entry-link').onclick = async ()=>{
@@ -1171,6 +1182,7 @@
     }
     const f = state.form, errs = state.formErrors;
     app.innerHTML = `
+      ${renderHelpIcon()}
       <div class="ticket">
         ${renderPosterMedia()}
         <div class="ticket-head">
@@ -1238,6 +1250,7 @@
       <div class="admin-link">${state.eventConfig.liveDrawEnabled?`<a id="live-entry-link">${t('🔴 现场同步','🔴 Live Draw')}</a> · `:''}<a id="admin-entry-link">管理员入口 / Admin</a></div>
     `;
     wirePosterMedia();
+    wireHelpIcon();
     if(state.eventConfig.liveDrawEnabled) connectLiveSocket();
     const liveEntryLink = document.getElementById('live-entry-link'); if(liveEntryLink) liveEntryLink.onclick = ()=>{ state.view='live'; render(); };
     document.getElementById('f-name').oninput = e=>{ state.form.name = e.target.value; };
@@ -2115,6 +2128,24 @@
           <button class="small-btn" id="save-tutorial-btn" style="margin-top:12px;">${t('保存教学图','Save Tutorial Images')}</button>
         </div>
       </div>
+      <div style="margin-top:22px;">
+        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('帮助说明图片','Help Images')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
+        <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">${t('报名页右上角会出现一个「？」小图标，点了会弹出这组图片，可以上传多张，用来解释整体怎么使用/报名','A "?" icon will appear in the top-right corner of the registration page — clicking it pops up these images. Upload several to explain how to use/register in general')}</div>
+        ${(()=>{ const imgs = state.draftHelpImages!==undefined ? state.draftHelpImages : (state.eventConfig.helpImages||[]); return `
+        <div class="upload-box">
+          <label class="upload-btn">${t('添加帮助图','Add Help Image(s)')}<input type="file" id="help-upload" accept="image/*" multiple></label>
+          ${imgs.length===0?`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页不会显示帮助图标','Not uploaded yet — the help icon will not appear on the registration page')}</span>`:''}
+        </div>
+        ${imgs.length?`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;">
+          ${imgs.map((src,i)=>`
+            <div style="position:relative;">
+              <img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${src}" data-help-gallery-idx="${i}" src="${src}">
+              <button class="small-btn ghost" data-remove-help-idx="${i}" type="button" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;padding:0;line-height:1;border-radius:50%;font-size:12px;">✕</button>
+            </div>`).join('')}
+        </div>`:''}
+        `; })()}
+        <button class="small-btn" id="save-help-btn" style="margin-top:12px;">${t('保存帮助图','Save Help Images')}</button>
+      </div>
     `;
     container.querySelectorAll('[data-tier-row]').forEach(row=>{
       const i = parseInt(row.getAttribute('data-tier-row'), 10);
@@ -2238,6 +2269,33 @@
         renderAdminSettingsTab(container);
       }catch(e){ showToast(e.message); }
     };
+    container.querySelector('#help-upload').onchange = async (e)=>{
+      const files = Array.from(e.target.files||[]); if(!files.length) return;
+      if(state.draftHelpImages===undefined) state.draftHelpImages = (state.eventConfig.helpImages||[]).slice();
+      try{
+        for(const file of files){ state.draftHelpImages.push(await compressImage(file)); }
+        renderAdminSettingsTab(container);
+      }catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
+    };
+    container.querySelectorAll('[data-remove-help-idx]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const idx = parseInt(btn.getAttribute('data-remove-help-idx'),10);
+        const imgs = (state.draftHelpImages!==undefined ? state.draftHelpImages : (state.eventConfig.helpImages||[])).slice();
+        imgs.splice(idx,1);
+        state.draftHelpImages = imgs;
+        renderAdminSettingsTab(container);
+      };
+    });
+    container.querySelector('#save-help-btn').onclick = async ()=>{
+      try{
+        const imgs = state.draftHelpImages !== undefined ? state.draftHelpImages : (state.eventConfig.helpImages||[]);
+        await api('/api/config', {method:'PUT', auth:true, body:{helpImages: imgs}});
+        state.draftHelpImages = undefined;
+        await loadEventConfig();
+        showToast(t('帮助图已保存','Help images saved'));
+        renderAdminSettingsTab(container);
+      }catch(e){ showToast(e.message); }
+    };
     container.querySelector('#ev-adminlang').onchange = e=>{
       state.adminLang = e.target.value;
       localStorage.setItem('ld_admin_lang', state.adminLang);
@@ -2248,6 +2306,9 @@
         if(img.hasAttribute('data-gallery-idx')){
           state.lightboxSrcs = state.draftTutorialImages!==undefined ? state.draftTutorialImages : (state.eventConfig.tutorialImages||[]);
           state.lightboxIndex = parseInt(img.getAttribute('data-gallery-idx'),10) || 0;
+        } else if(img.hasAttribute('data-help-gallery-idx')){
+          state.lightboxSrcs = state.draftHelpImages!==undefined ? state.draftHelpImages : (state.eventConfig.helpImages||[]);
+          state.lightboxIndex = parseInt(img.getAttribute('data-help-gallery-idx'),10) || 0;
         } else {
           state.lightboxSrc = img.getAttribute('data-src');
         }
