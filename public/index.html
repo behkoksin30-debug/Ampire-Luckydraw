@@ -304,6 +304,28 @@
       reader.readAsDataURL(file);
     });
   }
+  function compressImageHQ(file){
+    return new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onload = function(e){
+        const img = new Image();
+        img.onload = function(){
+          const maxDim = 1800;
+          let w = img.width, h = img.height;
+          if(w>h && w>maxDim){ h = Math.round(h*maxDim/w); w = maxDim; }
+          else if(h>=w && h>maxDim){ w = Math.round(w*maxDim/h); h = maxDim; }
+          const canvas = document.createElement('canvas');
+          canvas.width=w; canvas.height=h;
+          canvas.getContext('2d').drawImage(img,0,0,w,h);
+          resolve(canvas.toDataURL('image/jpeg', 0.92));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
 
   /* ---------------- OCR-optimized image prep (higher res + grayscale/contrast) ---------------- */
   function prepareOcrImage(file){
@@ -2246,7 +2268,7 @@
       const files = Array.from(e.target.files||[]); if(!files.length) return;
       if(state.draftTutorialImages===undefined) state.draftTutorialImages = (state.eventConfig.tutorialImages||[]).slice();
       try{
-        for(const file of files){ state.draftTutorialImages.push(await compressImage(file)); }
+        for(const file of files){ state.draftTutorialImages.push(await compressImageHQ(file)); }
         renderAdminSettingsTab(container);
       }catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
     };
@@ -2273,7 +2295,7 @@
       const files = Array.from(e.target.files||[]); if(!files.length) return;
       if(state.draftHelpImages===undefined) state.draftHelpImages = (state.eventConfig.helpImages||[]).slice();
       try{
-        for(const file of files){ state.draftHelpImages.push(await compressImage(file)); }
+        for(const file of files){ state.draftHelpImages.push(await compressImageHQ(file)); }
         renderAdminSettingsTab(container);
       }catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
     };
