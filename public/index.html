@@ -2122,14 +2122,6 @@
             ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<button class="small-btn ghost" id="remove-poster-btn" type="button">${t('移除海报','Remove Poster')}</button>`:''}
           </div>
           <button class="small-btn" id="save-poster-btn" style="margin-top:12px;">${t('保存海报','Save Poster')}</button>
-          <div style="margin-top:16px;padding-top:16px;border-top:1px dashed var(--line);">
-            <div style="font-size:12px;color:var(--ink-soft);margin-bottom:8px;">${t('或者上传视频海报（会自动静音播放，参与者可以点击画面上的按钮打开声音）','Or upload a video poster (autoplays muted — participants can click the on-screen button to unmute)')}</div>
-            <div class="upload-box">
-              <label class="upload-btn">${state.eventConfig.posterMediaType==='video'&&state.eventConfig.posterVideoUrl?t('更换视频','Change Video'):t('上传视频','Upload Video')}<input type="file" id="poster-video-upload" accept="video/*"></label>
-              ${state.eventConfig.posterMediaType==='video'&&state.eventConfig.posterVideoUrl?`<video src="${state.eventConfig.posterVideoUrl}" muted style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--line);"></video><button class="small-btn ghost" id="remove-poster-video-btn" type="button">${t('移除视频','Remove Video')}</button>`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传视频，最大50MB','No video uploaded yet, max 50MB')}</span>`}
-            </div>
-            ${state.posterVideoUploading?`<div style="font-size:12px;color:var(--gold);margin-top:8px;">${t('视频上传中，请稍候…','Uploading video, please wait…')}</div>`:''}
-          </div>
         </div>
         <div>
           <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('订单截图教学图','Order Screenshot Tutorial Images')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
@@ -2138,35 +2130,42 @@
           <div class="upload-box">
             <label class="upload-btn">${t('添加教学图','Add Tutorial Image(s)')}<input type="file" id="tutorial-upload" accept="image/*" multiple></label>
             ${imgs.length===0?`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页不会显示「如何截图？」连结','Not uploaded yet — the "How to screenshot?" link will not appear on the registration page')}</span>`:''}
-          </div>
-          ${imgs.length?`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;">
             ${imgs.map((src,i)=>`
               <div style="position:relative;">
                 <img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${src}" data-gallery-idx="${i}" src="${src}">
                 <button class="small-btn ghost" data-remove-tutorial-idx="${i}" type="button" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;padding:0;line-height:1;border-radius:50%;font-size:12px;">✕</button>
               </div>`).join('')}
-          </div>`:''}
+          </div>
           `; })()}
           <button class="small-btn" id="save-tutorial-btn" style="margin-top:12px;">${t('保存教学图','Save Tutorial Images')}</button>
         </div>
       </div>
-      <div style="margin-top:22px;">
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('帮助说明图片','Help Images')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
-        <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">${t('报名页右上角会出现一个「？」小图标，点了会弹出这组图片，可以上传多张，用来解释整体怎么使用/报名','A "?" icon will appear in the top-right corner of the registration page — clicking it pops up these images. Upload several to explain how to use/register in general')}</div>
-        ${(()=>{ const imgs = state.draftHelpImages!==undefined ? state.draftHelpImages : (state.eventConfig.helpImages||[]); return `
-        <div class="upload-box">
-          <label class="upload-btn">${t('添加帮助图','Add Help Image(s)')}<input type="file" id="help-upload" accept="image/*" multiple></label>
-          ${imgs.length===0?`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页不会显示帮助图标','Not uploaded yet — the help icon will not appear on the registration page')}</span>`:''}
+      <div class="row2" style="margin-top:22px;align-items:start;">
+        <div>
+          <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('视频海报','Video Poster')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
+          <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">${t('或者上传视频海报（会自动静音播放，参与者可以点击画面上的按钮打开声音）','Or upload a video poster (autoplays muted — participants can click the on-screen button to unmute)')}</div>
+          <div class="upload-box">
+            <label class="upload-btn">${state.eventConfig.posterMediaType==='video'&&state.eventConfig.posterVideoUrl?t('更换视频','Change Video'):t('上传视频','Upload Video')}<input type="file" id="poster-video-upload" accept="video/*"></label>
+            ${state.eventConfig.posterMediaType==='video'&&state.eventConfig.posterVideoUrl?`<video src="${state.eventConfig.posterVideoUrl}" muted style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--line);"></video><button class="small-btn ghost" id="remove-poster-video-btn" type="button">${t('移除视频','Remove Video')}</button>`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传视频，最大50MB','No video uploaded yet, max 50MB')}</span>`}
+          </div>
+          ${state.posterVideoUploading?`<div style="font-size:12px;color:var(--gold);margin-top:8px;">${t('视频上传中，请稍候…','Uploading video, please wait…')}</div>`:''}
         </div>
-        ${imgs.length?`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;">
-          ${imgs.map((src,i)=>`
-            <div style="position:relative;">
-              <img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${src}" data-help-gallery-idx="${i}" src="${src}">
-              <button class="small-btn ghost" data-remove-help-idx="${i}" type="button" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;padding:0;line-height:1;border-radius:50%;font-size:12px;">✕</button>
-            </div>`).join('')}
-        </div>`:''}
-        `; })()}
-        <button class="small-btn" id="save-help-btn" style="margin-top:12px;">${t('保存帮助图','Save Help Images')}</button>
+        <div>
+          <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('帮助说明图片','Help Images')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
+          <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">${t('报名页右上角会出现一个「？」小图标，点了会弹出这组图片，可以上传多张，用来解释整体怎么使用/报名','A "?" icon will appear in the top-right corner of the registration page — clicking it pops up these images. Upload several to explain how to use/register in general')}</div>
+          ${(()=>{ const imgs = state.draftHelpImages!==undefined ? state.draftHelpImages : (state.eventConfig.helpImages||[]); return `
+          <div class="upload-box">
+            <label class="upload-btn">${t('添加帮助图','Add Help Image(s)')}<input type="file" id="help-upload" accept="image/*" multiple></label>
+            ${imgs.length===0?`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页不会显示帮助图标','Not uploaded yet — the help icon will not appear on the registration page')}</span>`:''}
+            ${imgs.map((src,i)=>`
+              <div style="position:relative;">
+                <img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${src}" data-help-gallery-idx="${i}" src="${src}">
+                <button class="small-btn ghost" data-remove-help-idx="${i}" type="button" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;padding:0;line-height:1;border-radius:50%;font-size:12px;">✕</button>
+              </div>`).join('')}
+          </div>
+          `; })()}
+          <button class="small-btn" id="save-help-btn" style="margin-top:12px;">${t('保存帮助图','Save Help Images')}</button>
+        </div>
       </div>
     `;
     container.querySelectorAll('[data-tier-row]').forEach(row=>{
