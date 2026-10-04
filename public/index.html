@@ -175,6 +175,7 @@
     lightboxSrc: null,
     lightboxSrcs: null,
     lightboxIndex: 0,
+    posterMediaIndex: 0,
     drawing: false, drawSelectedPrize: '',
     rollingName: '', revealedWinner: null,
     newPrizePhoto: null,
@@ -1137,18 +1138,37 @@
     }
   }
   setInterval(tickCountdown, 1000);
-  function renderPosterMedia(){
+  function posterMediaItems(){
     const cfg = state.eventConfig;
-    if(cfg.posterMediaType==='video' && cfg.posterVideoUrl){
-      return `<div style="position:relative;">
-        <video id="poster-video" src="${cfg.posterVideoUrl}" autoplay muted loop playsinline style="width:100%;display:block;"></video>
-        <button id="poster-mute-toggle-btn" type="button" data-muted="true" style="position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:12.5px;cursor:pointer;">🔊 ${t('开声音','Unmute')}</button>
-      </div>`;
-    }
-    if(cfg.posterImage) return `<img src="${cfg.posterImage}" style="width:100%;display:block;">`;
-    return '';
+    const items = [];
+    const videoFirst = cfg.posterMediaType==='video' && cfg.posterVideoUrl;
+    if(videoFirst) items.push({type:'video', src: cfg.posterVideoUrl});
+    if(cfg.posterImage) items.push({type:'image', src: cfg.posterImage});
+    if(!videoFirst && cfg.posterVideoUrl) items.push({type:'video', src: cfg.posterVideoUrl});
+    return items;
+  }
+  function renderPosterMedia(){
+    const items = posterMediaItems();
+    if(!items.length) return '';
+    const idx = Math.max(0, Math.min(state.posterMediaIndex||0, items.length-1));
+    const item = items[idx];
+    const arrowStyle = 'position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.4);color:#fff;border:none;font-size:18px;line-height:1;z-index:2;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+    return `<div style="position:relative;">
+      ${item.type==='video'
+        ? `<video id="poster-video" src="${item.src}" autoplay muted loop playsinline style="width:100%;display:block;"></video>
+           <button id="poster-mute-toggle-btn" type="button" data-muted="true" style="position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:12.5px;cursor:pointer;">🔊 ${t('开声音','Unmute')}</button>`
+        : `<img src="${item.src}" style="width:100%;display:block;">`}
+      ${items.length>1?`
+        <button id="poster-media-prev" type="button" style="${arrowStyle}left:10px;">‹</button>
+        <button id="poster-media-next" type="button" style="${arrowStyle}right:10px;">›</button>
+        <div style="position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:6px;">
+          ${items.map((it,i)=>`<span style="width:7px;height:7px;border-radius:50%;background:${i===idx?'#fff':'rgba(255,255,255,.45)'};"></span>`).join('')}
+        </div>
+      `:''}
+    </div>`;
   }
   function wirePosterMedia(){
+    const items = posterMediaItems();
     const video = document.getElementById('poster-video');
     const btn = document.getElementById('poster-mute-toggle-btn');
     if(video && btn){
@@ -1158,6 +1178,10 @@
         btn.textContent = video.muted ? ('🔊 '+t('开声音','Unmute')) : ('🔇 '+t('关声音','Mute'));
       };
     }
+    const prevBtn = document.getElementById('poster-media-prev');
+    const nextBtn = document.getElementById('poster-media-next');
+    if(prevBtn) prevBtn.onclick = ()=>{ state.posterMediaIndex = ((state.posterMediaIndex||0)-1+items.length)%items.length; render(); };
+    if(nextBtn) nextBtn.onclick = ()=>{ state.posterMediaIndex = ((state.posterMediaIndex||0)+1)%items.length; render(); };
   }
   function renderHelpIcon(){
     if(!(state.eventConfig.helpImages && state.eventConfig.helpImages.length)) return '';
@@ -2115,7 +2139,7 @@
       <div class="row2" style="margin-top:22px;align-items:start;">
         <div>
           <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('活动海报','Event Poster')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span></label>
-          <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">${t('图片和视频只会显示其中一个：目前显示','Only one of image/video is shown at a time — currently showing:')} <b style="color:var(--plum);">${state.eventConfig.posterMediaType==='video'&&state.eventConfig.posterVideoUrl?t('视频','Video'):t('图片','Image')}</b></div>
+          <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">${(state.eventConfig.posterImage && state.eventConfig.posterMediaType==='video' && state.eventConfig.posterVideoUrl) ? t('图片和视频都上传了，参与者可以左右切换看：先显示','Both image and video are uploaded — participants can swipe between them, starting with:') : t('目前显示','Currently showing:')} <b style="color:var(--plum);">${state.eventConfig.posterMediaType==='video'&&state.eventConfig.posterVideoUrl?t('视频','Video'):t('图片','Image')}</b></div>
           <div class="upload-box">
             <label class="upload-btn">${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?t('更换海报','Change Poster'):t('上传海报','Upload Poster')}<input type="file" id="poster-upload" accept="image/*"></label>
             ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage}" src="${state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页会显示预设标题','Not uploaded yet — the registration page will show the default title')}</span>`}
