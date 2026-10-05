@@ -183,6 +183,9 @@
     draftTiers: null,
     draftPosterImage: undefined,
     posterVideoUploading: false,
+    showAddEntryForm: false,
+    newEntryForm: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null },
+    newEntryFormErrors: {},
     draftTutorialImages: undefined,
     draftHelpImages: undefined,
     archives: [], archiveDetail: null, newEventLabel: '',
@@ -1425,10 +1428,42 @@
       <div class="toolbar" style="gap:12px;">
         <input class="searchbar" id="search-input" placeholder="${t('按姓名 / 订单号 / 联系方式 / 编号搜索','Search by name / order ID / contact / entry ID')}" value="${escapeAttr(state.search)}" style="flex:1;min-width:180px;margin-bottom:0;">
         <div style="display:flex;gap:10px;flex-shrink:0;">
+          <button class="small-btn" id="toggle-add-entry-btn">${state.showAddEntryForm?t('取消添加','Cancel Add'):t('+ 添加新订单','+ Add Entry')}</button>
           <button class="small-btn ghost" id="export-btn">${t('导出 CSV','Export CSV')}</button>
           <button class="small-btn danger" id="delete-all-btn">${t('全部删除','Delete All')}</button>
         </div>
       </div>
+      ${state.showAddEntryForm?(()=>{
+        const f = state.newEntryForm, errs = state.newEntryFormErrors;
+        return `
+      <div style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:16px;margin-bottom:16px;">
+        <div style="font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:12px;">${t('手动添加新订单（不需要OCR核对，照片选填）','Manually add entry (no OCR check needed, photo optional)')}</div>
+        <div class="row3">
+          <div class="field"><label>${t('姓名','Name')}</label><input type="text" id="ne-name" value="${escapeAttr(f.name)}">${errs.name?`<div class="error-text">${errs.name}</div>`:''}</div>
+          <div class="field"><label>${t('电话','Phone')}</label><input type="text" id="ne-contact" value="${escapeAttr(f.contact)}">${errs.contact?`<div class="error-text">${errs.contact}</div>`:''}</div>
+          <div class="field"><label>${t('DD名字','DD Name')}</label><input type="text" id="ne-ddname" value="${escapeAttr(f.ddName)}">${errs.ddName?`<div class="error-text">${errs.ddName}</div>`:''}</div>
+        </div>
+        <div class="row3" style="margin-top:12px;">
+          <div class="field"><label>${t('顾客名字','Customer Name')}</label><input type="text" id="ne-customername" value="${escapeAttr(f.customerName)}">${errs.customerName?`<div class="error-text">${errs.customerName}</div>`:''}</div>
+          <div class="field"><label>${t('订单号','Order ID')}</label><input type="text" id="ne-orderid" value="${escapeAttr(f.orderId)}">${errs.orderId?`<div class="error-text">${errs.orderId}</div>`:''}</div>
+          <div class="field"><label>${t('订单日期（选填）','Order Date (optional)')}</label><input type="date" id="ne-orderdate" value="${escapeAttr(f.orderDate)}"></div>
+        </div>
+        <div class="row3" style="margin-top:12px;align-items:end;">
+          <div class="field"><label>${t('金额 (RM)','Amount (RM)')}</label><input type="text" id="ne-amount" value="${escapeAttr(f.amount)}">${errs.amount?`<div class="error-text">${errs.amount}</div>`:''}</div>
+          <div class="field">
+            <label>${t('照片（选填）','Photo (optional)')}</label>
+            <div class="upload-box" style="padding:8px 10px;">
+              <label class="upload-btn" style="padding:7px 12px;font-size:12.5px;">${f.photo?t('更换照片','Change Photo'):t('选择照片','Choose Photo')}<input type="file" id="ne-photo" accept="image/*"></label>
+              ${f.photo?`<img class="thumb mini-thumb" style="width:40px;height:40px;" data-src="${f.photo}" src="${f.photo}">`:''}
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:10px;">
+          <button class="small-btn" id="submit-new-entry-btn">${t('新增','Add')}</button>
+          <button class="small-btn ghost" id="cancel-new-entry-btn">${t('取消','Cancel')}</button>
+        </div>
+      </div>
+      `; })():''}
       ${list.length===0?`<div class="empty-state">${t('暂无符合条件的登记资料','No matching entries')}</div>`:`
       <div style="overflow-x:auto;">
       <table>
@@ -1443,7 +1478,7 @@
               <td>${escapeHtml(en.contact)}</td>
               <td>${escapeHtml(en.ddName||'—')}</td>
               <td>${escapeHtml(en.customerName||'—')}</td>
-              <td>${isEditing?`<input type="text" class="edit-orderid" value="${escapeAttr(en.orderId)}" style="width:140px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:`${escapeHtml(en.orderId)}${en.ocrOverride?` <span title="${t('此资料未通过OCR自动核实，订单号或金额为参与者手动确认','This entry was not auto-verified by OCR — Order ID or Amount was manually confirmed by the participant')}" style="color:var(--rose);font-weight:700;cursor:help;">⚠</span>`:''}`}</td>
+              <td>${isEditing?`<input type="text" class="edit-orderid" value="${escapeAttr(en.orderId)}" style="width:140px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:`${escapeHtml(en.orderId)}${en.ocrOverride?` <span title="${t('此资料未通过OCR自动核实，订单号或金额为参与者手动确认','This entry was not auto-verified by OCR — Order ID or Amount was manually confirmed by the participant')}" style="color:var(--rose);font-weight:700;cursor:help;">⚠</span>`:''}${en.manuallyAdded?` <span title="${t('这笔资料是管理员手动添加的','This entry was manually added by an admin')}" style="color:var(--gold);font-weight:700;cursor:help;">✎</span>`:''}`}</td>
               <td>${isEditing?`<input type="date" class="edit-orderdate" value="${escapeAttr(en.orderDate||'')}" style="width:140px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:escapeHtml(en.orderDate||'—')}</td>
               <td>${isEditing?`<input type="text" class="edit-amount" value="${escapeAttr(en.amount)}" style="width:90px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:escapeHtml(String(en.amount))}</td>
               <td>${(en.ticketCount>0) ? `${en.ticketCount} ${t('次','')}` : `<span style="color:var(--ink-soft);">${t('0次','0')}</span>`}</td>
@@ -1490,6 +1525,49 @@
       renderAdminEntriesTab(container);
       const newInput = container.querySelector('#search-input');
       if(newInput){ newInput.focus(); newInput.setSelectionRange(cursorPos, cursorPos); }
+    };
+    container.querySelector('#toggle-add-entry-btn').onclick = ()=>{
+      state.showAddEntryForm = !state.showAddEntryForm;
+      if(state.showAddEntryForm){ state.newEntryForm = { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null }; state.newEntryFormErrors = {}; }
+      renderAdminEntriesTab(container);
+    };
+    const neName = container.querySelector('#ne-name'); if(neName) neName.oninput = e=>{ state.newEntryForm.name = e.target.value; };
+    const neContact = container.querySelector('#ne-contact'); if(neContact) neContact.oninput = e=>{ state.newEntryForm.contact = e.target.value; };
+    const neDdname = container.querySelector('#ne-ddname'); if(neDdname) neDdname.oninput = e=>{ state.newEntryForm.ddName = e.target.value; };
+    const neCustomername = container.querySelector('#ne-customername'); if(neCustomername) neCustomername.oninput = e=>{ state.newEntryForm.customerName = e.target.value; };
+    const neOrderid = container.querySelector('#ne-orderid'); if(neOrderid) neOrderid.oninput = e=>{ state.newEntryForm.orderId = e.target.value; };
+    const neOrderdate = container.querySelector('#ne-orderdate'); if(neOrderdate) neOrderdate.oninput = e=>{ state.newEntryForm.orderDate = e.target.value; };
+    const neAmount = container.querySelector('#ne-amount'); if(neAmount) neAmount.oninput = e=>{ state.newEntryForm.amount = e.target.value; };
+    const nePhoto = container.querySelector('#ne-photo');
+    if(nePhoto) nePhoto.onchange = async (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      try{ state.newEntryForm.photo = await compressImage(file); renderAdminEntriesTab(container); }
+      catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
+    };
+    const cancelNewEntryBtn = container.querySelector('#cancel-new-entry-btn');
+    if(cancelNewEntryBtn) cancelNewEntryBtn.onclick = ()=>{ state.showAddEntryForm = false; renderAdminEntriesTab(container); };
+    const submitNewEntryBtn = container.querySelector('#submit-new-entry-btn');
+    if(submitNewEntryBtn) submitNewEntryBtn.onclick = async ()=>{
+      const f = state.newEntryForm;
+      const errs = {};
+      if(!f.name.trim()) errs.name = t('请输入姓名','Required');
+      if(!f.contact.trim()) errs.contact = t('请输入电话','Required');
+      if(!f.ddName.trim()) errs.ddName = t('请输入DD名字','Required');
+      if(!f.customerName.trim()) errs.customerName = t('请输入顾客名字','Required');
+      if(!f.orderId.trim()) errs.orderId = t('请输入订单号','Required');
+      if(!f.amount.toString().trim()) errs.amount = t('请输入金额','Required');
+      state.newEntryFormErrors = errs;
+      if(Object.keys(errs).length){ renderAdminEntriesTab(container); return; }
+      try{
+        await api('/api/admin/entries', {method:'POST', auth:true, body:{
+          name: f.name.trim(), contact: f.contact.trim(), ddName: f.ddName.trim(), customerName: f.customerName.trim(),
+          orderId: f.orderId.trim(), orderDate: f.orderDate||'', amount: f.amount.toString().trim(), photo: f.photo||null
+        }});
+        state.showAddEntryForm = false;
+        await loadAdminData();
+        showToast(t('已新增','Added'));
+        renderAdminEntriesTab(container);
+      }catch(e){ showToast(e.message); }
     };
   }
 
