@@ -373,6 +373,40 @@ app.post('/api/entries', (req, res) => {
   const wheelEligible = threshold > 0 && (parseFloat(entry.amount) || 0) >= threshold;
   res.json({ id, ticketCount, wheelEligible });
 });
+app.post('/api/admin/entries', requireAdmin, (req, res) => {
+  const cfg = readConfig();
+  const { name, contact, ddName, customerName, orderId, amount, photo, orderDate } = req.body || {};
+  if (!name || !contact || !ddName || !customerName || !orderId || !amount) {
+    return res.status(400).json({ error: '资料不完整，请填写全部必填字段 / Missing information, please fill in all required fields' });
+  }
+  const orderIdNorm = String(orderId).trim().toLowerCase();
+  const existingFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
+  const isDuplicate = existingFiles.some(f => {
+    const existing = readJson(path.join(ENTRIES_DIR, f), null);
+    return existing && String(existing.orderId || '').trim().toLowerCase() === orderIdNorm;
+  });
+  if (isDuplicate) {
+    return res.status(400).json({ error: '该订单号已经登记过 / This Order ID has already been registered' });
+  }
+  const id = genId('LD-', 6);
+  const entry = {
+    id,
+    name: String(name).slice(0, 100),
+    contact: String(contact).slice(0, 100),
+    ddName: String(ddName).slice(0, 100),
+    customerName: String(customerName).slice(0, 100),
+    orderId: String(orderId).slice(0, 100),
+    amount: String(amount).slice(0, 50),
+    orderDate: isDateStr(orderDate) ? orderDate : '',
+    photo: photo || null,
+    ocrOverride: false,
+    manuallyAdded: true,
+    submittedAt: Date.now(),
+    wonPrizes: []
+  };
+  fs.writeFileSync(path.join(ENTRIES_DIR, id + '.json'), JSON.stringify(entry));
+  res.json({ id });
+});
 app.get('/api/entries', requireAdmin, (req, res) => {
   const cfg = readConfig();
   const rate = cfg.conversionRate || 100;
