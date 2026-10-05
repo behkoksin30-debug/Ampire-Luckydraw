@@ -859,7 +859,8 @@
       wheelEl.style.display = 'none';
       if(msg.prizeName){
         statusEl.textContent = t('即将抽出','Coming up');
-        contextEl.textContent = (msg.prizeTier?`【${msg.prizeTier}】`:'') + msg.prizeName;
+        contextEl.textContent = (msg.prizeTier?`【${msg.prizeTier}】`:'') + msg.prizeName + (msg.prizeValue?` (RM${msg.prizeValue})`:'');
+        if(msg.prizePhoto){ photoEl.src = msg.prizePhoto; photoEl.style.display = 'inline-block'; }
       } else {
         statusEl.textContent = t('等待管理员开始抽奖…','Waiting for the draw to start…');
         contextEl.textContent = '';
@@ -867,15 +868,23 @@
     } else if(msg.type==='draw_start'){
       clearInterval(liveRollInterval);
       revealEl.style.display = 'none';
-      photoEl.style.display = 'none';
       wheelEl.style.display = 'none';
       rollEl.style.display = 'block';
       statusEl.textContent = msg.mode==='wheel' ? t('幸运轮盘抽奖中…','Lucky Wheel spinning…') : t('大抽奖进行中…','Main Draw in progress…');
-      contextEl.textContent = msg.context || '';
+      contextEl.textContent = (msg.prizeTier?`【${msg.prizeTier}】`:'') + (msg.context || '') + (msg.prizeValue?` (RM${msg.prizeValue})`:'');
+      if(msg.mode==='main' && msg.prizePhoto){ photoEl.src = msg.prizePhoto; photoEl.style.display = 'inline-block'; }
+      else { photoEl.style.display = 'none'; }
       const items = (msg.rollingItems && msg.rollingItems.length) ? msg.rollingItems : ['—'];
+      const duration = msg.durationSeconds || 5;
+      const totalTicks = Math.max(4, Math.round(duration*1000/90));
       let i = 0;
       rollEl.textContent = items[0];
-      liveRollInterval = setInterval(()=>{ i++; rollEl.textContent = items[i % items.length]; }, 90);
+      liveRollInterval = setInterval(()=>{
+        i++;
+        rollEl.textContent = items[i % items.length];
+        const progress = (i % totalTicks) / totalTicks;
+        playTick(700 + progress*500);
+      }, 90);
     } else if(msg.type==='draw_reveal'){
       clearInterval(liveRollInterval);
       rollEl.style.display = 'none';
@@ -960,7 +969,7 @@
   let rollInterval = null;
   function broadcastPrizeSelection(){
     const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize);
-    sendLiveMessage({type:'prize_selected', prizeName: pz?pz.name:'', prizeTier: pz?pz.tier:''});
+    sendLiveMessage({type:'prize_selected', prizeName: pz?pz.name:'', prizeTier: pz?pz.tier:'', prizeValue: pz?pz.value:'', prizePhoto: pz?pz.photo:''});
   }
   async function startDraw(){
     if(!state.drawSelectedPrize){ showToast(t('请先选择奖品','Please select a prize first')); return; }
@@ -977,7 +986,7 @@
     const pool = eligibleTicketPool();
     if(pool.length===0){ showToast(t('没有符合条件的参与者','No eligible participants')); return; }
     state.drawing = true; state.revealedWinner = null; render();
-    sendLiveMessage({type:'draw_start', mode:'main', rollingItems: Array.from(new Set(pool.map(p=>p.name))), context: selectedPrize.name, durationSeconds: state.eventConfig.drawDurationSeconds || 5});
+    sendLiveMessage({type:'draw_start', mode:'main', rollingItems: Array.from(new Set(pool.map(p=>p.name))), context: selectedPrize.name, prizeTier: selectedPrize.tier, prizeValue: selectedPrize.value, prizePhoto: selectedPrize.photo, durationSeconds: state.eventConfig.drawDurationSeconds || 5});
     let count = 0; const totalTicks = drawTickCount();
     clearInterval(rollInterval);
     rollInterval = setInterval(()=>{
