@@ -139,6 +139,7 @@
   @keyframes goGlow{0%,100%{box-shadow:0 0 0 0 rgba(198,150,60,.55)}50%{box-shadow:0 0 22px 6px rgba(198,150,60,.45)}}
   .draw-stage.staged .small-btn.go-btn{padding:13px 42px;font-size:17px;letter-spacing:.08em;border-radius:10px;animation:goGlow 2s infinite;}
   .draw-stage.staged .small-btn.ghost:hover{background:rgba(240,217,160,.15);}
+  .draw-stage.staged .wheel-pointer{color:var(--gold-light);}
   .select-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;}
   select{padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;}
   .checkline{font-size:13.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px;}
@@ -798,7 +799,7 @@
     }catch(e){}
   }
   /* ---------------- win confetti ---------------- */
-  const CONFETTI_PALETTE = ['#C6963C','#F0D9A0','#3E1638','#55204c','#A73347'];
+  const CONFETTI_PALETTE = ['#D85A30','#F0997B','#0F6E56','#5DCAA5','#BA7517','#FAC775'];
   function burstConfetti(){
     if(!window.confetti || window.__confettiLoadFailed) return;
     try{ confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: CONFETTI_PALETTE }); }catch(e){}
@@ -808,8 +809,8 @@
     try{
       const end = Date.now() + 1200;
       (function frame(){
-        confetti({ particleCount: 30, angle: 60, spread: 55, origin: { x: 0.2, y: 0.6 }, colors: CONFETTI_PALETTE });
-        confetti({ particleCount: 30, angle: 120, spread: 55, origin: { x: 0.8, y: 0.6 }, colors: CONFETTI_PALETTE });
+        confetti({ particleCount: 30, angle: 60, spread: 55, startVelocity: 60, origin: { x: 0, y: 0.7 }, colors: CONFETTI_PALETTE });
+        confetti({ particleCount: 30, angle: 120, spread: 55, startVelocity: 60, origin: { x: 1, y: 0.7 }, colors: CONFETTI_PALETTE });
         if (Date.now() < end) requestAnimationFrame(frame);
       })();
     }catch(e){}
@@ -1914,17 +1915,19 @@
                   <button class="small-btn" data-draw-guaranteed="${en.id}">${t('抽礼物','Spin Wheel')}</button>
                 </div>
                 `:`
-                <div class="draw-stage" style="padding:22px 14px;margin-top:10px;">
+                <div class="draw-stage staged ${state.guaranteedRevealedPrize?'revealed':''}" style="margin-top:10px;">
+                  <div class="rev-rays"></div>
+                  ${state.guaranteedRevealedPrize?`<div class="rev-banner">${t('恭喜 / Congratulations','Congratulations')}</div>`:''}
                   ${!state.guaranteedRevealedPrize?`
-                    <div class="wheel-wrap">
+                    <div class="wheel-wrap" style="position:relative;z-index:2;margin-top:30px;">
                       <div class="wheel-pointer">▼</div>
                       <div class="wheel-hub"></div>
                       <div class="wheel" id="wheel-${en.id}">${buildWheelSvg(state.guaranteedWheelPool||[])}</div>
                     </div>
                     <div class="draw-sub">${t('转盘转动中…','Spinning…')}</div>
                   `:`
-                    ${state.guaranteedRevealedPrize.photo?`<img class="thumb" style="width:140px;height:140px;margin-bottom:14px;" src="${state.guaranteedRevealedPrize.photo}">`:''}
-                    <div class="draw-name" style="font-size:24px;">${escapeHtml(state.guaranteedRevealedPrize.name)}</div>
+                    ${state.guaranteedRevealedPrize.photo?`<div class="rev-photo"><img src="${state.guaranteedRevealedPrize.photo}"><i></i></div>`:'<div style="height:28px;"></div>'}
+                    <div class="draw-name" style="font-size:32px;">${escapeHtml(state.guaranteedRevealedPrize.name)}</div>
                     <div class="draw-sub">${state.guaranteedRevealedPrize.value?(t('价值','Value')+' RM'+escapeHtml(state.guaranteedRevealedPrize.value)):''}</div>
                   `}
                   <div class="draw-actions">
