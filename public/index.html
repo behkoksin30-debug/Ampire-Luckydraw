@@ -119,16 +119,24 @@
   @keyframes revPop{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.18);opacity:1}100%{transform:scale(1);opacity:1}}
   @keyframes revDrop{0%{transform:translateY(-30px);opacity:0}100%{transform:translateY(0);opacity:1}}
   @keyframes revShine{0%{transform:translateX(-140%) skewX(-20deg)}60%,100%{transform:translateX(240%) skewX(-20deg)}}
-  .draw-stage.revealed{background:var(--plum);border-color:var(--gold);padding:0 20px 30px;}
+  .draw-stage.staged{background:var(--plum);border-color:var(--gold);padding:0 20px 30px;}
   .draw-stage .rev-rays{position:absolute;left:50%;top:48%;width:900px;height:900px;transform:translate(-50%,-50%);background:repeating-conic-gradient(rgba(240,217,160,.20) 0deg 9deg,rgba(240,217,160,0) 9deg 18deg);-webkit-mask-image:radial-gradient(circle,#000 8%,transparent 66%);mask-image:radial-gradient(circle,#000 8%,transparent 66%);animation:revSpin 18s linear infinite;pointer-events:none;}
   .draw-stage .rev-banner{position:relative;z-index:2;margin:0 -20px;padding:10px 12px;background:var(--gold);color:var(--plum);font-size:14px;font-weight:700;letter-spacing:.04em;animation:revDrop .5s ease-out both;}
-  .draw-stage .rev-photo{position:relative;z-index:2;display:inline-block;margin:28px 0 14px;border:3px solid var(--gold-light);border-radius:10px;overflow:hidden;background:#fff;line-height:0;animation:revDrop .6s .15s ease-out both;}
+  .draw-stage .rev-photo{position:relative;z-index:2;display:inline-block;margin:28px 0 14px;border:3px solid var(--gold-light);border-radius:10px;overflow:hidden;background:#fff;line-height:0;}
+  .draw-stage.revealed .rev-photo{animation:revDrop .6s .15s ease-out both;}
   .draw-stage .rev-photo img{display:block;width:140px;height:140px;object-fit:cover;}
   .draw-stage .rev-photo i{position:absolute;top:0;left:0;width:40%;height:100%;background:rgba(255,255,255,.75);animation:revShine 2.6s ease-in-out infinite;}
-  .draw-stage.revealed .draw-prize-label{position:relative;z-index:2;color:var(--gold-light);animation:revDrop .5s .35s ease-out both;}
-  .draw-stage.revealed .draw-name{position:relative;z-index:2;color:var(--gold-light);font-size:46px;text-shadow:0 0 18px rgba(198,150,60,.7);animation:revPop .7s .55s cubic-bezier(.2,1.4,.4,1) both;}
-  .draw-stage.revealed .draw-sub{position:relative;z-index:2;color:#d8c7d4;animation:revDrop .5s .35s ease-out both;}
-  .draw-stage.revealed .draw-actions{position:relative;z-index:2;}
+  .draw-stage.staged .draw-prize-label{position:relative;z-index:2;color:var(--gold-light);}
+  .draw-stage.staged .draw-name{position:relative;z-index:2;color:var(--gold-light);text-shadow:0 0 18px rgba(198,150,60,.7);}
+  .draw-stage.staged .draw-name.rolling{color:#e8d6a8;}
+  .draw-stage.staged .draw-sub{position:relative;z-index:2;color:#d8c7d4;}
+  .draw-stage.revealed .draw-prize-label,.draw-stage.revealed .draw-sub{animation:revDrop .5s .35s ease-out both;}
+  .draw-stage.revealed .draw-name{font-size:46px;animation:revPop .7s .55s cubic-bezier(.2,1.4,.4,1) both;}
+  .draw-stage.staged .draw-actions{position:relative;z-index:2;}
+  .draw-stage.staged .small-btn{background:var(--gold);color:var(--plum);border-color:var(--gold);}
+  .draw-stage.staged .small-btn:hover{background:var(--gold-light);}
+  .draw-stage.staged .small-btn.ghost{background:transparent;color:var(--gold-light);border:1.5px solid var(--gold-light);}
+  .draw-stage.staged .small-btn.ghost:hover{background:rgba(240,217,160,.15);}
   .select-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;}
   select{padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;}
   .checkline{font-size:13.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px;}
@@ -1872,9 +1880,10 @@
         <div class="stat-card"><div class="stat-num gold">${maxWins>0?maxWins:t('不限','Unlimited')}</div><div class="stat-label">${t('每人最多中奖次数','Max wins per person')}</div></div>
         ${selectedPrize?`<div class="stat-card"><div class="stat-num gold">${selectedTotalQty}</div><div class="stat-label">${escapeHtml(selectedPrize.name)} ${t('总剩余数量','total remaining')}</div></div>`:''}
       </div>
-      <div class="draw-stage ${state.revealedWinner?'revealed':''}">
-        ${state.revealedWinner?`<div class="rev-rays"></div><div class="rev-banner">${t('恭喜 / Congratulations','Congratulations')}</div>`:''}
-        ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!(pz && pz.photo)) return ''; return state.revealedWinner ? `<div class="rev-photo"><img src="${pz.photo}"><i></i></div>` : `<img class="thumb" style="width:140px;height:140px;margin-bottom:14px;" src="${pz.photo}">`; })()}
+      <div class="draw-stage ${(state.drawing||state.revealedWinner)?'staged':''} ${state.revealedWinner?'revealed':''}">
+        ${(state.drawing||state.revealedWinner)?`<div class="rev-rays"></div>`:''}
+        ${state.revealedWinner?`<div class="rev-banner">${t('恭喜 / Congratulations','Congratulations')}</div>`:''}
+        ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!(pz && pz.photo)) return ''; return (state.drawing||state.revealedWinner) ? `<div class="rev-photo"><img src="${pz.photo}"><i></i></div>` : `<img class="thumb" style="width:140px;height:140px;margin-bottom:14px;" src="${pz.photo}">`; })()}
         <div class="draw-prize-label">${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!pz) return t('请先选择奖品','Please select a prize first'); return t('奖品','Prize')+'：'+(pz.tier?`【${escapeHtml(tierLabel(pz.tier))}】`:'')+escapeHtml(pz.name)+(pz.value?` (RM${escapeHtml(pz.value)})`:''); })()}</div>
         <div class="draw-name ${state.drawing?'rolling':''}" id="draw-name-el">${state.revealedWinner ? escapeHtml(state.revealedWinner.name) : (state.drawing ? escapeHtml(state.rollingName||'…') : '—')}</div>
         ${state.revealedWinner?`<div class="draw-sub">${t('顾客','Customer')}：${escapeHtml(state.revealedWinner.customerName||'—')} · ${t('DD名字','DD Name')}：${escapeHtml(state.revealedWinner.ddName||'—')} · ${t('联系方式','Contact')}：${escapeHtml(state.revealedWinner.contact)}</div>`:''}
