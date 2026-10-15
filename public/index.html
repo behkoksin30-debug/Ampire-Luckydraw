@@ -136,6 +136,8 @@
   .draw-stage.staged .small-btn{background:var(--gold);color:var(--plum);border-color:var(--gold);}
   .draw-stage.staged .small-btn:hover{background:var(--gold-light);}
   .draw-stage.staged .small-btn.ghost{background:transparent;color:var(--gold-light);border:1.5px solid var(--gold-light);}
+  @keyframes goGlow{0%,100%{box-shadow:0 0 0 0 rgba(198,150,60,.55)}50%{box-shadow:0 0 22px 6px rgba(198,150,60,.45)}}
+  .draw-stage.staged .small-btn.go-btn{padding:13px 42px;font-size:17px;letter-spacing:.08em;border-radius:10px;animation:goGlow 2s infinite;}
   .draw-stage.staged .small-btn.ghost:hover{background:rgba(240,217,160,.15);}
   .select-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;}
   select{padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;}
@@ -1880,15 +1882,15 @@
         <div class="stat-card"><div class="stat-num gold">${maxWins>0?maxWins:t('不限','Unlimited')}</div><div class="stat-label">${t('每人最多中奖次数','Max wins per person')}</div></div>
         ${selectedPrize?`<div class="stat-card"><div class="stat-num gold">${selectedTotalQty}</div><div class="stat-label">${escapeHtml(selectedPrize.name)} ${t('总剩余数量','total remaining')}</div></div>`:''}
       </div>
-      <div class="draw-stage ${(state.drawing||state.revealedWinner)?'staged':''} ${state.revealedWinner?'revealed':''}">
-        ${(state.drawing||state.revealedWinner)?`<div class="rev-rays"></div>`:''}
+      <div class="draw-stage staged ${state.revealedWinner?'revealed':''}">
+        <div class="rev-rays"></div>
         ${state.revealedWinner?`<div class="rev-banner">${t('恭喜 / Congratulations','Congratulations')}</div>`:''}
-        ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!(pz && pz.photo)) return ''; return (state.drawing||state.revealedWinner) ? `<div class="rev-photo"><img src="${pz.photo}"><i></i></div>` : `<img class="thumb" style="width:140px;height:140px;margin-bottom:14px;" src="${pz.photo}">`; })()}
+        ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!(pz && pz.photo)) return ''; return `<div class="rev-photo"><img src="${pz.photo}"><i></i></div>`; })()}
         <div class="draw-prize-label">${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!pz) return t('请先选择奖品','Please select a prize first'); return t('奖品','Prize')+'：'+(pz.tier?`【${escapeHtml(tierLabel(pz.tier))}】`:'')+escapeHtml(pz.name)+(pz.value?` (RM${escapeHtml(pz.value)})`:''); })()}</div>
         <div class="draw-name ${state.drawing?'rolling':''}" id="draw-name-el">${state.revealedWinner ? escapeHtml(state.revealedWinner.name) : (state.drawing ? escapeHtml(state.rollingName||'…') : '—')}</div>
         ${state.revealedWinner?`<div class="draw-sub">${t('顾客','Customer')}：${escapeHtml(state.revealedWinner.customerName||'—')} · ${t('DD名字','DD Name')}：${escapeHtml(state.revealedWinner.ddName||'—')} · ${t('联系方式','Contact')}：${escapeHtml(state.revealedWinner.contact)}</div>`:''}
         <div class="draw-actions">
-          ${!state.drawing && !state.revealedWinner? `<button class="small-btn" id="start-draw-btn">${t('开始抽奖','Start Draw')}</button>`:''}
+          ${!state.drawing && !state.revealedWinner? `<button class="small-btn go-btn" id="start-draw-btn">${t('开始抽奖','Start Draw')}</button>`:''}
           ${state.revealedWinner? `<button class="small-btn" id="confirm-winner-btn">${t('保存中奖结果','Save Result')}</button><button class="small-btn ghost" id="redraw-btn">${t('重新抽一次','Redraw')}</button><button class="small-btn ghost" id="cancel-draw-btn">${t('取消','Cancel')}</button>`:''}
         </div>
       </div>
