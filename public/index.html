@@ -1786,6 +1786,18 @@
     return `<svg viewBox="0 0 200 200" style="width:100%;height:100%;display:block;">${parts}</svg>`;
   }
   let wheelSpinTimeout = null;
+  function openGuaranteedStage(entryId){
+    if(state.guaranteedSpinning) return;
+    const pool = guaranteedPrizePool();
+    if(pool.length===0){ showToast(t('还没有奖品被设为「可用于幸运轮盘」，或库存已经用完，请先到奖品管理确认','No prizes are set as "usable for Lucky Wheel", or they are out of stock — please check Prize Management')); return; }
+    const en = state.entries.find(e=>e.id===entryId);
+    state.guaranteedDrawEntryId = entryId;
+    state.guaranteedRevealedPrize = null;
+    state.guaranteedSpinning = false;
+    state.guaranteedWheelPool = pool;
+    sendLiveMessage({type:'focus', mode:'wheel', context: en ? (en.name + (en.customerName?` · ${t('顾客','Customer')} ${en.customerName}`:'')) : ''});
+    render();
+  }
   async function startGuaranteedDraw(entryId){
     try{
       state.prizes = await api('/api/prizes', {auth:true});
@@ -1911,8 +1923,7 @@
                 </div>
                 ${!isActive?`
                 <div style="display:flex;gap:8px;flex-shrink:0;">
-                  <button class="small-btn ghost" data-focus-guaranteed="${en.id}" type="button" ${state.eventConfig.liveDrawEnabled?'':'disabled'} title="${t('先点这个让参与者画面聚焦过来，再点抽礼物开始转','Click this first to focus participants into the live view, then click Spin Wheel')}">🔴 ${t('现在抽','Draw Focus')}</button>
-                  <button class="small-btn" data-draw-guaranteed="${en.id}">${t('抽礼物','Spin Wheel')}</button>
+                  <button class="small-btn" data-open-guaranteed="${en.id}" type="button">${t('抽礼物','Spin Wheel')}</button>
                 </div>
                 `:`
                 <div class="draw-stage staged ${state.guaranteedRevealedPrize?'revealed':''}" style="margin-top:10px;">
@@ -1924,7 +1935,7 @@
                       <div class="wheel-hub"></div>
                       <div class="wheel" id="wheel-${en.id}">${buildWheelSvg(state.guaranteedWheelPool||[])}</div>
                     </div>
-                    <div class="draw-sub">${t('转盘转动中…','Spinning…')}</div>
+                    <div class="draw-sub">${state.guaranteedSpinning?t('转盘转动中…','Spinning…'):t('准备好了，请按「开始抽」','Ready — press Start')}</div>
                   `:`
                     ${state.guaranteedRevealedPrize.photo?`<div class="rev-photo"><img src="${state.guaranteedRevealedPrize.photo}"><i></i></div>`:'<div style="height:28px;"></div>'}
                     <div class="draw-name" style="font-size:32px;">${escapeHtml(state.guaranteedRevealedPrize.name)}</div>
@@ -1935,6 +1946,7 @@
                       <button class="small-btn" data-confirm-guaranteed="${en.id}" ${state.guaranteedSending?'disabled':''}>${state.guaranteedSending?t('送出中…','Sending…'):t('确认送出','Confirm & Send')}</button>
                       <button class="small-btn ghost" data-redraw-guaranteed="${en.id}">${t('重新抽','Spin Again')}</button>
                     `:''}
+                    ${(!state.guaranteedSpinning && !state.guaranteedRevealedPrize)?`<button class="small-btn go-btn" data-start-guaranteed="${en.id}">${t('开始抽','Start')}</button>`:''}
                     ${!state.guaranteedSpinning?`<button class="small-btn ghost" data-cancel-guaranteed="${en.id}">${t('取消','Cancel')}</button>`:''}
                   </div>
                 </div>
@@ -1967,8 +1979,11 @@
     const confirmBtn = container.querySelector('#confirm-winner-btn'); if(confirmBtn) confirmBtn.onclick = confirmWinner;
     const redrawBtn = container.querySelector('#redraw-btn'); if(redrawBtn) redrawBtn.onclick = ()=>{ discardDraw(); startDraw(); };
     const cancelBtn = container.querySelector('#cancel-draw-btn'); if(cancelBtn) cancelBtn.onclick = discardDraw;
-    container.querySelectorAll('[data-draw-guaranteed]').forEach(btn=>{
-      btn.onclick = ()=> startGuaranteedDraw(btn.getAttribute('data-draw-guaranteed'));
+    container.querySelectorAll('[data-open-guaranteed]').forEach(btn=>{
+      btn.onclick = ()=> openGuaranteedStage(btn.getAttribute('data-open-guaranteed'));
+    });
+    container.querySelectorAll('[data-start-guaranteed]').forEach(btn=>{
+      btn.onclick = ()=> startGuaranteedDraw(btn.getAttribute('data-start-guaranteed'));
     });
     container.querySelectorAll('[data-focus-guaranteed]').forEach(btn=>{
       btn.onclick = ()=>{
