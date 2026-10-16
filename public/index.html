@@ -800,25 +800,19 @@
   }
   /* ---------------- win confetti ---------------- */
   const CONFETTI_PALETTE = ['#D85A30','#F0997B','#0F6E56','#5DCAA5','#BA7517','#FAC775'];
-  function burstConfetti(){
-    if(!window.confetti || window.__confettiLoadFailed) return;
-    try{ confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: CONFETTI_PALETTE }); }catch(e){}
-  }
   function fireworksConfetti(){
     if(!window.confetti || window.__confettiLoadFailed) return;
     try{
-      const end = Date.now() + 1200;
+      const end = Date.now() + 2200;
       (function frame(){
-        confetti({ particleCount: 30, angle: 60, spread: 55, startVelocity: 60, origin: { x: 0, y: 0.7 }, colors: CONFETTI_PALETTE });
-        confetti({ particleCount: 30, angle: 120, spread: 55, startVelocity: 60, origin: { x: 1, y: 0.7 }, colors: CONFETTI_PALETTE });
+        confetti({ particleCount: 40, angle: 60, spread: 55, startVelocity: 60, ticks: 180, scalar: 1.1, origin: { x: 0, y: 0.7 }, colors: CONFETTI_PALETTE });
+        confetti({ particleCount: 40, angle: 120, spread: 55, startVelocity: 60, ticks: 180, scalar: 1.1, origin: { x: 1, y: 0.7 }, colors: CONFETTI_PALETTE });
         if (Date.now() < end) requestAnimationFrame(frame);
       })();
     }catch(e){}
   }
-  function celebrateMainDrawWin(prize){
-    const specialTier = prize && (prize.tier==='大奖' || prize.tier==='二奖' || prize.tier==='三奖');
-    if(specialTier) fireworksConfetti(); else burstConfetti();
-  }
+  function burstConfetti(){ fireworksConfetti(); }
+  function celebrateMainDrawWin(prize){ fireworksConfetti(); }
   function celebrateGuaranteedWin(){
     fireworksConfetti();
   }
