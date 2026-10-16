@@ -1863,14 +1863,15 @@
     const selectedPrize = state.prizes.find(p=>p.id===state.drawSelectedPrize);
     const selectedTotalQty = selectedPrize ? (selectedPrize.qty||0)+(selectedPrize.guaranteedQty||0) : null;
     container.innerHTML = `
-      <div class="toggle-row" style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:12px 16px;margin-bottom:10px;">
+      <div class="toggle-row" style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:12px 16px;margin-bottom:20px;">
         <div class="toggle-row-text">
           <span class="title">${t('现场同步','Live Sync')}</span>
           <label class="switch" style="margin:0 6px;">
             <input type="checkbox" id="ev-livedraw" ${state.eventConfig.liveDrawEnabled?'checked':''}>
             <span class="slider"></span>
           </label>
-          ${hintIcon(t('打开后，参与者报名页可以看到「现场同步」连结；开关本身不会主动切换他们的画面——点下面的「立即同步」按钮才会把大家的画面拉过来。关闭时参与者完全看不到抽奖过程','When on, participants can see a "Live Draw" link on the entry page; the switch itself does not switch their screen — click "Focus Now" below to pull everyone into the live view. When off, participants cannot see the draw at all'))}
+          <button class="small-btn ghost" id="focus-live-btn" type="button" ${state.eventConfig.liveDrawEnabled?'':'disabled'} title="${state.eventConfig.liveDrawEnabled?t('点一下，正在看报名页的人会立刻跳转到现场同步画面','Click once — anyone on the entry page will jump straight to the live view'):t('请先打开左边的开关','Turn on the switch first')}">🔴 ${t('现在抽','Draw Focus')}</button>
+          ${hintIcon(t('打开后，参与者报名页可以看到「现场同步」连结；开关本身不会主动切换他们的画面——点旁边的「现在抽」按钮才会把大家的画面拉过来。关闭时参与者完全看不到抽奖过程','When on, participants can see a "Live Draw" link on the entry page; the switch itself does not switch their screen — click "Draw Focus" beside it to pull everyone into the live view. When off, participants cannot see the draw at all'))}
         </div>
         <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;justify-content:flex-end;">
           <div style="display:flex;align-items:center;gap:8px;">
@@ -1879,10 +1880,6 @@
             <span style="font-size:12.5px;color:var(--ink-soft);">${t('秒（3~10）','sec (3–10)')}</span>
           </div>
         </div>
-      </div>
-      <div style="margin-bottom:20px;">
-        <button class="small-btn ghost" id="focus-live-btn" type="button" ${state.eventConfig.liveDrawEnabled?'':'disabled'}>🔴 ${t('现在抽','Draw Focus')}</button>
-        ${!state.eventConfig.liveDrawEnabled?`<span style="font-size:12px;color:var(--ink-soft);margin-left:8px;">${t('请先打开上面的开关','Turn on the switch above first')}</span>`:`<span style="font-size:12px;color:var(--ink-soft);margin-left:8px;">${t('点一下，正在看报名页的人会立刻跳转到现场同步画面','Click once — anyone on the entry page will jump straight to the live view')}</span>`}
       </div>
       <div class="select-row">
         <select id="prize-select">
