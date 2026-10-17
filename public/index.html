@@ -208,7 +208,8 @@
     draftTiers: null,
     draftPosterImage: undefined,
     posterVideoUploading: false,
-    ddFilter: '',
+    ddFilters: [],
+    ddMenuOpen: false,
     showAddEntryForm: false,
     newEntryForm: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null },
     newEntryFormErrors: {},
@@ -1443,7 +1444,7 @@
   function entriesFiltered(){
     const q = state.search.trim().toLowerCase();
     return state.entries.filter(en=>{
-      if(state.ddFilter && ddKey(en)!==state.ddFilter) return false;
+      if(state.ddFilters.length && !state.ddFilters.includes(ddKey(en))) return false;
       if(!q) return true;
       return en.name.toLowerCase().includes(q) || en.orderId.toLowerCase().includes(q) || en.contact.toLowerCase().includes(q) || en.id.toLowerCase().includes(q)
         || (en.ddName||'').toLowerCase().includes(q) || (en.customerName||'').toLowerCase().includes(q);
@@ -1452,9 +1453,10 @@
   function renderAdminEntriesTab(container){
     const q = state.search.trim().toLowerCase();
     const ddOpts = ddOptions();
-    if(state.ddFilter && !ddOpts.some(o=>o.key===state.ddFilter)) state.ddFilter = '';
+    state.ddFilters = state.ddFilters.filter(k=>ddOpts.some(o=>o.key===k));
     const list = entriesFiltered();
-    const ddEntries = state.ddFilter ? state.entries.filter(en=>ddKey(en)===state.ddFilter) : state.entries;
+    const ddEntries = state.ddFilters.length ? state.entries.filter(en=>state.ddFilters.includes(ddKey(en))) : state.entries;
+    const ddLabelText = (()=>{ if(!state.ddFilters.length) return t('全部 DD','All DD'); const labels = ddOpts.filter(o=>state.ddFilters.includes(o.key)).map(o=>o.label); const joined = labels.join('、'); return joined.length<=18 ? joined : t('已选 '+labels.length+' 个 DD','Selected '+labels.length+' DD'); })();
     const totalTickets = ddEntries.reduce((sum,en)=>sum+(en.ticketCount||0),0);
     const totalAmount = ddEntries.reduce((sum,en)=>sum+(parseFloat(en.amount)||0),0);
     const giftThreshold = state.eventConfig.guaranteedGiftThreshold || 0;
@@ -1470,13 +1472,21 @@
         </div>
         ${qualifiedCount!==null?`<div class="stat-card"><div class="stat-num gold">${qualifiedCount}</div><div class="stat-label">${t('幸运轮盘门槛达标','Lucky Wheel eligible')}</div></div>`:''}
       </div>
-      ${(q||state.ddFilter)?`<div class="stat-filter-note">${t('筛选出','Filtered:')} ${list.length} ${t('位',' entries')}</div>`:''}
+      ${(q||state.ddFilters.length)?`<div class="stat-filter-note">${t('筛选出','Filtered:')} ${list.length} ${t('位',' entries')}</div>`:''}
       <div class="toolbar" style="gap:12px;">
         <input class="searchbar" id="search-input" placeholder="${t('按姓名 / 订单号 / 联系方式 / 编号搜索','Search by name / order ID / contact / entry ID')}" value="${escapeAttr(state.search)}" style="flex:1;min-width:180px;margin-bottom:0;">
-        <select id="dd-filter" style="min-width:150px;max-width:220px;">
-          <option value="">${t('全部 DD','All DD')}</option>
-          ${ddOpts.map(o=>`<option value="${escapeAttr(o.key)}" ${state.ddFilter===o.key?'selected':''}>${escapeHtml(o.label)}（${o.count}）</option>`).join('')}
-        </select>
+        <div id="dd-filter-wrap" style="position:relative;">
+          <button type="button" id="dd-filter-btn" class="small-btn ghost" style="min-width:150px;max-width:240px;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 12px;"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ddLabelText)}</span><span>▾</span></button>
+          ${state.ddMenuOpen?`
+          <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:220px;max-height:280px;overflow:auto;background:var(--paper,#fff);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(62,22,56,.18);padding:6px;">
+            ${ddOpts.length===0?`<div style="padding:10px;font-size:13px;color:var(--ink-soft);">${t('还没有 DD 名字','No DD names yet')}</div>`:ddOpts.map(o=>`
+              <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:14px;white-space:nowrap;">
+                <input type="checkbox" class="dd-chk" data-key="${escapeAttr(o.key)}" ${state.ddFilters.includes(o.key)?'checked':''} style="width:16px;height:16px;margin:0;accent-color:var(--plum);flex-shrink:0;">
+                <span>${escapeHtml(o.label)}（${o.count}）</span>
+              </label>`).join('')}
+            <div style="border-top:1px solid var(--line);margin-top:4px;padding:8px 10px 4px;"><button type="button" id="dd-clear-btn" class="small-btn ghost" style="padding:6px 12px;">${t('清除','Clear')}</button></div>
+          </div>`:''}
+        </div>
         <div style="display:flex;gap:10px;flex-shrink:0;">
           <button class="small-btn" id="toggle-add-entry-btn">${state.showAddEntryForm?t('取消添加','Cancel Add'):t('+ 添加新订单','+ Add Entry')}</button>
           <button class="small-btn ghost" id="export-btn">${t('导出 CSV','Export CSV')}</button>
@@ -1569,7 +1579,16 @@
     container.querySelector('#export-btn').onclick = exportCsv;
     container.querySelector('#delete-all-btn').onclick = deleteAllEntries;
     container.querySelector('#toggle-total-amount-btn').onclick = ()=>{ state.showTotalAmount = !state.showTotalAmount; renderAdminEntriesTab(container); };
-    container.querySelector('#dd-filter').onchange = e=>{ state.ddFilter = e.target.value; renderAdminEntriesTab(container); };
+    container.querySelector('#dd-filter-btn').onclick = ()=>{ state.ddMenuOpen = !state.ddMenuOpen; renderAdminEntriesTab(container); };
+    container.querySelectorAll('.dd-chk').forEach(cb=>{
+      cb.onchange = ()=>{
+        const k = cb.getAttribute('data-key');
+        state.ddFilters = cb.checked ? state.ddFilters.concat([k]) : state.ddFilters.filter(x=>x!==k);
+        renderAdminEntriesTab(container);
+      };
+    });
+    const ddClearBtn = container.querySelector('#dd-clear-btn');
+    if(ddClearBtn) ddClearBtn.onclick = ()=>{ state.ddFilters = []; renderAdminEntriesTab(container); };
     container.querySelector('#search-input').oninput = e=>{
       state.search = e.target.value;
       const cursorPos = e.target.selectionStart;
@@ -2608,6 +2627,13 @@
     }
   }
 
+  document.addEventListener('click', (e)=>{
+    if(!state.ddMenuOpen) return;
+    if(e.target && e.target.closest && e.target.closest('#dd-filter-wrap')) return;
+    state.ddMenuOpen = false;
+    const c = document.getElementById('admin-content');
+    if(c && state.view==='admin' && state.adminTab==='entries') renderAdminEntriesTab(c);
+  });
   /* ---------------- keyboard / presenter-remote start (Enter, Space, PageDown, Right Arrow) ---------------- */
   let __keyHandledSpace = false;
   document.addEventListener('keydown', (e)=>{
