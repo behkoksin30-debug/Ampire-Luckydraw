@@ -933,7 +933,9 @@
       const rph = document.getElementById('live-reveal-photo');
       if(msg.prizePhoto){ rph.src = msg.prizePhoto; rph.style.display = 'block'; } else { rph.style.display = 'none'; }
       const rdt = document.getElementById('live-reveal-detail');
-      rdt.textContent = (msg.customerName!==undefined) ? `${t('顾客','Customer')}：${msg.customerName||'—'} · ${t('DD名字','DD Name')}：${msg.ddName||'—'} · ${t('联系方式','Contact')}：${msg.contactMasked||'—'}` : '';
+      rdt.textContent = (msg.customerName!==undefined) ? `${t('联系方式','Contact')}：${msg.contactMasked||'—'}` : '';
+      const rdd = document.getElementById('live-reveal-dd');
+      if(rdd){ rdd.textContent = (msg.customerName!==undefined) ? (msg.ddName||'—') : ''; rdd.style.display = (msg.customerName!==undefined) ? 'block' : 'none'; }
       revealEl.style.display = 'block';
       const cf = document.getElementById('live-reveal-confirmed'); if(cf) cf.style.display = msg.confirmed ? 'block' : 'none';
       if(msg.confirmed){ try{ playTick(1000); setTimeout(()=>playTick(1400),120); }catch(e){} return; }
@@ -966,6 +968,7 @@
             <img id="live-reveal-photo" style="display:none;width:200px;height:200px;object-fit:contain;background:#fff;border:3px solid var(--gold-light);border-radius:10px;margin:0 auto 14px;">
             <div id="live-reveal-sub" class="draw-prize-label" style="margin-bottom:6px;"></div>
             <div id="live-reveal-title" class="draw-name" style="font-size:40px;word-break:break-word;"></div>
+            <div id="live-reveal-dd" class="draw-name" style="font-size:40px;word-break:break-word;margin-top:4px;"></div>
             <div id="live-reveal-detail" class="draw-sub" style="font-size:13px;margin-top:12px;line-height:1.6;"></div>
             <div id="live-reveal-confirmed" style="display:none;margin-top:16px;padding:9px 14px;border-radius:999px;background:var(--gold-light);color:var(--plum);font-weight:700;font-size:15px;display:none;">✅ 中奖结果已确认 / Result confirmed</div>
           </div>
@@ -2025,7 +2028,7 @@
         ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!(pz && pz.photo)) return ''; return `<div class="rev-photo"><img src="${pz.photo}"><i></i></div>`; })()}
         <div class="draw-prize-label">${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!pz) return t('请先选择奖品','Please select a prize first'); return t('奖品','Prize')+'：'+(pz.tier?`【${escapeHtml(tierLabel(pz.tier))}】`:'')+escapeHtml(pz.name)+(pz.value?` (RM${escapeHtml(pz.value)})`:''); })()}</div>
         <div class="draw-name ${state.drawing?'rolling':''}" id="draw-name-el">${state.revealedWinner ? escapeHtml(displayName(state.revealedWinner)) : (state.drawing ? escapeHtml(state.rollingName||'…') : '—')}</div>
-        ${state.revealedWinner?`<div class="draw-sub">${t('顾客','Customer')}：${escapeHtml(state.revealedWinner.customerName||'—')} · ${t('DD名字','DD Name')}：${escapeHtml(state.revealedWinner.ddName||'—')} · ${t('联系方式','Contact')}：${escapeHtml(state.revealedWinner.contact)}</div>`:''}
+        ${state.revealedWinner?`<div class="draw-name">${escapeHtml(state.revealedWinner.ddName||'—')}</div><div class="draw-sub">${t('联系方式','Contact')}：${escapeHtml(state.revealedWinner.contact)}</div>`:''}
         <div class="draw-actions">
           ${!state.drawing && !state.revealedWinner? `<button class="small-btn go-btn" id="start-draw-btn" title="${t('也可以按 Enter / 空格 / 翻页笔','Or press Enter / Space / presenter remote')}">${t('开始抽奖','Start Draw')}</button>`:''}
           ${state.revealedWinner? `<button class="small-btn" id="confirm-winner-btn">${t('保存中奖结果','Save Result')}</button><button class="small-btn ghost" id="redraw-btn">${t('重新抽一次','Redraw')}</button><button class="small-btn ghost" id="cancel-draw-btn">${t('取消','Cancel')}</button>`:''}
