@@ -644,6 +644,26 @@
     if(audioCtx.state==='suspended') audioCtx.resume();
     return audioCtx;
   }
+  let audioUnlocked = false, silentEl = null;
+  function updateSoundBtn(){
+    const b = document.getElementById('live-sound-btn'); if(!b) return;
+    if(audioUnlocked){ b.textContent = t('🔊 声音已开启','🔊 Sound on'); b.style.opacity = '.7'; setTimeout(()=>{ const x=document.getElementById('live-sound-btn'); if(x && audioUnlocked) x.style.display='none'; }, 1800); }
+  }
+  function unlockAudio(){
+    try{ if(navigator.audioSession) navigator.audioSession.type = 'playback'; }catch(e){}
+    try{
+      const ctx = getAudioCtx();
+      if(ctx.resume) ctx.resume();
+      const buf = ctx.createBuffer(1, 1, 22050); const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start(0);
+      if(!silentEl){
+        silentEl = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=');
+        silentEl.loop = true; silentEl.volume = 0.01; silentEl.setAttribute('playsinline','');
+      }
+      const pr = silentEl.play(); if(pr && pr.catch) pr.catch(()=>{});
+      if(ctx.state==='running' || ctx.state==='suspended'){ audioUnlocked = true; updateSoundBtn(); }
+    }catch(e){}
+  }
+  ['touchend','click'].forEach(ev=> document.addEventListener(ev, ()=>{ if(!audioUnlocked) unlockAudio(); }, {passive:true}));
   function playTick(pitch){
     const theme = state.eventConfig.soundTheme || 'classic';
     try{
@@ -994,6 +1014,7 @@
           <p>${t('抽奖进行时会自动同步画面','The screen updates automatically while a draw is happening')}</p>
         </div>
         <div class="perforation"></div>
+        <div style="text-align:center;padding:10px 0 0;background:var(--plum);"><button id="live-sound-btn" type="button" class="small-btn ghost" style="border-color:var(--gold-light);color:var(--gold-light);background:transparent;">${t('🔊 点一下开启声音','🔊 Tap to enable sound')}</button></div>
         <div class="draw-stage staged" id="live-stage" style="border-radius:0;border-left:0;border-right:0;padding:0 20px 34px;min-height:260px;">
           <div class="rev-rays"></div>
           <div id="live-banner" class="rev-banner" style="display:none;">${t('恭喜 / Congratulations','Congratulations')}</div>
@@ -1018,6 +1039,7 @@
         <div class="admin-link"><a id="back-to-entry-link">${t('← 返回报名','← Back to entry')}</a></div>
       </div>
     `;
+    const soundBtn = document.getElementById('live-sound-btn'); if(soundBtn){ if(audioUnlocked) soundBtn.style.display='none'; soundBtn.onclick = ()=>{ unlockAudio(); }; }
     document.getElementById('back-to-entry-link').onclick = ()=>{ clearInterval(liveRollInterval); state.view='entry'; render(); };
     connectLiveSocket();
   }
