@@ -1942,6 +1942,7 @@
           ${availablePrizes.map(p=>`<option value="${p.id}" ${state.drawSelectedPrize===p.id?'selected':''}>${p.tier?`【${escapeHtml(tierLabel(p.tier))}】`:''}${escapeHtml(p.name)}${p.value?` (RM${escapeHtml(p.value)})`:''}（${t('剩余','left')} ${p.qty}）</option>`).join('')}
         </select>
       </div>
+      ${selectedPrize && selectedPrize.photo ? `<div style="text-align:center;margin:0 0 18px;"><img id="prize-select-photo" src="${selectedPrize.photo}" title="${t('点一下放大','Click to enlarge')}" style="width:min(100%,260px);height:220px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:10px;cursor:zoom-in;"></div>` : ''}
       <div class="stat-row">
         <div class="stat-card"><div class="stat-num">${eligibleCount}</div><div class="stat-label">${t('符合抽奖条件人数','Eligible participants')}</div></div>
         <div class="stat-card"><div class="stat-num gold">${ticketCount}</div><div class="stat-label">${t('共有机会次数','Total chances')}</div></div>
@@ -2036,6 +2037,7 @@
       sendLiveMessage({type:'focus', mode:'main', prizeName: pz?pz.name:'', prizeTier: pz?pz.tier:'', prizeValue: pz?pz.value:'', prizePhoto: pz?pz.photo:''});
       showToast(t('已发出同步信号','Focus signal sent'));
     };
+    const psp = container.querySelector('#prize-select-photo'); if(psp) psp.onclick = ()=>{ state.lightboxSrc = psp.getAttribute('src'); render(); };
     container.querySelector('#prize-select').onchange = e=>{ state.drawSelectedPrize = e.target.value; state.revealedWinner=null; broadcastPrizeSelection(); renderAdminDrawTab(container); };
     const startBtn = container.querySelector('#start-draw-btn'); if(startBtn) startBtn.onclick = startDraw;
     const confirmBtn = container.querySelector('#confirm-winner-btn'); if(confirmBtn) confirmBtn.onclick = confirmWinner;
