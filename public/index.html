@@ -2071,7 +2071,7 @@
         <div class="stat-card"><div class="stat-num gold">${ticketCount}</div><div class="stat-label">${t('共有机会次数','Total chances')}</div></div>
         <div class="stat-card"><div class="stat-num gold">${maxWins>0?maxWins:t('不限','Unlimited')}</div><div class="stat-label">${t('每人最多中奖次数','Max wins per person')}</div></div>
         <div class="stat-card"><div class="stat-num">${state.prizes.reduce((sum,p)=>sum+(p.qty||0),0)}</div><div class="stat-label">${t('奖品数量','Prizes left')}</div></div>
-        <div class="stat-card"><div class="stat-num">${state.prizes.filter(p=>p.guaranteedEligible).reduce((sum,p)=>sum+(p.guaranteedQty||0),0)}</div><div class="stat-label">${t('幸运轮盘抽奖奖品数量','Lucky Wheel prizes left')}</div></div>
+        <div class="stat-card" id="wheel-prizes-card" style="cursor:pointer;" title="${t('点一下查看幸运轮盘奖品','Click to view Lucky Wheel prizes')}"><div class="stat-num">${state.prizes.filter(p=>p.guaranteedEligible).reduce((sum,p)=>sum+(p.guaranteedQty||0),0)}</div><div class="stat-label">${t('幸运轮盘抽奖奖品数量','Lucky Wheel prizes left')} <span style="font-size:11.5px;color:var(--gold);font-weight:700;">· ${t('点一下查看','tap to view')}</span></div></div>
         ${selectedPrize?`<div class="stat-card"><div class="stat-num gold">${selectedTotalQty}</div><div class="stat-label">${escapeHtml(selectedPrize.name)} ${t('总剩余数量','total remaining')}</div></div>`:''}
       </div>
       <div class="draw-stage staged ${state.revealedWinner?'revealed':''}">
@@ -2161,6 +2161,30 @@
       const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize);
       sendLiveMessage({type:'focus', mode:'main', prizeName: pz?pz.name:'', prizeTier: pz?pz.tier:'', prizeValue: pz?pz.value:'', prizePhoto: pz?pz.photo:''});
       showToast(t('已发出同步信号','Focus signal sent'));
+    };
+    const wheelCard = container.querySelector('#wheel-prizes-card');
+    if(wheelCard) wheelCard.onclick = ()=>{
+      const list = sortPrizesByValue(state.prizes.filter(p=>p.guaranteedEligible && (p.guaranteedQty||0)>0));
+      document.querySelectorAll('.wheel-list-overlay').forEach(el=>el.remove());
+      const ov = document.createElement('div');
+      ov.className = 'wheel-list-overlay';
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(36,28,36,.82);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px;';
+      const total = list.reduce((sum,p)=>sum+(p.guaranteedQty||0),0);
+      ov.innerHTML = `<div style="background:#fffdf9;border-radius:14px;max-width:520px;width:100%;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <div style="font-weight:700;color:var(--plum);">${t('幸运轮盘奖品','Lucky Wheel Prizes')} <span class="pill win">${total}</span></div>
+          <button class="small-btn ghost" id="wheel-list-close" type="button">${t('关闭','Close')}</button>
+        </div>
+        <div style="overflow:auto;padding:8px 16px 16px;">
+          ${list.length===0 ? `<div class="empty-state">${t('没有幸运轮盘奖品','No Lucky Wheel prizes')}</div>` : list.map(p=>`
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);">
+              ${p.photo?`<img src="${escapeAttr(p.photo)}" style="width:52px;height:52px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px;flex:none;">`:`<div style="width:52px;height:52px;border:1px dashed var(--line);border-radius:8px;flex:none;"></div>`}
+              <div style="flex:1;min-width:0;"><div style="font-weight:700;color:var(--plum);word-break:break-word;">${escapeHtml(p.name)}</div><div style="font-size:12.5px;color:var(--ink-soft);">${p.value?'RM'+escapeHtml(p.value):'—'}</div></div>
+              <div style="font-weight:700;color:var(--success);white-space:nowrap;">× ${p.guaranteedQty||0}</div>
+            </div>`).join('')}
+        </div></div>`;
+      ov.onclick = (e)=>{ if(e.target===ov || e.target.closest('#wheel-list-close')) ov.remove(); };
+      document.body.appendChild(ov);
     };
     container.querySelector('#prize-dd-btn').onclick = ()=>{ state.prizeMenuOpen = !state.prizeMenuOpen; renderAdminDrawTab(container); };
     const hoverBox = container.querySelector('#prize-hover-photo');
