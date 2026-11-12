@@ -1,2745 +1,780 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>幸运抽奖系统</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/6.0.1/tesseract.min.js" onerror="window.__ocrLoadFailed=true"></script>
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" onerror="window.__confettiLoadFailed=true"></script>
-<style>
-  :root{
-    --cream:#FBF3E7;
-    --paper:#FFFDF9;
-    --plum:#3E1638;
-    --plum-2:#55204c;
-    --gold:#C6963C;
-    --gold-light:#F0D9A0;
-    --rose:#A73347;
-    --ink:#241C24;
-    --ink-soft:#7a6d76;
-    --line:#E4D7C4;
-    --success:#3F7D5C;
-    --danger:#B23A48;
-    --radius:14px;
-  }
-  *{box-sizing:border-box;}
-  body{margin:0;background:var(--cream);color:var(--ink);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;}
-  h1,h2,h3,.display{font-family:'Fraunces',serif;}
-  button{font-family:inherit;cursor:pointer;}
-  input,select{font-family:inherit;}
-  #app{max-width:900px;margin:0 auto;padding:28px 18px 60px;min-height:100vh;}
-  #app.app-wide{max-width:1400px;}
-  .eyebrow{font-size:13px;color:var(--ink-soft);letter-spacing:.02em;margin:0 0 6px;}
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const multer = require('multer');
+const http = require('http');
+const { WebSocketServer } = require('ws');
 
-  .ticket{background:var(--paper);border-radius:var(--radius);box-shadow:0 1px 0 rgba(62,22,56,.06), 0 12px 32px rgba(62,22,56,.10);overflow:hidden;border:1px solid var(--line);}
-  .ticket-head{background:linear-gradient(135deg,var(--plum),var(--plum-2));color:var(--gold-light);padding:34px 30px 28px;position:relative;}
-  .ticket-head h1{color:#fff;font-size:30px;margin:0 0 8px;font-weight:600;line-height:1.25;}
-  .ticket-head p{margin:0;color:var(--gold-light);font-size:15px;opacity:.92;}
-  .perforation{height:0;border-top:2px dashed var(--line);position:relative;margin:0 0;}
-  .perforation::before,.perforation::after{content:'';position:absolute;top:-11px;width:22px;height:22px;border-radius:50%;background:var(--cream);}
-  .perforation::before{left:-11px;}
-  .perforation::after{right:-11px;}
-  .ticket-body{padding:28px 30px 30px;}
-  .field{margin-bottom:18px;}
-  .field label{display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:6px;}
-  .field .hint{font-weight:400;color:var(--ink-soft);font-size:12.5px;margin-left:6px;}
-  .field input[type=text],.field input[type=number],.field input[type=password]{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:15px;background:var(--paper);color:var(--ink);}
-  .field input:focus{outline:none;border-color:var(--gold);}
-  .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
-  @media (max-width:520px){.row2{grid-template-columns:1fr;} .row3{grid-template-columns:1fr;}}
-  .upload-box{border:1.5px dashed var(--line);border-radius:10px;padding:16px;background:#fffaf1;display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
-  .upload-box input[type=file]{display:none;}
-  .upload-btn{background:var(--gold);color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:600;}
-  .thumb{width:64px;height:64px;border-radius:8px;object-fit:cover;border:1px solid var(--line);}
-  .ocr-btn{background:var(--gold);color:var(--plum);border:none;padding:9px 14px;border-radius:8px;font-size:13.5px;font-weight:700;}
-  .ocr-btn:disabled{opacity:.5;cursor:not-allowed;}
-  .ocr-note{font-size:12.5px;color:var(--ink-soft);margin-top:8px;}
-  .ocr-text{margin-top:10px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--ink-soft);max-height:90px;overflow:auto;white-space:pre-wrap;}
-  .submit-btn{width:100%;background:var(--rose);color:#fff;border:none;padding:14px;border-radius:10px;font-size:16px;font-weight:700;margin-top:6px;}
-  .submit-btn:disabled{opacity:.55;cursor:not-allowed;}
-  .error-text{color:var(--danger);font-size:13px;margin-top:6px;}
-  .admin-link{text-align:center;margin-top:22px;font-size:12.5px;color:var(--ink-soft);}
-  .admin-link a{color:var(--ink-soft);text-decoration:underline;cursor:pointer;}
-  .success-wrap{text-align:center;padding:6px 0 0;}
-  .stub{background:var(--paper);border:1.5px dashed var(--gold);border-radius:var(--radius);padding:26px 24px;margin-top:18px;}
-  .stub .code{font-family:'Fraunces',serif;font-size:34px;color:var(--plum);letter-spacing:.03em;margin:10px 0;}
-  .stub .label{font-size:13px;color:var(--ink-soft);}
-  .again-btn{margin-top:20px;background:none;border:1.5px solid var(--plum);color:var(--plum);padding:10px 20px;border-radius:8px;font-weight:700;font-size:14px;}
-  .admin-wrap{background:var(--paper);border-radius:var(--radius);border:1px solid var(--line);overflow:hidden;box-shadow:0 12px 32px rgba(62,22,56,.08);}
-  .admin-header{background:var(--plum);color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
-  .admin-header h2{margin:0;font-size:19px;color:#fff;font-weight:600;}
-  .admin-header .sub{color:var(--gold-light);font-size:12.5px;margin-top:2px;}
-  .logout-btn{background:rgba(255,255,255,.14);color:#fff;border:none;padding:8px 14px;border-radius:7px;font-size:13px;}
-  .tabs{display:flex;border-bottom:1px solid var(--line);background:#fdf6ea;overflow-x:auto;}
-  .tab{padding:13px 18px;font-size:13.5px;font-weight:700;color:var(--ink-soft);border-bottom:3px solid transparent;white-space:nowrap;}
-  .tab.active{color:var(--plum);border-color:var(--gold);}
-  .admin-content{padding:22px;}
-  table{width:100%;border-collapse:collapse;font-size:13.5px;}
-  table th, table td{white-space:nowrap;}
-  th{text-align:left;color:var(--ink-soft);font-weight:700;font-size:12px;padding:8px 10px;border-bottom:1.5px solid var(--line);white-space:nowrap;}
-  td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
-  th:last-child,td:last-child{position:sticky;right:0;background:var(--paper);box-shadow:-4px 0 6px -4px rgba(0,0,0,.12);white-space:nowrap;}
-  .mini-thumb{width:38px;height:38px;border-radius:6px;object-fit:cover;cursor:pointer;border:1px solid var(--line);}
-  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:700;background:#eee5d3;color:var(--plum);}
-  .pill.win{background:#e4f1e9;color:var(--success);}
-  .del-btn{background:none;border:none;color:var(--danger);font-size:12.5px;font-weight:700;}
-  .searchbar{width:100%;padding:10px 13px;border:1.5px solid var(--line);border-radius:9px;margin-bottom:14px;font-size:14px;}
-  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap;}
-  .stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-  .stat-card{background:linear-gradient(150deg,#fffaf0,#fdf1e0);border:1.5px solid var(--gold-light);border-radius:12px;padding:12px 18px;min-width:120px;flex:1;}
-  .stat-card .stat-num{font-family:'Fraunces',serif;font-size:26px;font-weight:700;color:var(--plum);line-height:1.15;}
-  .stat-card .stat-num.gold{color:var(--gold);}
-  .stat-card .stat-label{font-size:12px;color:var(--ink-soft);margin-top:2px;font-weight:600;}
-  .stat-filter-note{font-size:12.5px;color:var(--ink-soft);margin:-8px 0 12px;}
-  .small-btn{background:var(--plum);color:#fff;border:none;padding:9px 14px;border-radius:8px;font-size:13px;font-weight:700;}
-  .small-btn.ghost{background:none;border:1.5px solid var(--plum);color:var(--plum);}
-  .small-btn.danger{background:var(--danger);}
-  .empty-state{padding:30px 10px;text-align:center;color:var(--ink-soft);font-size:14px;}
-  .prize-card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;background:#fffdf8;}
-  .prize-card .pname{font-weight:700;color:var(--plum);}
-  .prize-card .pqty{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
-  .add-prize-form{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
-  .mini-field{display:flex;flex-direction:column;gap:4px;}
-  .mini-field label{font-size:11px;font-weight:700;color:var(--plum);}
-  .add-prize-form input{flex:1;min-width:140px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;}
-  .draw-stage{border:2px dashed var(--gold);border-radius:16px;background:linear-gradient(160deg,#fffaf0,#fdf1e0);padding:40px 20px;text-align:center;position:relative;overflow:hidden;}
-  .wheel-wrap{position:relative;width:230px;height:230px;margin:0 auto 18px;}
-  .wheel{width:100%;height:100%;border-radius:50%;position:relative;box-shadow:0 8px 22px rgba(0,0,0,.28);border:5px solid var(--gold);will-change:transform;overflow:hidden;}
-  .wheel-pointer{position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:28px;color:var(--rose);z-index:5;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3));}
-  .wheel-hub{position:absolute;top:50%;left:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:var(--gold);border:3px solid var(--paper);box-shadow:0 2px 6px rgba(0,0,0,.3);z-index:4;}
-  .draw-prize-label{font-size:13px;color:var(--ink-soft);letter-spacing:.02em;margin-bottom:10px;}
-  .draw-name{font-family:'Fraunces',serif;font-size:32px;color:var(--plum);min-height:44px;font-weight:600;}
-  .draw-name.rolling{color:var(--ink-soft);}
-  .draw-sub{font-size:13px;color:var(--ink-soft);margin-top:8px;}
-  .draw-actions{margin-top:22px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
-  @keyframes revSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
-  @keyframes revPop{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.18);opacity:1}100%{transform:scale(1);opacity:1}}
-  @keyframes revDrop{0%{transform:translateY(-30px);opacity:0}100%{transform:translateY(0);opacity:1}}
-  @keyframes revShine{0%{transform:translateX(-140%) skewX(-20deg)}60%,100%{transform:translateX(240%) skewX(-20deg)}}
-  .draw-stage.staged{background:var(--plum);border-color:var(--gold);padding:0 20px 30px;}
-  .draw-stage .rev-rays{position:absolute;left:50%;top:48%;width:900px;height:900px;transform:translate(-50%,-50%);background:repeating-conic-gradient(rgba(240,217,160,.20) 0deg 9deg,rgba(240,217,160,0) 9deg 18deg);-webkit-mask-image:radial-gradient(circle,#000 8%,transparent 66%);mask-image:radial-gradient(circle,#000 8%,transparent 66%);animation:revSpin 18s linear infinite;pointer-events:none;}
-  .draw-stage .rev-banner{position:relative;z-index:2;margin:0 -20px;padding:10px 12px;background:var(--gold);color:var(--plum);font-size:14px;font-weight:700;letter-spacing:.04em;animation:revDrop .5s ease-out both;}
-  .draw-stage .rev-photo{position:relative;z-index:2;display:inline-block;margin:28px 0 14px;border:3px solid var(--gold-light);border-radius:10px;overflow:hidden;background:#fff;line-height:0;}
-  .draw-stage.revealed .rev-photo{animation:revDrop .6s .15s ease-out both;}
-  .draw-stage .rev-photo img{display:block;width:140px;height:140px;object-fit:cover;}
-  .draw-stage .rev-photo i{position:absolute;top:0;left:0;width:40%;height:100%;background:rgba(255,255,255,.75);animation:revShine 2.6s ease-in-out infinite;}
-  .draw-stage.staged .draw-prize-label{position:relative;z-index:2;color:var(--gold-light);}
-  .draw-stage.staged .draw-name{position:relative;z-index:2;color:var(--gold-light);text-shadow:0 0 18px rgba(198,150,60,.7);}
-  .draw-stage.staged .draw-name.rolling{color:#e8d6a8;}
-  .draw-stage.staged .draw-sub{position:relative;z-index:2;color:#d8c7d4;}
-  .draw-stage.revealed .draw-prize-label,.draw-stage.revealed .draw-sub{animation:revDrop .5s .35s ease-out both;}
-  .draw-stage.revealed .draw-name{font-size:46px;animation:revPop .7s .55s cubic-bezier(.2,1.4,.4,1) both;}
-  .draw-stage.staged .draw-actions{position:relative;z-index:2;}
-  .draw-stage.staged .small-btn{background:var(--gold);color:var(--plum);border-color:var(--gold);}
-  .draw-stage.staged .small-btn:hover{background:var(--gold-light);}
-  .draw-stage.staged .small-btn.ghost{background:transparent;color:var(--gold-light);border:1.5px solid var(--gold-light);}
-  @keyframes goGlow{0%,100%{box-shadow:0 0 0 0 rgba(198,150,60,.55)}50%{box-shadow:0 0 22px 6px rgba(198,150,60,.45)}}
-  .draw-stage.staged .small-btn.go-btn{padding:13px 42px;font-size:17px;letter-spacing:.08em;border-radius:10px;animation:goGlow 2s infinite;}
-  .draw-stage.staged .small-btn.ghost:hover{background:rgba(240,217,160,.15);}
-  .draw-stage.staged .wheel-pointer{color:var(--gold-light);}
-  .select-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;}
-  select{padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;}
-  .checkline{font-size:13.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px;}
-  .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;}
-  .toggle-row-text{display:flex;align-items:center;gap:6px;}
-  .toggle-row-text .title{font-weight:700;color:var(--plum);font-size:14.5px;}
-  .toggle-state-note{font-size:11.5px;color:var(--ink-soft);margin-top:3px;}
-  .switch{position:relative;display:inline-block;width:46px;height:26px;flex-shrink:0;}
-  .switch input{opacity:0;width:0;height:0;}
-  .switch .slider{position:absolute;cursor:pointer;inset:0;background:#D8CFC0;border-radius:26px;transition:.25s;}
-  .switch .slider::before{content:'';position:absolute;height:20px;width:20px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.25s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
-  .switch input:checked + .slider{background:var(--success);}
-  .switch input:checked + .slider::before{transform:translateX(20px);}
-  .switch input:focus + .slider{box-shadow:0 0 0 3px rgba(63,125,92,.25);}
-  .login-box{max-width:360px;margin:60px auto 0;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:30px;text-align:center;box-shadow:0 12px 32px rgba(62,22,56,.10);}
-  .login-box h2{margin:0 0 6px;color:var(--plum);font-size:20px;}
-  .login-box p{color:var(--ink-soft);font-size:13.5px;margin:0 0 20px;}
-  .login-box input{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:9px;font-size:15px;margin-bottom:12px;}
-  .lightbox{position:fixed;inset:0;background:rgba(36,28,36,.82);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
-  .lightbox-close{position:fixed;top:18px;right:18px;background:rgba(255,255,255,.14);color:#fff;border:1.5px solid rgba(255,255,255,.4);padding:9px 16px;border-radius:8px;font-size:14px;font-weight:700;z-index:51;}
-  .lightbox img{width:min(92vw,560px);height:min(80vh,560px);object-fit:contain;background:#fff;border-radius:8px;}
-  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--plum);color:#fff;padding:11px 20px;border-radius:30px;font-size:13.5px;z-index:60;box-shadow:0 8px 20px rgba(0,0,0,.25);}
-  .settings-note{background:#fdf1e0;border:1px solid var(--gold-light);border-radius:9px;padding:12px 14px;font-size:12.5px;color:var(--ink-soft);margin-bottom:16px;line-height:1.6;}
-  .hint-toggle{display:inline-block;vertical-align:middle;}
-  .hint-toggle summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--line);color:var(--ink-soft);font-size:10px;font-weight:700;font-style:normal;}
-  .hint-toggle summary::-webkit-details-marker{display:none;}
-  .hint-toggle summary::marker{content:'';}
-  .hint-toggle[open] summary{background:var(--gold);color:var(--plum);}
-  .hint-toggle .hint-text{display:block;font-size:11.5px;color:var(--ink-soft);font-weight:400;margin-top:6px;background:#fdf1e0;border:1px solid var(--gold-light);border-radius:6px;padding:7px 10px;line-height:1.5;}
-</style>
-</head>
-<body>
-<div id="app"></div>
-<script>
-(function(){
-  "use strict";
-  const app = document.getElementById('app');
-  let toastTimer = null;
+const app = express();
+app.use(express.json({ limit: '12mb' }));
 
-  const state = {
-    view: 'entry',
-    adminTab: 'entries',
-    adminLang: localStorage.getItem('ld_admin_lang') || 'zh',
-    loggedIn: false,
-    token: localStorage.getItem('ld_admin_token') || null,
-    lastTicket: null,
-    entries: [], prizes: [], draws: [],
-    eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, tutorialImage: null, tutorialImages: [], helpImages: [], posterMediaType: 'image', posterVideoUrl: '', drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic', liveDrawEnabled: false },
-    adminPasswordSet: null,
-    form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false },
-    formErrors: {},
-    ocrBusy: false, ocrText: '',
-    search: '',
-    historySearch: '',
-    showTotalAmount: true,
-    prizeSortMode: 'value_asc', prizeFilter: 'all',
-    editingEntryId: null,
-    lightboxSrc: null,
-    lightboxSrcs: null,
-    lightboxIndex: 0,
-    posterMediaIndex: 0,
-    drawing: false, drawSelectedPrize: '',
-    rollingName: '', revealedWinner: null,
-    newPrizePhoto: null,
-    editingPrizeId: null, editPrizePhoto: null,
-    draftTiers: null,
-    draftPosterImage: undefined,
-    posterVideoUploading: false,
-    ddFilters: [],
-    ddMenuOpen: false, prizeMenuOpen: false,
-    showAddEntryForm: false,
-    newEntryForm: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null },
-    newEntryFormErrors: {},
-    draftTutorialImages: undefined,
-    draftHelpImages: undefined,
-    archives: [], archiveDetail: null, newEventLabel: '',
-    guaranteedDrawEntryId: null, guaranteedRevealedPrize: null, guaranteedSending: false, guaranteedSpinning: false, guaranteedWheelPool: null
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+const ENTRIES_DIR = path.join(DATA_DIR, 'entries');
+const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+const PRIZES_FILE = path.join(DATA_DIR, 'prizes.json');
+const DRAWS_FILE = path.join(DATA_DIR, 'draws.json');
+const ARCHIVES_DIR = path.join(DATA_DIR, 'archives');
+const MEDIA_DIR = path.join(DATA_DIR, 'media');
+
+function defaultConfig() {
+  return {
+    title: '幸运抽奖登记',
+    subtitle: '上传订单截图，填写资料，登记您的抽奖资格',
+    conversionRate: 100,
+    tiers: [],
+    maxWinsPerPerson: 0,
+    guaranteedGiftThreshold: 0,
+    maxTicketsPerPerson: 0,
+    registrationOpen: true,
+    regStartDate: '',
+    regEndDate: '',
+    posterImage: null,
+    tutorialImage: null,
+    tutorialImages: [],
+    helpImages: [],
+    posterMediaType: 'image',
+    posterVideoUrl: '',
+    liveDrawEnabled: false,
+    drawDurationSeconds: 5,
+    registrationDeadline: '',
+    soundTheme: 'classic',
+    startGateEnforcedFor: ''
   };
-
-  function showToast(msg){
-    let el = document.getElementById('toast');
-    if(!el){ el = document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
-    el.textContent = msg; el.style.display='block';
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(()=>{ el.style.display='none'; }, 2600);
-  }
-
-  async function api(path, opts){
-    opts = opts || {};
-    const headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
-    if(opts.auth && state.token) headers['Authorization'] = 'Bearer '+state.token;
-    const res = await fetch(path, {
-      method: opts.method||'GET',
-      headers,
-      body: opts.body ? JSON.stringify(opts.body) : undefined
-    });
-    let data = null;
-    try{ data = await res.json(); }catch(e){}
-    if(!res.ok){
-      const err = new Error((data&&data.error) || '请求失败');
-      err.status = res.status;
-      throw err;
+}
+function serverTodayStr(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function enforceDeadline(cfg){
+  if(cfg.registrationDeadline){
+    const deadlineMs = new Date(cfg.registrationDeadline).getTime();
+    if(!isNaN(deadlineMs) && Date.now() >= deadlineMs && cfg.registrationOpen !== false){
+      cfg.registrationOpen = false;
+      cfg.registrationDeadline = '';
+      writeConfig(cfg);
     }
-    return data;
   }
-
-  /* ---------------- data loading ---------------- */
-  async function loadEventConfig(){
-    try{ state.eventConfig = await api('/api/config'); }catch(e){}
-  }
-  async function loadAdminStatus(){
-    try{ const r = await api('/api/admin/status'); state.adminPasswordSet = r.passwordSet; }catch(e){ state.adminPasswordSet = false; }
-  }
-  async function loadAdminData(){
-    const [entries, prizes, draws] = await Promise.all([
-      api('/api/entries', {auth:true}),
-      api('/api/prizes', {auth:true}),
-      api('/api/draws', {auth:true})
-    ]);
-    state.entries = entries; state.prizes = prizes; state.draws = draws;
-  }
-  async function loadArchives(){
-    try{ state.archives = await api('/api/archives', {auth:true}); }catch(e){ state.archives = []; }
-  }
-  async function startNewEvent(label){
-    if(!confirm(t('确定要开始新一场吗？目前所有资料（参与名单、奖品、中奖记录）和活动设置都会被存档保存，然后整个系统会重置成全新状态。管理员密码不受影响。','Start a new event? All current data (entries, prizes, draw history) and settings will be archived, then the system will reset to a fresh state. Your admin password will not be affected.'))) return;
-    try{
-      await api('/api/archives', {method:'POST', auth:true, body:{label: (label||'').trim()}});
-      state.newEventLabel = '';
-      state.draftTiers = null; state.draftPosterImage = undefined; state.draftTutorialImages = undefined;
-      await loadEventConfig();
-      await loadAdminData();
-      await loadArchives();
-      showToast(t('已存档，系统已重置，可以开始新一场了','Archived. The system has been reset — ready for a new event.'));
-      render();
-    }catch(e){ showToast(e.message); }
-  }
-  async function viewArchive(id){
-    try{
-      state.archiveDetail = await api('/api/archives/'+id, {auth:true});
-      render();
-    }catch(e){ showToast(e.message); }
-  }
-  function closeArchiveDetail(){
-    state.archiveDetail = null;
-    render();
-  }
-  async function restoreArchive(id){
-    if(!confirm(t('确定要切换到这一场活动吗？目前的资料会自动存回它原本所在的那个存档，不会重复产生新的备份。','Switch to this event? Your current data will be saved back into its own existing archive slot — no duplicate backup is created.'))) return;
-    try{
-      await api('/api/archives/'+id+'/restore', {method:'POST', auth:true});
-      state.archiveDetail = null;
-      state.draftTiers = null; state.draftPosterImage = undefined; state.draftTutorialImages = undefined;
-      await loadEventConfig();
-      await loadAdminData();
-      await loadArchives();
-      showToast(t('已切换，现在使用的是这一场的资料','Switched — this event\'s data is now active.'));
-      state.adminTab = 'entries';
-      render();
-    }catch(e){ showToast(e.message); }
-  }
-  async function deleteArchive(id){
-    if(!confirm(t('确定要永久删除这份存档吗？此操作无法撤销。','Permanently delete this archive? This cannot be undone.'))) return;
-    try{
-      await api('/api/archives/'+id, {method:'DELETE', auth:true});
-      if(state.archiveDetail && state.archiveDetail.meta.id===id) state.archiveDetail = null;
-      await loadArchives();
-      showToast(t('存档已删除','Archive deleted'));
-      render();
-    }catch(e){ showToast(e.message); }
-  }
-
-  /* ---------------- image compression ---------------- */
-  function compressImage(file){
-    return new Promise((resolve, reject)=>{
-      const reader = new FileReader();
-      reader.onload = function(e){
-        const img = new Image();
-        img.onload = function(){
-          const maxDim = 1100;
-          let w = img.width, h = img.height;
-          if(w>h && w>maxDim){ h = Math.round(h*maxDim/w); w = maxDim; }
-          else if(h>=w && h>maxDim){ w = Math.round(w*maxDim/h); h = maxDim; }
-          const canvas = document.createElement('canvas');
-          canvas.width=w; canvas.height=h;
-          canvas.getContext('2d').drawImage(img,0,0,w,h);
-          resolve(canvas.toDataURL('image/jpeg', 0.72));
-        };
-        img.onerror = reject;
-        img.src = e.target.result;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-  function compressImageHQ(file){
-    return new Promise((resolve, reject)=>{
-      const reader = new FileReader();
-      reader.onload = function(e){
-        const img = new Image();
-        img.onload = function(){
-          const maxDim = 1800;
-          let w = img.width, h = img.height;
-          if(w>h && w>maxDim){ h = Math.round(h*maxDim/w); w = maxDim; }
-          else if(h>=w && h>maxDim){ w = Math.round(w*maxDim/h); h = maxDim; }
-          const canvas = document.createElement('canvas');
-          canvas.width=w; canvas.height=h;
-          canvas.getContext('2d').drawImage(img,0,0,w,h);
-          resolve(canvas.toDataURL('image/jpeg', 0.92));
-        };
-        img.onerror = reject;
-        img.src = e.target.result;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  /* ---------------- OCR-optimized image prep (higher res + grayscale/contrast) ---------------- */
-  function prepareOcrImage(file){
-    return new Promise((resolve, reject)=>{
-      const reader = new FileReader();
-      reader.onload = function(e){
-        const img = new Image();
-        img.onload = function(){
-          const maxDim = 2000;
-          let w = img.width, h = img.height;
-          if(w>maxDim || h>maxDim){
-            if(w>h){ h = Math.round(h*maxDim/w); w = maxDim; }
-            else { w = Math.round(w*maxDim/h); h = maxDim; }
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width=w; canvas.height=h;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img,0,0,w,h);
-          try{
-            const imgData = ctx.getImageData(0,0,w,h);
-            const d = imgData.data;
-            const contrast = 1.35;
-            for(let i=0;i<d.length;i+=4){
-              const lum = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
-              let v = (lum-128)*contrast + 128;
-              v = v<0?0:(v>255?255:v);
-              d[i]=d[i+1]=d[i+2]=v;
-            }
-            ctx.putImageData(imgData,0,0);
-          }catch(err){ /* if canvas is tainted or unsupported, fall back to plain resized image */ }
-          resolve(canvas.toDataURL('image/png'));
-        };
-        img.onerror = reject;
-        img.src = e.target.result;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  function extractElevenDigitOrderIds(text){
-    const matches = (text||'').match(/(?<!\d)\d{11}(?!\d)/g);
-    return matches || [];
-  }
-  function extractOrderDatesISO(text){
-    const dates = [];
-    const re = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;
-    let m;
-    while((m = re.exec(text||''))){
-      const day = parseInt(m[1],10), month = parseInt(m[2],10), year = parseInt(m[3],10);
-      if(month>=1 && month<=12 && day>=1 && day<=31){
-        dates.push(year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0'));
+  if(cfg.regStartDate){
+    const today = serverTodayStr();
+    if(today < cfg.regStartDate){
+      if(cfg.registrationOpen !== false && cfg.startGateEnforcedFor !== cfg.regStartDate){
+        cfg.registrationOpen = false;
+        cfg.startGateEnforcedFor = cfg.regStartDate;
+        writeConfig(cfg);
       }
-    }
-    return dates;
-  }
-  function extractOrderAmount(text){
-    const m = (text||'').match(/(?:RM|MYR|\$|合计|总额|total|amount)[^\d]{0,8}([\d,]+\.\d{1,2}|[\d,]+)/i);
-    if(m) return parseFloat(m[1].replace(/,/g,''));
-    const dec = (text||'').match(/\d{1,6}\.\d{2}/);
-    if(dec) return parseFloat(dec[0]);
-    return null;
-  }
-  function guessOrderIdAndAmount(text){
-    let orderId = '', amount = '';
-    const lines = text.split(/\n+/);
-    for(const line of lines){
-      if(/order|订单|单号|编号/i.test(line)){
-        const ids = extractElevenDigitOrderIds(line);
-        if(ids.length){ orderId = ids[0]; break; }
-      }
-    }
-    if(!orderId){
-      const all = extractElevenDigitOrderIds(text);
-      if(all.length) orderId = all[0];
-    }
-    const foundAmount = extractOrderAmount(text);
-    if(foundAmount!==null) amount = foundAmount.toString();
-    return { orderId, amount };
-  }
-  function guessOrderDate(text, startD, endD){
-    const foundDates = extractOrderDatesISO(text||'');
-    if(!foundDates.length) return '';
-    const inRange = foundDates.find(d => (!startD || d>=startD) && (!endD || d<=endD));
-    return inRange || foundDates[0];
-  }
-
-  /* ---------------- OCR worker (v5+ async API, created once and reused) ---------------- */
-  let __ocrWorkerPromise = null;
-  function getOcrWorker(){
-    if(!__ocrWorkerPromise){
-      __ocrWorkerPromise = Tesseract.createWorker('eng').catch(err=>{ __ocrWorkerPromise = null; throw err; });
-    }
-    return __ocrWorkerPromise;
-  }
-
-  async function runOcr(){
-    if(!state.form.photo){ showToast('请先上传订单截图 / Please upload the order screenshot first'); return; }
-    if(window.__ocrLoadFailed || typeof Tesseract === 'undefined' || typeof Tesseract.createWorker !== 'function'){ showToast('OCR识别暂不可用，请手动填写 / OCR unavailable, please fill in manually'); return; }
-    state.ocrBusy = true; render();
-    try{
-      let ocrImage = state.form.photo;
-      if(state.form.originalFile){
-        try{ ocrImage = await prepareOcrImage(state.form.originalFile); }
-        catch(prepErr){ /* fall back to the compressed display photo if enhancement fails */ }
-      }
-      const worker = await getOcrWorker();
-      const { data } = await worker.recognize(ocrImage);
-      const text = (data && data.text) ? data.text : '';
-      state.ocrText = text.trim();
-      const guess = guessOrderIdAndAmount(text);
-      if(guess.orderId) state.form.orderId = guess.orderId;
-      if(guess.amount) state.form.amount = guess.amount;
-      const guessedDate = guessOrderDate(text, state.eventConfig.regStartDate, state.eventConfig.regEndDate);
-      if(guessedDate) state.form.orderDate = guessedDate;
-      state.form.ocrOverride = false;
-      showToast((guess.orderId||guess.amount||guessedDate) ? '已自动填入，请核对是否正确 / Auto-filled, please verify' : '未能自动识别，请手动填写并核对 / Could not auto-detect, please fill in and check manually');
-    }catch(e){ showToast('OCR识别失败，请手动填写 / OCR failed, please fill in manually'); }
-    state.ocrBusy = false; render();
-  }
-
-  /* ---------------- public submit ---------------- */
-  function computeOcrIssue(){
-    const ocrText = state.ocrText || '';
-    if(!ocrText.trim()) return null;
-    const foundOrderIds = extractElevenDigitOrderIds(ocrText);
-    const orderIdMismatch = foundOrderIds.length===0 || !foundOrderIds.includes(state.form.orderId.trim());
-    const foundAmount = extractOrderAmount(ocrText);
-    const typedAmount = parseFloat(state.form.amount);
-    const amountMismatch = foundAmount===null || isNaN(typedAmount) || Math.abs(typedAmount-foundAmount)>0.01;
-    const foundDates = extractOrderDatesISO(ocrText);
-    const typedDate = (state.form.orderDate||'').trim();
-    const startD = state.eventConfig.regStartDate, endD = state.eventConfig.regEndDate;
-    let dateMismatch = !typedDate || foundDates.length===0 || !foundDates.includes(typedDate);
-    if(!dateMismatch && (startD || endD)){
-      dateMismatch = !((!startD || typedDate>=startD) && (!endD || typedDate<=endD));
-    }
-    return { orderIdMismatch, amountMismatch, dateMismatch, foundOrderIds, foundAmount, foundDates, typedDate, hasIssue: orderIdMismatch||amountMismatch||dateMismatch };
-  }
-  function validateForm(){
-    const errs = {};
-    if(!state.form.name.trim()) errs.name = '请输入姓名 / Please enter your name';
-    if(!state.form.contact.trim()) errs.contact = '请输入联系方式 / Please enter your contact number';
-    if(!state.form.ddName.trim()) errs.ddName = '请输入DD名字 / Please enter DD name';
-
-    if(!state.form.photo) errs.photo = '请上传订单截图 / Please upload the order screenshot';
-    if(!state.form.orderId.trim()) errs.orderId = '请输入订单号 / Please enter the Order ID';
-    if(!state.form.amount.toString().trim()) errs.amount = '请输入金额 / Please enter the amount';
-    if(state.form.photo && state.form.orderId.trim() && state.form.amount.toString().trim()){
-      const ocrText = state.ocrText || '';
-      if(!ocrText.trim()){
-        errs.ocr = '请先点击「OCR自动识别」核对照片内容，再提交 / Please click "OCR Auto-Detect" to verify the photo before submitting';
-      } else {
-        const issue = computeOcrIssue();
-        if(issue && issue.hasIssue && !state.form.ocrOverride){
-          if(issue.orderIdMismatch){
-            errs.orderId = issue.foundOrderIds.length===0
-              ? '照片中找不到11位数字的订单号，请重新上传清晰的订单详情截图，或勾选下方确认框 / Could not find an 11-digit Order ID in the photo, please re-upload a clearer photo or check the box below'
-              : '订单号与照片识别内容不符，请核对，或勾选下方确认框 / Order ID does not match the photo, please check, or check the box below';
-          }
-          if(issue.amountMismatch){
-            errs.amount = issue.foundAmount===null
-              ? '照片中找不到金额（RM），请核对，或勾选下方确认框 / Could not find an amount (RM) in the photo, please check, or check the box below'
-              : '金额与照片识别内容不符，请核对，或勾选下方确认框 / Amount does not match the photo, please check, or check the box below';
-          }
-          if(issue.dateMismatch){
-            const startD = state.eventConfig.regStartDate, endD = state.eventConfig.regEndDate;
-            if(!issue.typedDate){
-              errs.orderDate = '请输入订单日期，或勾选下方确认框 / Please enter the order date, or check the box below';
-            } else if(issue.foundDates.length===0){
-              errs.orderDate = '照片中找不到订单日期，请重新上传清晰的订单详情截图，或勾选下方确认框 / Could not find an order date in the photo, please re-upload a clearer photo, or check the box below';
-            } else if(!issue.foundDates.includes(issue.typedDate)){
-              errs.orderDate = '订单日期与照片识别内容不符，请核对，或勾选下方确认框 / Order date does not match the photo, please check, or check the box below';
-            } else {
-              errs.orderDate = '订单日期不在允许范围内，请核对，或勾选下方确认框 / Order date is outside the allowed range, please check, or check the box below'
-                + (startD?(' ('+startD+(endD?(' ~ '+endD):'')+')'):(endD?(' (~ '+endD+')'):''));
-            }
-          }
-          errs.ocrOverride = '请勾选确认框以继续提交 / Please check the confirmation box to continue';
-        }
-      }
-    }
-    state.formErrors = errs;
-    return Object.keys(errs).length === 0;
-  }
-  async function submitEntry(){
-    if(!validateForm()){ render(); return; }
-    try{
-      const r = await api('/api/entries', {method:'POST', body:{
-        name: state.form.name.trim(), contact: state.form.contact.trim(),
-        ddName: state.form.ddName.trim(), customerName: state.form.customerName.trim(),
-        orderId: state.form.orderId.trim(), amount: state.form.amount.toString().trim(),
-        photo: state.form.photo, ocrOverride: !!state.form.ocrOverride, orderDate: (state.form.orderDate||'').trim()
-      }});
-      state.lastTicket = { id: r.id, name: state.form.name.trim(), customerName: state.form.customerName.trim(), orderId: state.form.orderId.trim(), ticketCount: r.ticketCount||0, wheelEligible: !!r.wheelEligible };
-      state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false };
-      state.ocrText=''; state.view='success'; render();
-    }catch(e){ showToast(e.message||'提交失败，请重试 / Submission failed, please try again'); }
-  }
-
-  /* ---------------- admin: entries ---------------- */
-  async function deleteEntry(id){
-    if(!confirm(t('确定要删除这条登记资料吗？此操作无法撤销。','Delete this registration? This cannot be undone.'))) return;
-    try{ await api('/api/entries/'+id, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
-    catch(e){ showToast(e.message); }
-  }
-  async function saveEntryEdit(id, orderId, amount, orderDate, container){
-    if(!orderId.trim()){ showToast(t('订单号不能为空','Order ID cannot be empty')); return; }
-    if(!amount.toString().trim()){ showToast(t('金额不能为空','Amount cannot be empty')); return; }
-    try{
-      await api('/api/entries/'+id, {method:'PUT', auth:true, body:{orderId: orderId.trim(), amount: amount.toString().trim(), orderDate: (orderDate||'').trim()}});
-      state.editingEntryId = null;
-      await loadAdminData();
-      showToast(t('已保存','Saved'));
-      renderAdminEntriesTab(container);
-    }catch(e){ showToast(e.message); }
-  }
-  async function deleteAllEntries(){
-    if(state.entries.length===0){ showToast(t('目前没有资料','No entries yet')); return; }
-    if(!confirm(t('确定要删除全部 '+state.entries.length+' 位参与者的登记资料吗？此操作直接永久删除，不会存档，无法恢复！','Delete all '+state.entries.length+' registrations? This is permanent, not archived, and cannot be undone!'))) return;
-    if(!confirm(t('再次确认：真的要永久删除全部登记资料吗？这个动作无法撤销。','Please confirm again: permanently delete all registrations? This cannot be undone.'))) return;
-    try{ await api('/api/entries', {method:'DELETE', auth:true}); await loadAdminData(); showToast(t('已全部删除','All deleted')); render(); }
-    catch(e){ showToast(e.message); }
-  }
-  function exportCsv(){
-    const rows = [[t('抽奖编号','Entry ID'),t('姓名','Name'),t('电话','Phone'),t('DD名字','DD Name'),t('顾客名字','Customer Name'),t('订单号','Order ID'),t('订单日期','Order Date'),t('金额','Amount'),t('提交时间','Submitted At')]];
-    entriesFiltered().forEach(en=> rows.push([en.id, en.name, en.contact, en.ddName||'', en.customerName||'', en.orderId, en.orderDate||'', en.amount, new Date(en.submittedAt).toLocaleString()]));
-    const csv = rows.map(r=> r.map(c=> '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
-    const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href=url; a.download=t('抽奖名单.csv','entries.csv'); a.click();
-    URL.revokeObjectURL(url);
-  }
-  function exportDrawsCsv(){
-    const rows = [[t('方式','Method'),t('奖品','Prize'),t('价值','Value'),t('姓名','Name'),t('DD名字','DD Name'),t('顾客名字','Customer Name'),t('联系方式','Contact'),t('订单号','Order ID'),t('时间','Time')]];
-    state.draws.forEach(d=> rows.push([
-      d.guaranteed?t('幸运轮盘','Lucky Wheel'):t('大抽奖','Main Draw'),
-      d.prizeName, d.prizeValue||'', d.winnerName, d.winnerDdName||'', d.winnerCustomerName||'',
-      d.winnerContact, d.winnerOrderId, new Date(d.timestamp).toLocaleString()
-    ]));
-    const csv = rows.map(r=> r.map(c=> '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
-    const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href=url; a.download=t('中奖记录.csv','draw-history.csv'); a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  /* ---------------- admin: prizes ---------------- */
-  async function addPrize(name, qty, value, guaranteedEligible, guaranteedQty, tier, outsideGift){
-    if(!name.trim()){ showToast(t('请输入奖品名称','Please enter a prize name')); return; }
-    try{
-      await api('/api/prizes', {method:'POST', auth:true, body:{name:name.trim(), qty, photo: state.newPrizePhoto, value: (value||'').toString().trim(), guaranteedEligible: !!guaranteedEligible, guaranteedQty, tier: tier||'', outsideGift: !!outsideGift}});
-      state.newPrizePhoto = null;
-      await loadAdminData(); render();
-    }
-    catch(e){ showToast(e.message); }
-  }
-  async function deletePrize(id){
-    if(!confirm(t('确定删除该奖品吗？','Delete this prize?'))) return;
-    try{ await api('/api/prizes/'+id, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
-    catch(e){ showToast(e.message); }
-  }
-  async function updatePrize(id, name, qty, value, guaranteedEligible, guaranteedQty, tier, outsideGift){
-    if(!name.trim()){ showToast(t('请输入奖品名称','Please enter a prize name')); return; }
-    try{
-      const body = {name:name.trim(), qty, value:(value||'').toString().trim(), guaranteedEligible: !!guaranteedEligible, guaranteedQty, tier: tier||'', outsideGift: !!outsideGift};
-      if(state.editPrizePhoto !== null) body.photo = state.editPrizePhoto;
-      await api('/api/prizes/'+id, {method:'PUT', auth:true, body});
-      state.editingPrizeId = null; state.editPrizePhoto = null;
-      await loadAdminData(); render();
-    }catch(e){ showToast(e.message); }
-  }
-
-  /* ---------------- admin: draw ---------------- */
-  /* ---------------- draw sound effects (synthesized, no files) ---------------- */
-  let audioCtx = null;
-  function getAudioCtx(){
-    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if(audioCtx.state==='suspended') audioCtx.resume();
-    return audioCtx;
-  }
-  function playTick(pitch){
-    const theme = state.eventConfig.soundTheme || 'classic';
-    try{
-      const ctx = getAudioCtx();
-      if(theme==='drum'){
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(180, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime+0.08);
-        gain.gain.setValueAtTime(0.32, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.09);
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(); osc.stop(ctx.currentTime+0.1);
-      } else if(theme==='electronic'){
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.value = pitch || 1200;
-        gain.gain.setValueAtTime(0.11, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.05);
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(); osc.stop(ctx.currentTime+0.06);
-      } else {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'square';
-        osc.frequency.value = pitch || 900;
-        gain.gain.setValueAtTime(0.14, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(); osc.stop(ctx.currentTime + 0.07);
-      }
-    }catch(e){}
-  }
-  function playWinChime(previewTheme){
-    const theme = previewTheme || state.eventConfig.soundTheme || 'classic';
-    try{
-      const ctx = getAudioCtx();
-      if(theme==='drum'){
-        for(let i=0;i<6;i++){
-          const t = i*0.06;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(160, ctx.currentTime+t);
-          osc.frequency.exponentialRampToValueAtTime(90, ctx.currentTime+t+0.05);
-          gain.gain.setValueAtTime(0.22, ctx.currentTime+t);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.06);
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.start(ctx.currentTime+t); osc.stop(ctx.currentTime+t+0.07);
-        }
-        const bigHitTime = 0.4;
-        [0,0.12,0.26].forEach((t,i)=>{
-          const tt = bigHitTime + t;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          const freq = 150 - i*25;
-          osc.frequency.setValueAtTime(freq, ctx.currentTime+tt);
-          osc.frequency.exponentialRampToValueAtTime(freq*0.4, ctx.currentTime+tt+0.2);
-          gain.gain.setValueAtTime(0.4, ctx.currentTime+tt);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+tt+0.25);
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.start(ctx.currentTime+tt); osc.stop(ctx.currentTime+tt+0.27);
-        });
-        try{
-          const bufferSize = Math.floor(ctx.sampleRate*0.6);
-          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-          const data = buffer.getChannelData(0);
-          for(let i=0;i<bufferSize;i++) data[i] = (Math.random()*2-1)*(1-i/bufferSize);
-          const noise = ctx.createBufferSource();
-          noise.buffer = buffer;
-          const noiseFilter = ctx.createBiquadFilter();
-          noiseFilter.type = 'highpass'; noiseFilter.frequency.value = 2000;
-          const noiseGain = ctx.createGain();
-          noiseGain.gain.setValueAtTime(0.25, ctx.currentTime+bigHitTime);
-          noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+bigHitTime+0.9);
-          noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(ctx.destination);
-          noise.start(ctx.currentTime+bigHitTime); noise.stop(ctx.currentTime+bigHitTime+1);
-        }catch(e){}
-      } else if(theme==='electronic'){
-        const riser = ctx.createOscillator();
-        const riserGain = ctx.createGain();
-        riser.type = 'sawtooth';
-        riser.frequency.setValueAtTime(200, ctx.currentTime);
-        riser.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime+0.3);
-        riserGain.gain.setValueAtTime(0.06, ctx.currentTime);
-        riserGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.32);
-        riser.connect(riserGain); riserGain.connect(ctx.destination);
-        riser.start(ctx.currentTime); riser.stop(ctx.currentTime+0.33);
-        const notes = [440, 554.37, 659.25, 880, 1108.73, 1318.5];
-        notes.forEach((freq,i)=>{
-          [freq, freq*1.5].forEach((f,j)=>{
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = j===0?'square':'sawtooth';
-            osc.frequency.value = f;
-            const start = ctx.currentTime + 0.3 + i*0.075;
-            gain.gain.setValueAtTime(0.0001, start);
-            gain.gain.exponentialRampToValueAtTime(j===0?0.13:0.05, start+0.01);
-            gain.gain.exponentialRampToValueAtTime(0.0001, start+0.2);
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.start(start); osc.stop(start+0.22);
-          });
-        });
-        const stabStart = ctx.currentTime + 0.3 + notes.length*0.075 + 0.05;
-        [523.25,659.25,783.99,1046.5].forEach(freq=>{
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sawtooth';
-          osc.frequency.value = freq;
-          gain.gain.setValueAtTime(0.0001, stabStart);
-          gain.gain.exponentialRampToValueAtTime(0.15, stabStart+0.02);
-          gain.gain.exponentialRampToValueAtTime(0.0001, stabStart+0.6);
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.start(stabStart); osc.stop(stabStart+0.65);
-        });
-      } else {
-        const sparkleNotes = [783.99,880,987.77,1046.5,1174.66,1318.51,1396.91,1567.98];
-        sparkleNotes.forEach((freq,i)=>{
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.value = freq;
-          const start = ctx.currentTime + i*0.045;
-          gain.gain.setValueAtTime(0.0001, start);
-          gain.gain.exponentialRampToValueAtTime(0.09, start+0.01);
-          gain.gain.exponentialRampToValueAtTime(0.0001, start+0.12);
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.start(start); osc.stop(start+0.14);
-        });
-        const notes = [523.25, 659.25, 783.99, 1046.5];
-        notes.forEach((freq, i)=>{
-          [freq, freq*2].forEach((f,j)=>{
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = j===0?'triangle':'sine';
-            osc.frequency.value = f;
-            const start = ctx.currentTime + 0.36 + i*0.12;
-            gain.gain.setValueAtTime(0.0001, start);
-            gain.gain.exponentialRampToValueAtTime(j===0?0.22:0.06, start+0.02);
-            gain.gain.exponentialRampToValueAtTime(0.0001, start+0.35);
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.start(start); osc.stop(start+0.4);
-          });
-        });
-        const chordStart = ctx.currentTime + 0.36 + notes.length*0.12 + 0.05;
-        [1046.5,1318.51,1567.98].forEach(freq=>{
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'triangle';
-          osc.frequency.value = freq;
-          gain.gain.setValueAtTime(0.0001, chordStart);
-          gain.gain.exponentialRampToValueAtTime(0.18, chordStart+0.03);
-          gain.gain.exponentialRampToValueAtTime(0.0001, chordStart+0.9);
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.start(chordStart); osc.stop(chordStart+0.95);
-        });
-      }
-    }catch(e){}
-  }
-  /* ---------------- win confetti ---------------- */
-  const CONFETTI_PALETTE = ['#D85A30','#F0997B','#0F6E56','#5DCAA5','#BA7517','#FAC775'];
-  function fireworksConfetti(){
-    if(!window.confetti || window.__confettiLoadFailed) return;
-    try{
-      const end = Date.now() + 2200;
-      (function frame(){
-        confetti({ particleCount: 40, angle: 60, spread: 55, startVelocity: 60, ticks: 180, scalar: 1.1, origin: { x: 0, y: 0.7 }, colors: CONFETTI_PALETTE });
-        confetti({ particleCount: 40, angle: 120, spread: 55, startVelocity: 60, ticks: 180, scalar: 1.1, origin: { x: 1, y: 0.7 }, colors: CONFETTI_PALETTE });
-        if (Date.now() < end) requestAnimationFrame(frame);
-      })();
-    }catch(e){}
-  }
-  function burstConfetti(){ fireworksConfetti(); }
-  function celebrateMainDrawWin(prize){ fireworksConfetti(); }
-  function celebrateGuaranteedWin(){
-    fireworksConfetti();
-  }
-  /* ---------------- live draw sync (WebSocket) ---------------- */
-  let liveSocket = null;
-  let liveRollInterval = null;
-  function connectLiveSocket(){
-    if(liveSocket && (liveSocket.readyState===0 || liveSocket.readyState===1)) return liveSocket;
-    try{
-      const proto = location.protocol==='https:' ? 'wss:' : 'ws:';
-      liveSocket = new WebSocket(proto+'//'+location.host);
-      liveSocket.onmessage = (ev)=>{
-        try{ handleLiveMessage(JSON.parse(ev.data)); }catch(e){}
-      };
-    }catch(e){ liveSocket = null; }
-    return liveSocket;
-  }
-  function sendLiveMessage(msg){
-    if(!state.eventConfig.liveDrawEnabled) return;
-    try{
-      const ws = connectLiveSocket();
-      if(!ws) return;
-      const payload = Object.assign({}, msg, {token: state.token});
-      if(ws.readyState===1) ws.send(JSON.stringify(payload));
-      else ws.addEventListener('open', ()=>{ try{ ws.send(JSON.stringify(payload)); }catch(e){} }, {once:true});
-    }catch(e){}
-  }
-  let lastRevealPayload = null;
-  function sendRevealConfirmed(){ if(lastRevealPayload) sendLiveMessage(Object.assign({}, lastRevealPayload, {confirmed:true})); }
-  function maskPhone(c){
-    const d = String(c||'');
-    if(d.length<7) return d ? d.slice(0,1)+'***' : '—';
-    return d.slice(0,3)+'*'.repeat(d.length-6)+d.slice(-3);
-  }
-  function liveWinnerExtra(en){
-    return en ? {customerName: en.customerName||'', ddName: en.ddName||'', contactMasked: maskPhone(en.contact)} : {};
-  }
-  function handleLiveMessage(msg){
-    if(state.view!=='live'){
-      const isProgressMsg = (msg.type==='prize_selected' && msg.prizeName) || msg.type==='draw_start' || msg.type==='focus';
-      const canAutoSwitch = state.eventConfig.liveDrawEnabled && (state.view==='entry' || state.view==='success');
-      if(isProgressMsg && canAutoSwitch){ state.view='live'; render(); }
-      else return;
-    }
-    const statusEl = document.getElementById('live-status');
-    const contextEl = document.getElementById('live-context');
-    const rollEl = document.getElementById('live-rolling');
-    const revealEl = document.getElementById('live-reveal');
-    const photoEl = document.getElementById('live-focus-photo');
-    const wheelEl = document.getElementById('live-focus-wheel');
-    if(!statusEl) return;
-    const bannerEl = document.getElementById('live-banner'); if(bannerEl) bannerEl.style.display = msg.type==='draw_reveal' ? 'block' : 'none';
-    const idleEl = document.getElementById('live-idle-name'); if(idleEl) idleEl.style.display = (msg.type==='focus'||msg.type==='prize_selected') ? 'block' : 'none';
-    if(msg.type==='focus'){
-      revealEl.style.display = 'none';
-      rollEl.style.display = 'none';
-      photoEl.style.display = 'none';
-      wheelEl.style.display = 'none';
-      if(msg.mode==='main'){
-        statusEl.textContent = t('大抽奖 · 即将抽出','Main Draw · Coming up');
-        contextEl.textContent = (msg.prizeTier?`【${msg.prizeTier}】`:'') + (msg.prizeName||'') + (msg.prizeValue?` (RM${msg.prizeValue})`:'');
-        if(msg.prizePhoto){ photoEl.src = msg.prizePhoto; photoEl.style.display = 'inline-block'; }
-      } else if(msg.mode==='wheel'){
-        statusEl.textContent = t('幸运轮盘 · 即将抽出','Lucky Wheel · Coming up');
-        contextEl.textContent = msg.context || '';
-        wheelEl.style.display = 'block';
-      } else {
-        statusEl.textContent = t('等待管理员开始抽奖…','Waiting for the draw to start…');
-        contextEl.textContent = msg.context || '';
-      }
-    } else if(msg.type==='prize_selected'){
-      revealEl.style.display = 'none';
-      rollEl.style.display = 'none';
-      photoEl.style.display = 'none';
-      wheelEl.style.display = 'none';
-      if(msg.prizeName){
-        statusEl.textContent = t('即将抽出','Coming up');
-        contextEl.textContent = (msg.prizeTier?`【${msg.prizeTier}】`:'') + msg.prizeName + (msg.prizeValue?` (RM${msg.prizeValue})`:'');
-        if(msg.prizePhoto){ photoEl.src = msg.prizePhoto; photoEl.style.display = 'inline-block'; }
-      } else {
-        statusEl.textContent = t('等待管理员开始抽奖…','Waiting for the draw to start…');
-        contextEl.textContent = '';
-      }
-    } else if(msg.type==='draw_start'){
-      clearInterval(liveRollInterval);
-      revealEl.style.display = 'none';
-      wheelEl.style.display = 'none';
-      rollEl.style.display = 'block';
-      statusEl.textContent = msg.mode==='wheel' ? t('幸运轮盘抽奖中…','Lucky Wheel spinning…') : t('大抽奖进行中…','Main Draw in progress…');
-      contextEl.textContent = (msg.prizeTier?`【${msg.prizeTier}】`:'') + (msg.context || '') + (msg.prizeValue?` (RM${msg.prizeValue})`:'');
-      if(msg.mode==='main' && msg.prizePhoto){ photoEl.src = msg.prizePhoto; photoEl.style.display = 'inline-block'; }
-      else { photoEl.style.display = 'none'; }
-      const items = (msg.rollingItems && msg.rollingItems.length) ? msg.rollingItems : ['—'];
-      const duration = msg.durationSeconds || 5;
-      const totalTicks = Math.max(4, Math.round(duration*1000/90));
-      let i = 0;
-      rollEl.textContent = items[0];
-      liveRollInterval = setInterval(()=>{
-        i++;
-        rollEl.textContent = items[i % items.length];
-        const progress = (i % totalTicks) / totalTicks;
-        playTick(700 + progress*500);
-      }, 90);
-    } else if(msg.type==='draw_reveal'){
-      clearInterval(liveRollInterval);
-      rollEl.style.display = 'none';
-      photoEl.style.display = 'none';
-      wheelEl.style.display = 'none';
-      statusEl.textContent = t('揭晓结果 🎉','Winner revealed 🎉');
-      contextEl.textContent = '';
-      document.getElementById('live-reveal-title').textContent = msg.resultTitle || '';
-      document.getElementById('live-reveal-sub').textContent = msg.prizeLabel ? (t('奖品','Prize')+'：'+msg.prizeLabel) : (msg.resultSub || '');
-      const rph = document.getElementById('live-reveal-photo');
-      if(msg.prizePhoto){ rph.src = msg.prizePhoto; rph.style.display = 'block'; } else { rph.style.display = 'none'; }
-      const rdt = document.getElementById('live-reveal-detail');
-      rdt.textContent = (msg.customerName!==undefined) ? `${t('顾客','Customer')}：${msg.customerName||'—'} · ${t('DD名字','DD Name')}：${msg.ddName||'—'} · ${t('联系方式','Contact')}：${msg.contactMasked||'—'}` : '';
-      revealEl.style.display = 'block';
-      const cf = document.getElementById('live-reveal-confirmed'); if(cf) cf.style.display = msg.confirmed ? 'block' : 'none';
-      if(msg.confirmed){ try{ playTick(1000); setTimeout(()=>playTick(1400),120); }catch(e){} return; }
-      playWinChime();
-      if(msg.mode==='wheel'){ fireworksConfetti(); }
-      else { (msg.prizeTier==='大奖'||msg.prizeTier==='二奖'||msg.prizeTier==='三奖') ? fireworksConfetti() : burstConfetti(); }
+    } else if(cfg.startGateEnforcedFor){
+      cfg.startGateEnforcedFor = '';
+      writeConfig(cfg);
     }
   }
-  function renderLiveView(){
-    app.innerHTML = `
-      <div class="ticket">
-        ${renderPosterMedia()}
-        <div class="ticket-head">
-          <div class="eyebrow" style="color:var(--gold-light);opacity:.85;">LIVE DRAW</div>
-          <h1>${t('现场同步','Live Draw')}</h1>
-          <p>${t('抽奖进行时会自动同步画面','The screen updates automatically while a draw is happening')}</p>
-        </div>
-        <div class="perforation"></div>
-        <div class="draw-stage staged" id="live-stage" style="border-radius:0;border-left:0;border-right:0;padding:0 20px 34px;min-height:260px;">
-          <div class="rev-rays"></div>
-          <div id="live-banner" class="rev-banner" style="display:none;">${t('恭喜 / Congratulations','Congratulations')}</div>
-          <div style="height:22px;position:relative;z-index:2;"></div>
-          <div id="live-status" class="draw-prize-label" style="font-size:14px;margin-bottom:10px;position:relative;z-index:2;">${t('等待管理员开始抽奖…','Waiting for the draw to start…')}</div>
-          <div style="position:relative;z-index:2;"><img id="live-focus-photo" style="width:180px;height:180px;border:3px solid var(--gold-light);border-radius:10px;object-fit:contain;background:#fff;margin:0 auto 12px;display:none;"></div>
-          <div id="live-focus-wheel" style="position:relative;z-index:2;width:120px;height:120px;border-radius:50%;margin:0 auto 12px;border:3px solid var(--gold-light);display:none;background:conic-gradient(var(--gold) 0deg 60deg,var(--gold-light) 60deg 120deg,var(--rose) 120deg 180deg,var(--plum-2) 180deg 240deg,var(--plum) 240deg 300deg,var(--gold) 300deg 360deg);"></div>
-          <div id="live-context" class="draw-prize-label" style="position:relative;z-index:2;margin-bottom:14px;"></div>
-          <div id="live-idle-name" class="draw-name" style="position:relative;z-index:2;">—</div>
-          <div id="live-rolling" class="draw-name rolling" style="display:none;position:relative;z-index:2;"></div>
-          <div id="live-reveal" style="display:none;position:relative;z-index:2;">
-            <img id="live-reveal-photo" style="display:none;width:200px;height:200px;object-fit:contain;background:#fff;border:3px solid var(--gold-light);border-radius:10px;margin:0 auto 14px;">
-            <div id="live-reveal-sub" class="draw-prize-label" style="margin-bottom:6px;"></div>
-            <div id="live-reveal-title" class="draw-name" style="font-size:40px;word-break:break-word;"></div>
-            <div id="live-reveal-detail" class="draw-sub" style="font-size:13px;margin-top:12px;line-height:1.6;"></div>
-            <div id="live-reveal-confirmed" style="display:none;margin-top:16px;padding:9px 14px;border-radius:999px;background:var(--gold-light);color:var(--plum);font-weight:700;font-size:15px;display:none;">✅ 中奖结果已确认 / Result confirmed</div>
-          </div>
-        </div>
-        <div class="admin-link"><a id="back-to-entry-link">${t('← 返回报名','← Back to entry')}</a></div>
-      </div>
-    `;
-    document.getElementById('back-to-entry-link').onclick = ()=>{ clearInterval(liveRollInterval); state.view='entry'; render(); };
-    connectLiveSocket();
-  }
-  function drawTickCount(){
-    const seconds = state.eventConfig.drawDurationSeconds || 5;
-    return Math.max(4, Math.round(seconds*1000/90));
-  }
-  let wheelTickGeneration = 0;
-  function scheduleWheelTicks(duration){
-    wheelTickGeneration++;
-    const myGeneration = wheelTickGeneration;
-    const totalTicks = 30;
-    const durationMs = duration*1000;
-    const base = Math.min(durationMs*0.02, durationMs/totalTicks*0.6);
-    const growth = Math.max(4, (durationMs - base*totalTicks) / (totalTicks*(totalTicks-1)/2));
-    let i = 0;
-    function next(){
-      if(myGeneration !== wheelTickGeneration) return;
-      if(i>=totalTicks) return;
-      const delay = base + growth*i;
-      setTimeout(()=>{
-        if(myGeneration !== wheelTickGeneration) return;
-        playTick(850);
-        i++;
-        next();
-      }, delay);
-    }
-    next();
-  }
+  return cfg;
+}
 
-  function eligibleEntries(){
-    const maxWins = state.eventConfig.maxWinsPerPerson || 0;
-    return state.entries.filter(en=> maxWins>0 ? (en.wonPrizes||[]).length < maxWins : true).filter(en=> (en.ticketCount||0) > 0);
+function ensureDirs() {
+  fs.mkdirSync(ENTRIES_DIR, { recursive: true });
+  fs.mkdirSync(ARCHIVES_DIR, { recursive: true });
+  fs.mkdirSync(MEDIA_DIR, { recursive: true });
+  if (!fs.existsSync(CONFIG_FILE)) {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(defaultConfig(), null, 2));
   }
-  function eligibleTicketPool(){
-    const pool = [];
-    eligibleEntries().forEach(en=>{
-      const count = en.ticketCount || 0;
-      for(let i=0;i<count;i++) pool.push(en);
-    });
-    return pool;
-  }
-  let rollInterval = null;
-  function broadcastPrizeSelection(){
-    const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize);
-    sendLiveMessage({type:'prize_selected', prizeName: pz?pz.name:'', prizeTier: pz?pz.tier:'', prizeValue: pz?pz.value:'', prizePhoto: pz?pz.photo:''});
-  }
-  async function startDraw(){
-    if(!state.drawSelectedPrize){ showToast(t('请先选择奖品','Please select a prize first')); return; }
-    try{
-      state.prizes = await api('/api/prizes', {auth:true});
-    }catch(e){ showToast(e.message); return; }
-    const selectedPrize = state.prizes.find(p=>p.id===state.drawSelectedPrize);
-    if(!selectedPrize || selectedPrize.qty<1){
-      showToast(t('这个奖品的库存已经用完了，请重新选择','This prize is out of stock, please choose another'));
-      state.drawSelectedPrize = '';
-      render();
-      return;
-    }
-    const pool = eligibleTicketPool();
-    if(pool.length===0){ showToast(t('没有符合条件的参与者','No eligible participants')); return; }
-    state.drawing = true; state.revealedWinner = null; render();
-    sendLiveMessage({type:'draw_start', mode:'main', rollingItems: Array.from(new Set(pool.map(p=>p.name))), context: selectedPrize.name, prizeTier: selectedPrize.tier, prizeValue: selectedPrize.value, prizePhoto: selectedPrize.photo, durationSeconds: state.eventConfig.drawDurationSeconds || 5});
-    let count = 0; const totalTicks = drawTickCount();
-    clearInterval(rollInterval);
-    rollInterval = setInterval(()=>{
-      const r = pool[Math.floor(Math.random()*pool.length)];
-      state.rollingName = r.name; count++;
-      const nameEl = document.getElementById('draw-name-el');
-      if(nameEl) nameEl.textContent = state.rollingName;
-      const progress = count/totalTicks;
-      playTick(700 + progress*500);
-      if(count>=totalTicks){
-        clearInterval(rollInterval);
-        state.revealedWinner = pool[Math.floor(Math.random()*pool.length)];
-        state.drawing = false;
-        playWinChime();
-        celebrateMainDrawWin(selectedPrize);
-        lastRevealPayload = Object.assign({type:'draw_reveal', mode:'main', resultTitle: state.revealedWinner.name, resultSub: selectedPrize.name, prizeTier: selectedPrize.tier, prizePhoto: selectedPrize.photo||'', prizeLabel: (selectedPrize.tier?`【${tierLabel(selectedPrize.tier)}】`:'')+selectedPrize.name+(selectedPrize.value?` (RM${selectedPrize.value})`:'')}, liveWinnerExtra(state.revealedWinner));
-        sendLiveMessage(lastRevealPayload);
-        render();
-      }
-    }, 90);
-  }
-  async function confirmWinner(){
-    const winner = state.revealedWinner;
-    if(!winner || !state.drawSelectedPrize) return;
-    try{
-      await api('/api/draws', {method:'POST', auth:true, body:{prizeId: state.drawSelectedPrize, entryId: winner.id}});
-      sendRevealConfirmed();
-      state.revealedWinner = null;
-      await loadAdminData();
-      showToast(t('中奖结果已保存','Result saved'));
-      render();
-    }catch(e){ showToast(e.message); }
-  }
-  function discardDraw(){ state.revealedWinner = null; broadcastPrizeSelection(); render(); }
-  async function revokeDraw(drawId){
-    if(!confirm(t('确定撤销此中奖记录吗？奖品数量与中奖状态将会恢复。','Revoke this draw record? The prize quantity and win status will be restored.'))) return;
-    try{ await api('/api/draws/'+drawId, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
-    catch(e){ showToast(e.message); }
-  }
-  async function resetAllDraws(){
-    if(state.draws.length===0){ showToast(t('目前没有中奖记录','No draw records yet')); return; }
-    if(!confirm(t('确定要重置全部 '+state.draws.length+' 笔中奖记录吗？参与名单会保留，但每个人的「已中奖」状态会清除，奖品数量会恢复回抽奖前的数字，可以重新开始抽奖。此操作不会存档，无法撤销。','Reset all '+state.draws.length+' draw records? Entries stay, but everyone\'s "won" status will be cleared and prize quantities restored, so you can draw again. This is not archived and cannot be undone.'))) return;
-    if(!confirm(t('再次确认：真的要重置全部中奖记录吗？这个动作无法撤销。','Please confirm again: reset all draw records? This cannot be undone.'))) return;
-    try{ await api('/api/draws', {method:'DELETE', auth:true}); await loadAdminData(); showToast(t('中奖记录已重置，可以重新开始抽奖','Draw records reset — ready to draw again')); render(); }
-    catch(e){ showToast(e.message); }
-  }
+  if (!fs.existsSync(PRIZES_FILE)) fs.writeFileSync(PRIZES_FILE, '[]');
+  if (!fs.existsSync(DRAWS_FILE)) fs.writeFileSync(DRAWS_FILE, '[]');
+}
+ensureDirs();
 
-  /* ---------------- admin auth ---------------- */
-  async function setAdminPassword(pw){
-    if(!pw || pw.length<4){ showToast(t('密码至少4位','Password must be at least 4 characters')); return; }
-    try{
-      const r = await api('/api/admin/setup', {method:'POST', body:{password:pw}});
-      state.token = r.token; localStorage.setItem('ld_admin_token', r.token);
-      state.loggedIn = true; state.view = 'admin';
-      await loadAdminData(); render();
-    }catch(e){ showToast(e.message); }
-  }
-  async function tryLogin(pw){
-    try{
-      const r = await api('/api/admin/login', {method:'POST', body:{password:pw}});
-      state.token = r.token; localStorage.setItem('ld_admin_token', r.token);
-      state.loggedIn = true; state.view = 'admin';
-      await loadAdminData(); render();
-    }catch(e){ showToast(e.message||t('密码不正确','Incorrect password')); }
-  }
-  function logout(){
-    state.loggedIn = false; state.token = null; localStorage.removeItem('ld_admin_token');
-    state.view = 'entry'; render();
-  }
-  async function saveEventConfig(title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson, registrationOpen, regStartDate, regEndDate, drawDurationSeconds, registrationDeadline, soundTheme){
-    try{
-      const body = {title, subtitle, conversionRate, tiers, maxWinsPerPerson, guaranteedGiftThreshold, maxTicketsPerPerson, registrationOpen, regStartDate, regEndDate, drawDurationSeconds, registrationDeadline, soundTheme};
-      if(state.draftPosterImage !== undefined) body.posterImage = state.draftPosterImage;
-      await api('/api/config', {method:'PUT', auth:true, body});
-      state.eventConfig = {
-        title: title||'幸运抽奖登记', subtitle: subtitle||'',
-        conversionRate: parseFloat(conversionRate)||state.eventConfig.conversionRate,
-        tiers: tiers||[],
-        maxWinsPerPerson: parseInt(maxWinsPerPerson,10)||0,
-        guaranteedGiftThreshold: parseFloat(guaranteedGiftThreshold)||0,
-        maxTicketsPerPerson: parseInt(maxTicketsPerPerson,10)||0,
-        registrationOpen: !!registrationOpen,
-        regStartDate: regStartDate||'',
-        regEndDate: regEndDate||'',
-        posterImage: state.draftPosterImage !== undefined ? state.draftPosterImage : state.eventConfig.posterImage,
-        drawDurationSeconds: parseFloat(drawDurationSeconds)||state.eventConfig.drawDurationSeconds||5,
-        registrationDeadline: registrationDeadline||'',
-        soundTheme: soundTheme||'classic'
-      };
-      deadlineExpiredHandled = false;
-      state.draftTiers = null;
-      state.draftPosterImage = undefined;
-      await loadAdminData();
-      showToast(t('活动信息已更新','Settings updated')); render();
-    }catch(e){ showToast(e.message); }
-  }
+function readJson(file, fallback) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
+  catch (e) { return fallback; }
+}
+function writeJson(file, data) {
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+}
+function readConfig() { return readJson(CONFIG_FILE, {}); }
+function writeConfig(cfg) { writeJson(CONFIG_FILE, cfg); }
 
-  /* ---------------- render helpers ---------------- */
-  function el(html){ const d=document.createElement('div'); d.innerHTML=html; return d.firstElementChild; }
-  function t(zh, en){ return state.adminLang==='en' ? en : zh; }
-  function hintIcon(text){ return `<details class="hint-toggle"><summary>i</summary><div class="hint-text">${text}</div></details>`; }
-  function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  function escapeAttr(s){ return escapeHtml(s); }
+function hashPassword(password, salt) {
+  salt = salt || crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return { salt, hash };
+}
+function verifyPassword(password, salt, hash) {
+  if (!salt || !hash) return false;
+  const check = crypto.scryptSync(password, salt, 64).toString('hex');
+  try { return crypto.timingSafeEqual(Buffer.from(check, 'hex'), Buffer.from(hash, 'hex')); }
+  catch (e) { return false; }
+}
 
-  function registrationClosedReason(){
-    const cfg = state.eventConfig;
-    if(cfg.registrationOpen === false){
-      const today = todayStr();
-      if(cfg.regStartDate && today < cfg.regStartDate) return 'notstarted';
-      return 'closed';
-    }
-    return null;
+// in-memory admin session tokens (cleared on server restart -> admin just logs in again)
+const tokens = new Map();
+function issueToken() {
+  const token = crypto.randomBytes(24).toString('hex');
+  tokens.set(token, Date.now() + 1000 * 60 * 60 * 12); // valid 12 hours
+  return token;
+}
+function requireAdmin(req, res, next) {
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  const expiry = token && tokens.get(token);
+  if (!expiry || expiry < Date.now()) {
+    return res.status(401).json({ error: '未登录或登录已过期，请重新登录' });
   }
-  function todayStr(){
-    const d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  }
-  function formatCountdown(deadlineStr){
-    if(!deadlineStr) return null;
-    const target = new Date(deadlineStr).getTime();
-    if(isNaN(target)) return null;
-    const diff = target - Date.now();
-    if(diff <= 0) return null;
-    const totalSeconds = Math.floor(diff/1000);
-    const days = Math.floor(totalSeconds/86400);
-    const hours = Math.floor((totalSeconds%86400)/3600);
-    const mins = Math.floor((totalSeconds%3600)/60);
-    const secs = totalSeconds%60;
-    let parts = [];
-    if(days>0) parts.push(days+'天');
-    if(days>0||hours>0) parts.push(hours+'小时');
-    parts.push(mins+'分');
-    parts.push(secs+'秒');
-    return parts.join(' ');
-  }
-  function localInputToISO(value){
-    if(!value) return '';
-    const d = new Date(value);
-    if(isNaN(d.getTime())) return '';
-    return d.toISOString();
-  }
-  function isoToLocalInputValue(isoStr){
-    if(!isoStr) return '';
-    const d = new Date(isoStr);
-    if(isNaN(d.getTime())) return '';
-    const pad = n=>String(n).padStart(2,'0');
-    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
-  }
-  let deadlineExpiredHandled = false;
-  function tickCountdown(){
-    const dl = state.eventConfig.registrationDeadline;
-    const elPublic = document.getElementById('countdown-public');
-    const elAdmin = document.getElementById('countdown-admin');
-    if(!dl){ return; }
-    const text = formatCountdown(dl);
-    if(text){
-      deadlineExpiredHandled = false;
-      if(elPublic) elPublic.textContent = '距离报名截止还有 '+text+' / Closes in '+text;
-      if(elAdmin) elAdmin.textContent = '距离报名截止还有 '+text;
-    } else if(!deadlineExpiredHandled){
-      deadlineExpiredHandled = true;
-      loadEventConfig().then(render);
-    }
-  }
-  setInterval(tickCountdown, 1000);
-  function posterMediaItems(){
-    const cfg = state.eventConfig;
-    const items = [];
-    const videoFirst = cfg.posterMediaType==='video' && cfg.posterVideoUrl;
-    if(videoFirst) items.push({type:'video', src: cfg.posterVideoUrl});
-    if(cfg.posterImage) items.push({type:'image', src: cfg.posterImage});
-    if(!videoFirst && cfg.posterVideoUrl) items.push({type:'video', src: cfg.posterVideoUrl});
-    return items;
-  }
-  function renderPosterMedia(){
-    const items = posterMediaItems();
-    if(!items.length) return '';
-    const idx = Math.max(0, Math.min(state.posterMediaIndex||0, items.length-1));
-    const item = items[idx];
-    const arrowStyle = 'position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.4);color:#fff;border:none;font-size:18px;line-height:1;z-index:2;display:flex;align-items:center;justify-content:center;cursor:pointer;';
-    return `<div style="position:relative;">
-      ${item.type==='video'
-        ? `<video id="poster-video" src="${item.src}" autoplay muted loop playsinline style="width:100%;display:block;"></video>
-           <button id="poster-mute-toggle-btn" type="button" data-muted="true" style="position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:12.5px;cursor:pointer;">🔊 ${t('开声音','Unmute')}</button>`
-        : `<img src="${item.src}" style="width:100%;display:block;">`}
-      ${items.length>1?`
-        <button id="poster-media-prev" type="button" style="${arrowStyle}left:10px;">‹</button>
-        <button id="poster-media-next" type="button" style="${arrowStyle}right:10px;">›</button>
-        <div style="position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:6px;">
-          ${items.map((it,i)=>`<span style="width:7px;height:7px;border-radius:50%;background:${i===idx?'#fff':'rgba(255,255,255,.45)'};"></span>`).join('')}
-        </div>
-      `:''}
-    </div>`;
-  }
-  function wirePosterMedia(){
-    const items = posterMediaItems();
-    const video = document.getElementById('poster-video');
-    const btn = document.getElementById('poster-mute-toggle-btn');
-    if(video && btn){
-      btn.onclick = ()=>{
-        video.muted = !video.muted;
-        if(!video.muted) video.play().catch(()=>{});
-        btn.textContent = video.muted ? ('🔊 '+t('开声音','Unmute')) : ('🔇 '+t('关声音','Mute'));
-      };
-    }
-    const prevBtn = document.getElementById('poster-media-prev');
-    const nextBtn = document.getElementById('poster-media-next');
-    if(prevBtn) prevBtn.onclick = ()=>{ state.posterMediaIndex = ((state.posterMediaIndex||0)-1+items.length)%items.length; render(); };
-    if(nextBtn) nextBtn.onclick = ()=>{ state.posterMediaIndex = ((state.posterMediaIndex||0)+1)%items.length; render(); };
-  }
-  function renderHelpIcon(){
-    if(!(state.eventConfig.helpImages && state.eventConfig.helpImages.length)) return '';
-    return `<button id="help-icon-btn" type="button" title="${t('不懂请点我','Click me if unsure')}" style="position:fixed;top:16px;right:16px;z-index:40;width:40px;height:40px;border-radius:50%;background:var(--plum);color:var(--gold-light);border:2px solid var(--gold);font-size:18px;cursor:pointer;box-shadow:0 4px 12px rgba(62,22,56,.3);">❓</button>`;
-  }
-  function wireHelpIcon(){
-    const btn = document.getElementById('help-icon-btn');
-    if(btn) btn.onclick = ()=>{ state.lightboxSrcs = state.eventConfig.helpImages; state.lightboxIndex = 0; render(); };
-  }
-  function renderEntryView(){
-    const closedReason = registrationClosedReason();
-    if(closedReason){
-      app.innerHTML = `
-        ${renderHelpIcon()}
-        <div class="ticket">
-          ${renderPosterMedia()}
-          <div class="ticket-head">
-            <div class="eyebrow" style="color:var(--gold-light);opacity:.85;">LUCKY DRAW ENTRY</div>
-            <h1>${escapeHtml(state.eventConfig.title)}</h1>
-            <p>${escapeHtml(state.eventConfig.subtitle)}</p>
-          </div>
-          <div class="perforation"></div>
-          <div class="ticket-body" style="text-align:center;padding:40px 30px;">
-            <div style="font-size:18px;font-weight:700;color:var(--plum);margin-bottom:8px;">
-              ${closedReason==='notstarted' ? '报名尚未开始 / Registration has not started yet' : '报名已结束 / Registration is closed'}
-            </div>
-          </div>
-        </div>
-        <div class="admin-link">${state.eventConfig.liveDrawEnabled?`<a id="live-entry-link">${t('🔴 现场同步','🔴 Live Draw')}</a> · `:''}<a id="admin-entry-link">管理员入口 / Admin</a></div>
-      `;
-      wirePosterMedia();
-      wireHelpIcon();
-      if(state.eventConfig.liveDrawEnabled) connectLiveSocket();
-      const liveEntryLink = document.getElementById('live-entry-link'); if(liveEntryLink) liveEntryLink.onclick = ()=>{ state.view='live'; render(); };
-      document.getElementById('admin-entry-link').onclick = async ()=>{
-        await loadAdminStatus();
-        if(state.token){
-          try{ await loadAdminData(); state.loggedIn=true; state.view='admin'; render(); return; }
-          catch(e){ localStorage.removeItem('ld_admin_token'); state.token=null; }
-        }
-        state.view = 'adminLogin'; render();
-      };
-      return;
-    }
-    const f = state.form, errs = state.formErrors;
-    app.innerHTML = `
-      ${renderHelpIcon()}
-      <div class="ticket">
-        ${renderPosterMedia()}
-        <div class="ticket-head">
-          <div class="eyebrow" style="color:var(--gold-light);opacity:.85;">LUCKY DRAW ENTRY</div>
-          <h1>${escapeHtml(state.eventConfig.title)}</h1>
-          <p>${escapeHtml(state.eventConfig.subtitle)}</p>
-        </div>
-        ${state.eventConfig.registrationDeadline?`<div id="countdown-public" style="text-align:center;font-size:12.5px;color:var(--rose);font-weight:700;padding:8px 10px;background:#fdf1e0;"></div>`:''}
-        <div class="perforation"></div>
-        <div class="ticket-body">
-          <div class="field"><label>姓名 / Name</label>
-            <input type="text" id="f-name" value="${escapeAttr(f.name)}" placeholder="请输入您的姓名 / Enter your name">
-            ${errs.name?`<div class="error-text">${errs.name}</div>`:''}
-          </div>
-          <div class="field"><label>电话 / Phone</label>
-            <input type="text" id="f-contact" value="${escapeAttr(f.contact)}" placeholder="例如 012-3456789 / e.g. 012-3456789">
-            ${errs.contact?`<div class="error-text">${errs.contact}</div>`:''}
-          </div>
-          <div class="field"><label>DD 名字 / DD Name</label>
-            <input type="text" id="f-ddname" value="${escapeAttr(f.ddName)}" placeholder="请输入DD名字 / Enter DD name">
-            ${errs.ddName?`<div class="error-text">${errs.ddName}</div>`:''}
-          </div>
-          <div class="field"><label>顾客名字 / Customer Name <span class="hint" style="font-size:11.5px;color:var(--gold);font-weight:700;">（选填 / optional）</span></label>
-            <input type="text" id="f-customername" value="${escapeAttr(f.customerName)}" placeholder="订单持有人的名字 / Name on the order">
-          </div>
-          <div class="field"><label>上传订单截图 / Upload Order Screenshot</label>
-            ${(state.eventConfig.tutorialImages&&state.eventConfig.tutorialImages.length)?`<a id="tutorial-link" href="javascript:void(0)" style="font-size:12.5px;color:var(--gold);font-weight:700;text-decoration:underline;margin-left:8px;">如何截图？ / How to screenshot?</a>`:''}
-            <div class="upload-box">
-              <label class="upload-btn">点击选择照片 / Click to Choose Photo<input type="file" id="f-photo" accept="image/*"></label>
-              ${f.photo?`<img class="thumb" id="entry-photo-preview" src="${f.photo}" style="cursor:pointer;">`:''}
-              ${f.photo?`<button class="ocr-btn" id="ocr-btn" ${state.ocrBusy?'disabled':''}>${state.ocrBusy?'识别中… / Recognizing…':'OCR自动识别 / OCR Auto-Detect'}</button>`:''}
-              ${f.photo?`<button class="small-btn ghost" id="reset-photo-btn" type="button">Reset</button>`:''}
-            </div>
-            ${errs.photo?`<div class="error-text">${errs.photo}</div>`:''}
-            ${errs.ocr?`<div class="error-text">${errs.ocr}</div>`:''}
-            ${state.ocrText?`<div class="ocr-note">识别到的原始文字（供核对）：/ Recognized text (for checking):</div><div class="ocr-text">${escapeHtml(state.ocrText)}</div>`:''}
-          </div>
-          <div class="row3">
-            <div class="field"><label>订单号 / Order Details</label>
-              <input type="text" id="f-orderid" value="${escapeAttr(f.orderId)}" placeholder="请核对或手动输入 / Check or enter manually">
-              ${errs.orderId?`<div class="error-text">${errs.orderId}</div>`:''}
-            </div>
-            <div class="field"><label>订单日期 / Order Date</label>
-              <input type="text" id="f-orderdate" value="${escapeAttr(f.orderDate)}" placeholder="请核对或手动输入 / Check or enter manually">
-              ${errs.orderDate?`<div class="error-text">${errs.orderDate}</div>`:''}
-            </div>
-            <div class="field"><label>金额 / Amount (RM)</label>
-              <input type="text" id="f-amount" value="${escapeAttr(f.amount)}" placeholder="例如 88.00 / e.g. 88.00">
-              ${errs.amount?`<div class="error-text">${errs.amount}</div>`:''}
-            </div>
-          </div>
-          ${(()=>{ const issue = state.ocrText ? computeOcrIssue() : null; return (issue && issue.hasIssue) ? `
-          <div class="field" style="background:#fdf1e0;border:1px solid var(--gold);border-radius:8px;padding:12px 14px;">
-            <label style="display:flex;align-items:flex-start;gap:8px;font-weight:400;font-size:13px;cursor:pointer;">
-              <input type="checkbox" id="f-ocroverride" ${f.ocrOverride?'checked':''} style="margin-top:2px;">
-              <span>OCR 识别可能有误，我确认以上填写的日期/订单号/金额正确，愿意承担核实结果 / OCR may have misread the photo — I confirm the date/Order ID/Amount above are correct</span>
-            </label>
-            ${errs.ocrOverride?`<div class="error-text">${errs.ocrOverride}</div>`:''}
-          </div>
-          `:''; })()}
-          <button class="submit-btn" id="submit-btn">提交登记 / Submit</button>
-        </div>
-      </div>
-      <div class="admin-link">${state.eventConfig.liveDrawEnabled?`<a id="live-entry-link">${t('🔴 现场同步','🔴 Live Draw')}</a> · `:''}<a id="admin-entry-link">管理员入口 / Admin</a></div>
-    `;
-    wirePosterMedia();
-    wireHelpIcon();
-    if(state.eventConfig.liveDrawEnabled) connectLiveSocket();
-    const liveEntryLink = document.getElementById('live-entry-link'); if(liveEntryLink) liveEntryLink.onclick = ()=>{ state.view='live'; render(); };
-    document.getElementById('f-name').oninput = e=>{ state.form.name = e.target.value; };
-    document.getElementById('f-contact').oninput = e=>{ state.form.contact = e.target.value; };
-    document.getElementById('f-ddname').oninput = e=>{ state.form.ddName = e.target.value; };
-    document.getElementById('f-customername').oninput = e=>{ state.form.customerName = e.target.value; };
-    document.getElementById('f-orderid').oninput = e=>{ state.form.orderId = e.target.value; state.form.ocrOverride = false; };
-    document.getElementById('f-orderdate').oninput = e=>{ state.form.orderDate = e.target.value; state.form.ocrOverride = false; };
-    document.getElementById('f-amount').oninput = e=>{ state.form.amount = e.target.value; state.form.ocrOverride = false; };
-    document.getElementById('f-photo').onchange = async (e)=>{
-      const file = e.target.files[0]; if(!file) return;
-      try{
-        state.form.photo = await compressImage(file);
-        state.form.originalFile = file;
-        state.ocrText=''; state.form.ocrOverride = false; render();
-      }
-      catch(err){ showToast('照片处理失败，请重试 / Photo processing failed, please try again'); }
-    };
-    const ocrBtn = document.getElementById('ocr-btn'); if(ocrBtn) ocrBtn.onclick = runOcr;
-    const photoPreview = document.getElementById('entry-photo-preview');
-    if(photoPreview) photoPreview.onclick = ()=>{ state.lightboxSrc = f.photo; render(); };
-    const tutorialLink = document.getElementById('tutorial-link');
-    if(tutorialLink) tutorialLink.onclick = ()=>{ state.lightboxSrcs = state.eventConfig.tutorialImages; state.lightboxIndex = 0; render(); };
-    const resetPhotoBtn = document.getElementById('reset-photo-btn');
-    if(resetPhotoBtn) resetPhotoBtn.onclick = ()=>{
-      state.form.photo = null;
-      state.form.originalFile = null;
-      state.form.orderId = '';
-      state.form.orderDate = '';
-      state.form.amount = '';
-      state.form.ocrOverride = false;
-      state.ocrText = '';
-      state.formErrors = {};
-      render();
-    };
-    const ocrOverrideBox = document.getElementById('f-ocroverride');
-    if(ocrOverrideBox) ocrOverrideBox.onchange = e=>{ state.form.ocrOverride = e.target.checked; };
-    document.getElementById('submit-btn').onclick = submitEntry;
-    document.getElementById('admin-entry-link').onclick = async ()=>{
-      await loadAdminStatus();
-      if(state.token){
-        try{ await loadAdminData(); state.loggedIn=true; state.view='admin'; render(); return; }
-        catch(e){ localStorage.removeItem('ld_admin_token'); state.token=null; }
-      }
-      state.view = 'adminLogin'; render();
-    };
-    tickCountdown();
-  }
+  next();
+}
 
-  function renderSuccessView(){
-    const t = state.lastTicket;
-    app.innerHTML = `
-      <div class="ticket">
-        <div class="ticket-head">
-          <div class="eyebrow" style="color:var(--gold-light);opacity:.85;">REGISTERED</div>
-          <h1>报名成功 / Registered Successfully</h1>
-          <p>请保留您的抽奖编号，开奖时将用于核对身份 / Please keep your entry number, it will be used to verify you when the draw is held</p>
-        </div>
-        <div class="perforation"></div>
-        <div class="ticket-body success-wrap">
-          <div class="stub">
-            <div class="label">您的抽奖编号 / Your Entry Number</div>
-            <div class="code">${t.id}</div>
-            <div class="label">顾客 / Customer：${escapeHtml(t.customerName||'—')} · 订单号 / Order ID ${escapeHtml(t.orderId)}</div>
-            <div class="label" style="margin-top:10px;">抽奖次数 / Draw Chances：${t.ticketCount||0}</div>
-            <div class="label">幸运轮盘次数 / Lucky Wheel：${t.wheelEligible ? '1' : '0'}</div>
-          </div>
-          <button class="again-btn" id="again-btn">再登记一位 / Register Another</button>
-        </div>
-      </div>
-    `;
-    document.getElementById('again-btn').onclick = ()=>{ state.view='entry'; render(); };
-    if(state.eventConfig.liveDrawEnabled) connectLiveSocket();
-  }
+function genId(prefix, len) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < (len || 6); i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return prefix + s;
+}
 
-  function renderAdminLoginView(){
-    if(state.adminPasswordSet===false){
-      app.innerHTML = `
-        <div class="login-box">
-          <h2>${t('设置管理员密码','Set Admin Password')}</h2>
-          <p>${t('首次使用，请设置一个管理员密码用于进入后台。','First time here — set an admin password to access the backend.')}</p>
-          <input type="password" id="pw1" placeholder="${t('设置密码（至少4位）','Set password (at least 4 characters)')}">
-          <button class="submit-btn" id="setpw-btn">${t('设置并进入','Set & Enter')}</button>
-          <div class="admin-link" style="margin-top:16px;"><a id="back-link">${t('返回登记页','Back to registration')}</a></div>
-        </div>`;
-      document.getElementById('setpw-btn').onclick = ()=> setAdminPassword(document.getElementById('pw1').value);
-      document.getElementById('back-link').onclick = ()=>{ state.view='entry'; render(); };
-      return;
-    }
-    app.innerHTML = `
-      <div class="login-box">
-        <h2>${t('管理员登录','Admin Login')}</h2>
-        <p>${t('请输入密码进入抽奖后台管理','Enter the password to access the admin panel')}</p>
-        <input type="password" id="pw1" placeholder="${t('密码','Password')}">
-        <button class="submit-btn" id="login-btn">${t('登录','Log In')}</button>
-        <div class="admin-link" style="margin-top:16px;"><a id="back-link">${t('返回登记页','Back to registration')}</a></div>
-      </div>`;
-    document.getElementById('login-btn').onclick = ()=> tryLogin(document.getElementById('pw1').value);
-    document.getElementById('pw1').addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(e.target.value); });
-    document.getElementById('back-link').onclick = ()=>{ state.view='entry'; render(); };
-  }
-
-  function ddKey(en){ return (en.ddName||'').trim().toLowerCase(); }
-  function ddOptions(){
-    const map = new Map();
-    state.entries.forEach(en=>{
-      const k = ddKey(en); if(!k) return;
-      if(!map.has(k)) map.set(k, {key:k, label:(en.ddName||'').trim(), count:0});
-      map.get(k).count++;
-    });
-    return Array.from(map.values()).sort((a,b)=> b.count-a.count || a.label.localeCompare(b.label));
-  }
-  function entriesFiltered(){
-    const q = state.search.trim().toLowerCase();
-    return state.entries.filter(en=>{
-      if(state.ddFilters.length && !state.ddFilters.includes(ddKey(en))) return false;
-      if(!q) return true;
-      return en.name.toLowerCase().includes(q) || en.orderId.toLowerCase().includes(q) || en.contact.toLowerCase().includes(q) || en.id.toLowerCase().includes(q)
-        || (en.ddName||'').toLowerCase().includes(q) || (en.customerName||'').toLowerCase().includes(q);
-    });
-  }
-  function renderAdminEntriesTab(container){
-    const q = state.search.trim().toLowerCase();
-    const ddOpts = ddOptions();
-    state.ddFilters = state.ddFilters.filter(k=>ddOpts.some(o=>o.key===k));
-    const list = entriesFiltered();
-    const ddEntries = state.ddFilters.length ? state.entries.filter(en=>state.ddFilters.includes(ddKey(en))) : state.entries;
-    const ddLabelText = (()=>{ if(!state.ddFilters.length) return t('全部 DD','All DD'); const labels = ddOpts.filter(o=>state.ddFilters.includes(o.key)).map(o=>o.label); const joined = labels.join('、'); return joined.length<=18 ? joined : t('已选 '+labels.length+' 个 DD','Selected '+labels.length+' DD'); })();
-    const totalTickets = ddEntries.reduce((sum,en)=>sum+(en.ticketCount||0),0);
-    const totalAmount = ddEntries.reduce((sum,en)=>sum+(parseFloat(en.amount)||0),0);
-    const giftThreshold = state.eventConfig.guaranteedGiftThreshold || 0;
-    const qualifiedCount = giftThreshold>0 ? ddEntries.filter(en=>(parseFloat(en.amount)||0) >= giftThreshold).length : null;
-    container.innerHTML = `
-      <div class="stat-row">
-        <div class="stat-card"><div class="stat-num">${ddEntries.length}</div><div class="stat-label">${t('位登记','registered')}</div></div>
-        <div class="stat-card"><div class="stat-num gold">${totalTickets}</div><div class="stat-label">${t('次抽奖资格','draw chances')}</div></div>
-        <div class="stat-card" style="position:relative;">
-          <button id="toggle-total-amount-btn" type="button" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:13px;color:var(--ink-soft);cursor:pointer;padding:0;">${state.showTotalAmount?t('隐藏','Hide'):t('显示','Show')}</button>
-          <div class="stat-num gold">${state.showTotalAmount?('RM'+totalAmount.toLocaleString(undefined,{maximumFractionDigits:2})):'••••••'}</div>
-          <div class="stat-label">${t('总金额','Total Amount')}</div>
-        </div>
-        ${qualifiedCount!==null?`<div class="stat-card"><div class="stat-num gold">${qualifiedCount}</div><div class="stat-label">${t('幸运轮盘门槛达标','Lucky Wheel eligible')}</div></div>`:''}
-      </div>
-      ${(q||state.ddFilters.length)?`<div class="stat-filter-note">${t('筛选出','Filtered:')} ${list.length} ${t('位',' entries')}</div>`:''}
-      <div class="toolbar" style="gap:12px;">
-        <input class="searchbar" id="search-input" placeholder="${t('按姓名 / 订单号 / 联系方式 / 编号搜索','Search by name / order ID / contact / entry ID')}" value="${escapeAttr(state.search)}" style="flex:1;min-width:180px;margin-bottom:0;">
-        <div id="dd-filter-wrap" style="position:relative;">
-          <button type="button" id="dd-filter-btn" class="small-btn ghost" style="min-width:150px;max-width:240px;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 12px;"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ddLabelText)}</span><span>▾</span></button>
-          ${state.ddMenuOpen?`
-          <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:220px;max-height:280px;overflow:auto;background:var(--paper,#fff);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(62,22,56,.18);padding:6px;">
-            ${ddOpts.length===0?`<div style="padding:10px;font-size:13px;color:var(--ink-soft);">${t('还没有 DD 名字','No DD names yet')}</div>`:ddOpts.map(o=>`
-              <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:14px;white-space:nowrap;">
-                <input type="checkbox" class="dd-chk" data-key="${escapeAttr(o.key)}" ${state.ddFilters.includes(o.key)?'checked':''} style="width:16px;height:16px;margin:0;accent-color:var(--plum);flex-shrink:0;">
-                <span>${escapeHtml(o.label)}（${o.count}）</span>
-              </label>`).join('')}
-            <div style="border-top:1px solid var(--line);margin-top:4px;padding:8px 10px 4px;"><button type="button" id="dd-clear-btn" class="small-btn ghost" style="padding:6px 12px;">${t('清除','Clear')}</button></div>
-          </div>`:''}
-        </div>
-        <div style="display:flex;gap:10px;flex-shrink:0;">
-          <button class="small-btn" id="toggle-add-entry-btn">${state.showAddEntryForm?t('取消添加','Cancel Add'):t('+ 添加新订单','+ Add Entry')}</button>
-          <button class="small-btn ghost" id="export-btn">${t('导出 CSV','Export CSV')}</button>
-          <button class="small-btn danger" id="delete-all-btn">${t('全部删除','Delete All')}</button>
-        </div>
-      </div>
-      ${state.showAddEntryForm?(()=>{
-        const f = state.newEntryForm, errs = state.newEntryFormErrors;
-        return `
-      <div style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:16px;margin-bottom:16px;">
-        <div style="font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:12px;">${t('手动添加新订单（不需要OCR核对，照片选填）','Manually add entry (no OCR check needed, photo optional)')}</div>
-        <div class="row3">
-          <div class="field"><label>${t('姓名','Name')}</label><input type="text" id="ne-name" value="${escapeAttr(f.name)}">${errs.name?`<div class="error-text">${errs.name}</div>`:''}</div>
-          <div class="field"><label>${t('电话','Phone')}</label><input type="text" id="ne-contact" value="${escapeAttr(f.contact)}">${errs.contact?`<div class="error-text">${errs.contact}</div>`:''}</div>
-          <div class="field"><label>${t('DD名字','DD Name')}</label><input type="text" id="ne-ddname" value="${escapeAttr(f.ddName)}">${errs.ddName?`<div class="error-text">${errs.ddName}</div>`:''}</div>
-        </div>
-        <div class="row3" style="margin-top:12px;">
-          <div class="field"><label>${t('顾客名字','Customer Name')}</label><input type="text" id="ne-customername" value="${escapeAttr(f.customerName)}">${errs.customerName?`<div class="error-text">${errs.customerName}</div>`:''}</div>
-          <div class="field"><label>${t('订单号','Order ID')}</label><input type="text" id="ne-orderid" value="${escapeAttr(f.orderId)}">${errs.orderId?`<div class="error-text">${errs.orderId}</div>`:''}</div>
-          <div class="field"><label>${t('订单日期（选填）','Order Date (optional)')}</label><input type="date" id="ne-orderdate" value="${escapeAttr(f.orderDate)}"></div>
-        </div>
-        <div class="row3" style="margin-top:12px;align-items:end;">
-          <div class="field"><label>${t('金额 (RM)','Amount (RM)')}</label><input type="text" id="ne-amount" value="${escapeAttr(f.amount)}">${errs.amount?`<div class="error-text">${errs.amount}</div>`:''}</div>
-          <div class="field">
-            <label>${t('照片（选填）','Photo (optional)')}</label>
-            <div class="upload-box" style="padding:8px 10px;">
-              <label class="upload-btn" style="padding:7px 12px;font-size:12.5px;">${f.photo?t('更换照片','Change Photo'):t('选择照片','Choose Photo')}<input type="file" id="ne-photo" accept="image/*"></label>
-              ${f.photo?`<img class="thumb mini-thumb" style="width:40px;height:40px;" data-src="${f.photo}" src="${f.photo}">`:''}
-            </div>
-          </div>
-        </div>
-        <div style="margin-top:14px;display:flex;gap:10px;">
-          <button class="small-btn" id="submit-new-entry-btn">${t('新增','Add')}</button>
-          <button class="small-btn ghost" id="cancel-new-entry-btn">${t('取消','Cancel')}</button>
-        </div>
-      </div>
-      `; })():''}
-      ${list.length===0?`<div class="empty-state">${t('暂无符合条件的登记资料','No matching entries')}</div>`:`
-      <div style="overflow-x:auto;">
-      <table>
-        <thead><tr><th>${t('照片','Photo')}</th><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('订单日期','Order Date')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th><th>${t('中奖次数','Wins')}</th><th>${t('幸运轮盘次数','Wheel')}</th><th>${t('时间','Time')}</th><th></th></tr></thead>
-        <tbody>
-          ${list.map(en=>{
-            const isEditing = state.editingEntryId === en.id;
-            return `
-            <tr>
-              <td><img class="mini-thumb" data-src="${en.photo}" src="${en.photo}"></td>
-              <td>${escapeHtml(en.name)}</td>
-              <td>${escapeHtml(en.contact)}</td>
-              <td>${escapeHtml(en.ddName||'—')}</td>
-              <td>${escapeHtml(en.customerName||'—')}</td>
-              <td>${isEditing?`<input type="text" class="edit-orderid" value="${escapeAttr(en.orderId)}" style="width:140px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:`${escapeHtml(en.orderId)}${en.ocrOverride?` <span title="${t('此资料未通过OCR自动核实，订单号或金额为参与者手动确认','This entry was not auto-verified by OCR — Order ID or Amount was manually confirmed by the participant')}" style="color:var(--rose);font-weight:700;cursor:help;">⚠</span>`:''}${en.manuallyAdded?` <span title="${t('这笔资料是管理员手动添加的','This entry was manually added by an admin')}" style="color:var(--gold);font-weight:700;cursor:help;">✎</span>`:''}`}</td>
-              <td>${isEditing?`<input type="date" class="edit-orderdate" value="${escapeAttr(en.orderDate||'')}" style="width:140px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:escapeHtml(en.orderDate||'—')}</td>
-              <td>${isEditing?`<input type="text" class="edit-amount" value="${escapeAttr(en.amount)}" style="width:90px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:escapeHtml(String(en.amount))}</td>
-              <td>${(en.ticketCount>0) ? `${en.ticketCount} ${t('次','')}` : `<span style="color:var(--ink-soft);">${t('0次','0')}</span>`}</td>
-              <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">${t('已中奖','Won')}</span>`:`<span class="pill">${t('未中奖','No win')}</span>`}</td>
-              <td>${(en.wonPrizes&&en.wonPrizes.length) ? `${en.wonPrizes.length} ${t('次','x')}` : `<span style="color:var(--ink-soft);">${t('0次','0')}</span>`}</td>
-              <td>${(()=>{ const ws=wheelStatusFor(en); return ws.count>0 ? ws.label : `<span style="color:var(--ink-soft);">${ws.label}</span>`; })()}</td>
-              <td>${new Date(en.submittedAt).toLocaleDateString()}</td>
-              <td>${isEditing?`
-                <button class="del-btn" data-save-entry="${en.id}" style="color:var(--plum);">${t('保存','Save')}</button>
-                <button class="del-btn" data-cancel-entry="${en.id}">${t('取消','Cancel')}</button>
-              `:`
-                <button class="del-btn" data-edit-entry="${en.id}" style="color:var(--plum);">${t('编辑','Edit')}</button>
-                <button class="del-btn" data-del="${en.id}">${t('删除','Delete')}</button>
-              `}</td>
-            </tr>`;}).join('')}
-        </tbody>
-      </table>
-      </div>`}
-    `;
-    container.querySelectorAll('.mini-thumb').forEach(img=>{ img.onclick = ()=>{ state.lightboxSrc = img.getAttribute('data-src'); render(); }; });
-    container.querySelectorAll('[data-del]').forEach(btn=>{ btn.onclick = ()=> deleteEntry(btn.getAttribute('data-del')); });
-    container.querySelectorAll('[data-edit-entry]').forEach(btn=>{
-      btn.onclick = ()=>{ state.editingEntryId = btn.getAttribute('data-edit-entry'); renderAdminEntriesTab(container); };
-    });
-    container.querySelectorAll('[data-cancel-entry]').forEach(btn=>{
-      btn.onclick = ()=>{ state.editingEntryId = null; renderAdminEntriesTab(container); };
-    });
-    container.querySelectorAll('[data-save-entry]').forEach(btn=>{
-      btn.onclick = ()=>{
-        const id = btn.getAttribute('data-save-entry');
-        const row = btn.closest('tr');
-        const orderId = row.querySelector('.edit-orderid').value;
-        const amount = row.querySelector('.edit-amount').value;
-        const orderDate = row.querySelector('.edit-orderdate').value;
-        saveEntryEdit(id, orderId, amount, orderDate, container);
-      };
-    });
-    container.querySelector('#export-btn').onclick = exportCsv;
-    container.querySelector('#delete-all-btn').onclick = deleteAllEntries;
-    container.querySelector('#toggle-total-amount-btn').onclick = ()=>{ state.showTotalAmount = !state.showTotalAmount; renderAdminEntriesTab(container); };
-    container.querySelector('#dd-filter-btn').onclick = ()=>{ state.ddMenuOpen = !state.ddMenuOpen; renderAdminEntriesTab(container); };
-    container.querySelectorAll('.dd-chk').forEach(cb=>{
-      cb.onchange = ()=>{
-        const k = cb.getAttribute('data-key');
-        state.ddFilters = cb.checked ? state.ddFilters.concat([k]) : state.ddFilters.filter(x=>x!==k);
-        renderAdminEntriesTab(container);
-      };
-    });
-    const ddClearBtn = container.querySelector('#dd-clear-btn');
-    if(ddClearBtn) ddClearBtn.onclick = ()=>{ state.ddFilters = []; renderAdminEntriesTab(container); };
-    container.querySelector('#search-input').oninput = e=>{
-      state.search = e.target.value;
-      const cursorPos = e.target.selectionStart;
-      renderAdminEntriesTab(container);
-      const newInput = container.querySelector('#search-input');
-      if(newInput){ newInput.focus(); newInput.setSelectionRange(cursorPos, cursorPos); }
-    };
-    container.querySelector('#toggle-add-entry-btn').onclick = ()=>{
-      state.showAddEntryForm = !state.showAddEntryForm;
-      if(state.showAddEntryForm){ state.newEntryForm = { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null }; state.newEntryFormErrors = {}; }
-      renderAdminEntriesTab(container);
-    };
-    const neName = container.querySelector('#ne-name'); if(neName) neName.oninput = e=>{ state.newEntryForm.name = e.target.value; };
-    const neContact = container.querySelector('#ne-contact'); if(neContact) neContact.oninput = e=>{ state.newEntryForm.contact = e.target.value; };
-    const neDdname = container.querySelector('#ne-ddname'); if(neDdname) neDdname.oninput = e=>{ state.newEntryForm.ddName = e.target.value; };
-    const neCustomername = container.querySelector('#ne-customername'); if(neCustomername) neCustomername.oninput = e=>{ state.newEntryForm.customerName = e.target.value; };
-    const neOrderid = container.querySelector('#ne-orderid'); if(neOrderid) neOrderid.oninput = e=>{ state.newEntryForm.orderId = e.target.value; };
-    const neOrderdate = container.querySelector('#ne-orderdate'); if(neOrderdate) neOrderdate.oninput = e=>{ state.newEntryForm.orderDate = e.target.value; };
-    const neAmount = container.querySelector('#ne-amount'); if(neAmount) neAmount.oninput = e=>{ state.newEntryForm.amount = e.target.value; };
-    const nePhoto = container.querySelector('#ne-photo');
-    if(nePhoto) nePhoto.onchange = async (e)=>{
-      const file = e.target.files[0]; if(!file) return;
-      try{ state.newEntryForm.photo = await compressImage(file); renderAdminEntriesTab(container); }
-      catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
-    };
-    const cancelNewEntryBtn = container.querySelector('#cancel-new-entry-btn');
-    if(cancelNewEntryBtn) cancelNewEntryBtn.onclick = ()=>{ state.showAddEntryForm = false; renderAdminEntriesTab(container); };
-    const submitNewEntryBtn = container.querySelector('#submit-new-entry-btn');
-    if(submitNewEntryBtn) submitNewEntryBtn.onclick = async ()=>{
-      const f = state.newEntryForm;
-      const errs = {};
-      if(!f.name.trim()) errs.name = t('请输入姓名','Required');
-      if(!f.contact.trim()) errs.contact = t('请输入电话','Required');
-      if(!f.ddName.trim()) errs.ddName = t('请输入DD名字','Required');
-      if(!f.customerName.trim()) errs.customerName = t('请输入顾客名字','Required');
-      if(!f.orderId.trim()) errs.orderId = t('请输入订单号','Required');
-      if(!f.amount.toString().trim()) errs.amount = t('请输入金额','Required');
-      state.newEntryFormErrors = errs;
-      if(Object.keys(errs).length){ renderAdminEntriesTab(container); return; }
-      try{
-        await api('/api/admin/entries', {method:'POST', auth:true, body:{
-          name: f.name.trim(), contact: f.contact.trim(), ddName: f.ddName.trim(), customerName: f.customerName.trim(),
-          orderId: f.orderId.trim(), orderDate: f.orderDate||'', amount: f.amount.toString().trim(), photo: f.photo||null
-        }});
-        state.showAddEntryForm = false;
-        await loadAdminData();
-        showToast(t('已新增','Added'));
-        renderAdminEntriesTab(container);
-      }catch(e){ showToast(e.message); }
-    };
-  }
-
-  function shownPrizes(){ return sortPrizesByMode(state.prizes.filter(p=> state.prizeFilter!=='outside' || p.outsideGift), state.prizeSortMode); }
-  function sortPrizesByValue(prizes){
-    return [...prizes].sort((a,b)=> (parseFloat(a.value)||0) - (parseFloat(b.value)||0));
-  }
-  function sortPrizesByMode(prizes, mode){
-    const list = [...prizes];
-    if(mode==='value_desc') return list.sort((a,b)=> (parseFloat(b.value)||0) - (parseFloat(a.value)||0));
-    if(mode==='qty_desc') return list.sort((a,b)=> ((b.qty||0)+(b.guaranteedQty||0)) - ((a.qty||0)+(a.guaranteedQty||0)));
-    return list.sort((a,b)=> (parseFloat(a.value)||0) - (parseFloat(b.value)||0));
-  }
-  function tierLabel(tier){
-    if(tier==='大奖') return t('大奖','Grand Prize');
-    if(tier==='二奖') return t('二奖','2nd Prize');
-    if(tier==='三奖') return t('三奖','3rd Prize');
-    return tier;
-  }
-  function renderAdminPrizesTab(container){
-    const totalQty = state.prizes.reduce((sum,p)=> sum + (p.qty||0) + (p.guaranteedQty||0), 0);
-    const totalValue = state.prizes.reduce((sum,p)=> sum + ((parseFloat(p.value)||0) * ((p.qty||0)+(p.guaranteedQty||0))), 0);
-    container.innerHTML = `
-      <div class="stat-row">
-        <div class="stat-card"><div class="stat-num">${totalQty}</div><div class="stat-label">${t('总奖品数量','Total prize qty')}</div></div>
-        <div class="stat-card"><div class="stat-num gold">RM${totalValue.toLocaleString(undefined,{maximumFractionDigits:2})}</div><div class="stat-label">${t('总价值','Total value')}</div></div>
-      </div>
-      <div class="upload-box" style="margin-bottom:12px;">
-        <label class="upload-btn">${t('上载奖品图片','Upload prize photo')}<input type="file" id="new-prize-photo" accept="image/*"></label>
-        ${state.newPrizePhoto?`<img class="thumb" src="${state.newPrizePhoto}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('可选，不上传也可以添加奖品','Optional — you can add a prize without a photo')}</span>`}
-      </div>
-      <div class="add-prize-form">
-        <input type="text" id="new-prize-name" placeholder="${t('奖品名称','Prize name')}">
-        <div class="mini-field"><label>${t('价值 (RM)','Value (RM)')}</label><input type="text" id="new-prize-value" style="max-width:140px;"></div>
-        <div class="mini-field"><label>${t('数量','Quantity')}</label><input type="number" id="new-prize-qty" min="1" value="1" style="max-width:100px;"></div>
-        <select id="new-prize-tier" style="max-width:120px;">
-          <option value="">${t('不设等级','No tier')}</option>
-          <option value="大奖">${t('大奖','Grand Prize')}</option>
-          <option value="二奖">${t('二奖','2nd Prize')}</option>
-          <option value="三奖">${t('三奖','3rd Prize')}</option>
-        </select>
-        <button class="small-btn" id="add-prize-btn">${t('添加奖品','Add Prize')}</button>
-      </div>
-      <div style="display:flex;align-items:flex-end;gap:12px 22px;flex-wrap:wrap;margin-bottom:16px;">
-        <label class="checkline" style="margin:0 0 12px;"><input type="checkbox" id="new-prize-guaranteed"> ${t('可用于幸运轮盘','Usable for Lucky Wheel')}</label>
-        <label class="checkline" style="margin:0 0 12px;"><input type="checkbox" id="new-prize-outside"> ${t('外买奖品','Outside-bought prize')}</label>
-        <div class="field" style="margin:0;"><label style="font-size:12.5px;">${t('幸运轮盘预留数量','Reserved for Lucky Wheel')} ${hintIcon(t('从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存','Reserve a portion of stock exclusively for Lucky Wheel, separate from the Main Draw stock'))}</label><input type="number" id="new-prize-guaranteed-qty" min="0" value="0" style="width:120px;"></div>
-      </div>
-      ${state.prizes.length>0?`
-      <div style="display:flex;gap:12px 16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
-      <div class="field" style="max-width:220px;margin:0;">
-        <label style="font-size:12.5px;">${t('显示','Show')}</label>
-        <select id="prize-filter">
-          <option value="all" ${state.prizeFilter==='all'?'selected':''}>${t('全部奖品','All prizes')}</option>
-          <option value="outside" ${state.prizeFilter==='outside'?'selected':''}>${t('只看外买奖品','Outside-bought only')}</option>
-        </select>
-      </div>
-      <div class="field" style="max-width:220px;margin:0;">
-        <label style="font-size:12.5px;">${t('排序方式','Sort by')}</label>
-        <select id="prize-sort-mode">
-          <option value="value_asc" ${state.prizeSortMode==='value_asc'?'selected':''}>${t('最低价值','Lowest value')}</option>
-          <option value="value_desc" ${state.prizeSortMode==='value_desc'?'selected':''}>${t('最高价值','Highest value')}</option>
-          <option value="qty_desc" ${state.prizeSortMode==='qty_desc'?'selected':''}>${t('最多数量','Most quantity')}</option>
-        </select>
-      </div>
-      <button class="small-btn ghost" id="export-prizes-btn" style="margin:0;height:42px;">${t('导出 CSV','Export CSV')}</button>
-      </div>
-      `:''}
-      ${state.prizes.length===0?`<div class="empty-state">${t('还没有添加奖品','No prizes added yet')}</div>`:
-        shownPrizes().length===0?`<div class="empty-state">${t('没有外买奖品','No outside-bought prizes')}</div>`:
-        shownPrizes().map(p=> p.id===state.editingPrizeId ? `
-          <div class="prize-card" style="flex-direction:column;align-items:stretch;gap:10px;">
-            <div class="upload-box">
-              <label class="upload-btn">${t('更换图片','Change photo')}<input type="file" class="edit-prize-photo" data-id="${p.id}" accept="image/*"></label>
-              ${(state.editPrizePhoto!==null ? state.editPrizePhoto : p.photo) ? `<img class="thumb" src="${state.editPrizePhoto!==null?state.editPrizePhoto:p.photo}">` : `<span style="font-size:12.5px;color:var(--ink-soft);">${t('没有图片','No photo')}</span>`}
-            </div>
-            <div class="add-prize-form">
-              <input type="text" class="edit-name" value="${escapeAttr(p.name)}" placeholder="${t('奖品名称','Prize name')}">
-              <div class="mini-field"><label>${t('价值 (RM)','Value (RM)')}</label><input type="text" class="edit-value" value="${escapeAttr(p.value||'')}" style="max-width:140px;"></div>
-              <div class="mini-field"><label>${t('数量','Quantity')}</label><input type="number" class="edit-qty" value="${p.qty}" min="0" style="max-width:100px;"></div>
-              <select class="edit-tier" style="max-width:120px;">
-                <option value="" ${!p.tier?'selected':''}>${t('不设等级','No tier')}</option>
-                <option value="大奖" ${p.tier==='大奖'?'selected':''}>${t('大奖','Grand Prize')}</option>
-                <option value="二奖" ${p.tier==='二奖'?'selected':''}>${t('二奖','2nd Prize')}</option>
-                <option value="三奖" ${p.tier==='三奖'?'selected':''}>${t('三奖','3rd Prize')}</option>
-              </select>
-            </div>
-            <label class="checkline"><input type="checkbox" class="edit-guaranteed" ${p.guaranteedEligible?'checked':''}> ${t('可用于幸运轮盘','Usable for Lucky Wheel')}</label>
-            <label class="checkline"><input type="checkbox" class="edit-outside" ${p.outsideGift?'checked':''}> ${t('外买奖品','Outside-bought prize')}</label>
-            <div class="field"><label style="font-size:12.5px;">${t('幸运轮盘预留数量','Reserved for Lucky Wheel')} ${hintIcon(t('从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存','Reserve a portion of stock exclusively for Lucky Wheel, separate from the Main Draw stock'))}</label><input type="number" class="edit-guaranteed-qty" min="0" value="${p.guaranteedQty||0}" style="max-width:140px;"></div>
-            <div style="display:flex;gap:10px;">
-              <button class="small-btn" data-save-prize="${p.id}">${t('保存','Save')}</button>
-              <button class="small-btn ghost" data-cancel-prize="${p.id}">${t('取消','Cancel')}</button>
-            </div>
-          </div>
-        ` : `
-          <div class="prize-card">
-            <div style="display:flex;align-items:center;gap:12px;">
-              ${p.photo?`<img class="thumb prize-zoom" style="cursor:zoom-in;" data-src="${p.photo}" src="${p.photo}">`:''}
-              <div><div class="pname">${p.tier?`<span class="pill" style="background:var(--gold);color:var(--plum);">${escapeHtml(tierLabel(p.tier))}</span> `:''}${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}${p.guaranteedEligible?` <span class="pill win">${t('幸运轮盘','Lucky Wheel')}</span>`:''}${p.outsideGift?` <span class="pill" style="background:#e9e2f3;color:var(--plum);">${t('外买奖品','Outside-bought')}</span>`:''}</div><div class="pqty">${t('大抽奖剩余','Main Draw left')}：${p.qty}${p.guaranteedEligible?` · ${t('幸运轮盘预留剩余','Lucky Wheel reserved left')}：${p.guaranteedQty||0}`:''}</div></div>
-            </div>
-            <div style="display:flex;gap:14px;align-items:center;">
-              <button class="del-btn" data-edit-prize="${p.id}" style="color:var(--plum);">${t('编辑','Edit')}</button>
-              <button class="del-btn" data-del-prize="${p.id}">${t('删除','Delete')}</button>
-            </div>
-          </div>`).join('')}
-    `;
-    container.querySelectorAll('.prize-zoom').forEach(img=>{ img.onclick = ()=>{ state.lightboxSrc = img.getAttribute('data-src'); render(); }; });
-    container.querySelector('#new-prize-photo').onchange = async (e)=>{
-      const file = e.target.files[0]; if(!file) return;
-      try{ state.newPrizePhoto = await compressImage(file); renderAdminPrizesTab(container); }
-      catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
-    };
-    const sortModeSelect = container.querySelector('#prize-sort-mode');
-    const exportPrizesBtn = container.querySelector('#export-prizes-btn');
-    if(exportPrizesBtn) exportPrizesBtn.onclick = ()=>{
-      const rows = [[t('奖品名字','Prize Name'), t('价值(RM)','Value (RM)'), t('数量','Quantity'), t('外买奖品','Outside-bought')]];
-      shownPrizes().forEach(p=> rows.push([p.name, p.value||'', (p.qty||0)+(p.guaranteedQty||0), p.outsideGift?t('是','Yes'):t('否','No')]));
-      const csv = rows.map(r=> r.map(c=> '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
-      const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href=url; a.download=t('奖品列表.csv','prizes.csv'); a.click();
-      setTimeout(()=>URL.revokeObjectURL(url), 1000);
-    };
-    const filterSelect = container.querySelector('#prize-filter');
-    if(filterSelect) filterSelect.onchange = e=>{ state.prizeFilter = e.target.value; renderAdminPrizesTab(container); };
-    if(sortModeSelect) sortModeSelect.onchange = e=>{ state.prizeSortMode = e.target.value; renderAdminPrizesTab(container); };
-    container.querySelector('#add-prize-btn').onclick = ()=> addPrize(container.querySelector('#new-prize-name').value, container.querySelector('#new-prize-qty').value, container.querySelector('#new-prize-value').value, container.querySelector('#new-prize-guaranteed').checked, container.querySelector('#new-prize-guaranteed-qty').value, container.querySelector('#new-prize-tier').value, container.querySelector('#new-prize-outside').checked);
-    container.querySelectorAll('[data-del-prize]').forEach(btn=>{ btn.onclick = ()=> deletePrize(btn.getAttribute('data-del-prize')); });
-    container.querySelectorAll('[data-edit-prize]').forEach(btn=>{
-      btn.onclick = ()=>{ state.editingPrizeId = btn.getAttribute('data-edit-prize'); state.editPrizePhoto = null; renderAdminPrizesTab(container); };
-    });
-    container.querySelectorAll('[data-cancel-prize]').forEach(btn=>{
-      btn.onclick = ()=>{ state.editingPrizeId = null; state.editPrizePhoto = null; renderAdminPrizesTab(container); };
-    });
-    container.querySelectorAll('.edit-prize-photo').forEach(input=>{
-      input.onchange = async (e)=>{
-        const file = e.target.files[0]; if(!file) return;
-        try{ state.editPrizePhoto = await compressImage(file); renderAdminPrizesTab(container); }
-        catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
-      };
-    });
-    container.querySelectorAll('[data-save-prize]').forEach(btn=>{
-      btn.onclick = ()=>{
-        const id = btn.getAttribute('data-save-prize');
-        const card = btn.closest('.prize-card');
-        const name = card.querySelector('.edit-name').value;
-        const qty = card.querySelector('.edit-qty').value;
-        const value = card.querySelector('.edit-value').value;
-        const guaranteedEligible = card.querySelector('.edit-guaranteed').checked;
-        const guaranteedQty = card.querySelector('.edit-guaranteed-qty').value;
-        const tier = card.querySelector('.edit-tier').value;
-        updatePrize(id, name, qty, value, guaranteedEligible, guaranteedQty, tier, card.querySelector('.edit-outside').checked);
-      };
-    });
-  }
-
-  function wheelStatusFor(en){
-    const threshold = state.eventConfig.guaranteedGiftThreshold || 0;
-    if(threshold<=0 || (parseFloat(en.amount)||0) < threshold){
-      return { label: t('未达标','Not eligible'), count: 0 };
-    }
-    const guaranteedWinnerIds = new Set(state.draws.filter(d=>d.guaranteed).map(d=>d.entryId));
-    if(guaranteedWinnerIds.has(en.id)){
-      return { label: t('已使用','Used'), count: 0 };
-    }
-    const maxWins = state.eventConfig.maxWinsPerPerson || 0;
-    if(maxWins>0 && (en.wonPrizes||[]).length >= maxWins){
-      return { label: t('已达中奖上限','Win cap reached'), count: 0 };
-    }
-    return { label: '1'+t('次','x'), count: 1 };
-  }
-  function eligibleGuaranteedEntries(){
-    const threshold = state.eventConfig.guaranteedGiftThreshold || 0;
-    if(threshold<=0) return [];
-    const maxWins = state.eventConfig.maxWinsPerPerson || 0;
-    const guaranteedWinnerIds = new Set(state.draws.filter(d=>d.guaranteed).map(d=>d.entryId));
-    return state.entries.filter(en=> (parseFloat(en.amount)||0) >= threshold)
-      .filter(en=> maxWins>0 ? (en.wonPrizes||[]).length < maxWins : true)
-      .filter(en=> !guaranteedWinnerIds.has(en.id));
-  }
-  function guaranteedPrizePool(){
-    return state.prizes.filter(p=> p.guaranteedEligible && (p.guaranteedQty||0)>0);
-  }
-  function wheelColor(i){
-    const palette = ['#3E1638','#C6963C','#A73347','#6b3560','#8a6d1f','#55204c'];
-    return palette[i % palette.length];
-  }
-  function truncateName(name, maxLen){
-    if(!name) return '';
-    return name.length>maxLen ? name.slice(0,maxLen-1)+'…' : name;
-  }
-  function buildWheelSvg(pool){
-    const seg = 360/pool.length;
-    const cx = 100, cy = 100, r = 97;
-    const parts = pool.map((p,i)=>{
-      const startAngle = i*seg - 90;
-      const endAngle = (i+1)*seg - 90;
-      const largeArc = seg>180?1:0;
-      const x1 = cx + r*Math.cos(startAngle*Math.PI/180);
-      const y1 = cy + r*Math.sin(startAngle*Math.PI/180);
-      const x2 = cx + r*Math.cos(endAngle*Math.PI/180);
-      const y2 = cy + r*Math.sin(endAngle*Math.PI/180);
-      const midAngle = startAngle + seg/2;
-      const tx = cx + (r*0.6)*Math.cos(midAngle*Math.PI/180);
-      const ty = cy + (r*0.6)*Math.sin(midAngle*Math.PI/180);
-      const textRotate = midAngle + 90;
-      const label = escapeHtml(truncateName(p.name, 14));
-      return `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${wheelColor(i)}" stroke="#fffdf9" stroke-width="1.5"/>`
-        + `<text x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" fill="#fff" font-size="10" font-weight="700" text-anchor="middle" dominant-baseline="middle" transform="rotate(${textRotate.toFixed(2)}, ${tx.toFixed(2)}, ${ty.toFixed(2)})" style="paint-order:stroke;stroke:#00000066;stroke-width:2px;">${label}</text>`;
-    }).join('');
-    return `<svg viewBox="0 0 200 200" style="width:100%;height:100%;display:block;">${parts}</svg>`;
-  }
-  let wheelSpinTimeout = null;
-  function openGuaranteedStage(entryId){
-    if(state.guaranteedSpinning) return;
-    const pool = guaranteedPrizePool();
-    if(pool.length===0){ showToast(t('还没有奖品被设为「可用于幸运轮盘」，或库存已经用完，请先到奖品管理确认','No prizes are set as "usable for Lucky Wheel", or they are out of stock — please check Prize Management')); return; }
-    const en = state.entries.find(e=>e.id===entryId);
-    state.guaranteedDrawEntryId = entryId;
-    state.guaranteedRevealedPrize = null;
-    state.guaranteedSpinning = false;
-    state.guaranteedWheelPool = pool;
-    sendLiveMessage({type:'focus', mode:'wheel', context: en ? (en.name + (en.customerName?` · ${t('顾客','Customer')} ${en.customerName}`:'')) : ''});
-    render();
-  }
-  async function startGuaranteedDraw(entryId){
-    try{
-      state.prizes = await api('/api/prizes', {auth:true});
-    }catch(e){ showToast(e.message); return; }
-    const pool = guaranteedPrizePool();
-    if(pool.length===0){ showToast(t('还没有奖品被设为「可用于幸运轮盘」，或库存已经用完，请先到奖品管理确认','No prizes are set as "usable for Lucky Wheel", or they are out of stock — please check Prize Management')); render(); return; }
-    const spinningEntry = state.entries.find(e=>e.id===entryId);
-    const seg = 360/pool.length;
-    const winnerIndex = Math.floor(Math.random()*pool.length);
-    const winner = pool[winnerIndex];
-    const duration = state.eventConfig.drawDurationSeconds || 5;
-    const extraSpins = 6;
-    const targetCenter = winnerIndex*seg + seg/2;
-    const finalRotation = extraSpins*360 + (360 - targetCenter);
-    state.guaranteedDrawEntryId = entryId;
-    state.guaranteedRevealedPrize = null;
-    state.guaranteedSpinning = true;
-    state.guaranteedWheelPool = pool;
-    render();
-    sendLiveMessage({type:'draw_start', mode:'wheel', rollingItems: pool.map(p=>p.name), context: (spinningEntry?spinningEntry.name:''), durationSeconds: duration});
-    requestAnimationFrame(()=>{
-      const wheelEl = document.getElementById('wheel-'+entryId);
-      if(wheelEl){
-        wheelEl.style.transition = 'transform '+duration+'s cubic-bezier(0.15,0.65,0.15,1)';
-        wheelEl.style.transform = 'rotate('+finalRotation+'deg)';
-      }
-    });
-    clearTimeout(wheelSpinTimeout);
-    wheelSpinTimeout = setTimeout(()=>{
-      state.guaranteedRevealedPrize = winner;
-      state.guaranteedSpinning = false;
-      playWinChime();
-      celebrateGuaranteedWin();
-      lastRevealPayload = Object.assign({type:'draw_reveal', mode:'wheel', resultTitle: (spinningEntry?spinningEntry.name:''), resultSub: winner.name, prizePhoto: winner.photo||'', prizeLabel: winner.name+(winner.value?` (RM${winner.value})`:'')}, liveWinnerExtra(spinningEntry));
-      sendLiveMessage(lastRevealPayload);
-      render();
-    }, duration*1000 + 150);
-    scheduleWheelTicks(duration);
-  }
-  function cancelGuaranteedDraw(){
-    clearTimeout(wheelSpinTimeout);
-    wheelTickGeneration++;
-    state.guaranteedDrawEntryId = null;
-    state.guaranteedRevealedPrize = null;
-    state.guaranteedSpinning = false;
-    render();
-  }
-  async function confirmGuaranteedGift(entryId){
-    const prize = state.guaranteedRevealedPrize;
-    if(!prize) return;
-    state.guaranteedSending = true; render();
-    try{
-      await api('/api/draws', {method:'POST', auth:true, body:{prizeId: prize.id, entryId, guaranteed:true}});
-      state.guaranteedDrawEntryId = null;
-      sendRevealConfirmed();
-      state.guaranteedRevealedPrize = null;
-      await loadAdminData();
-      showToast(t('礼物已送出','Gift sent'));
-    }catch(e){ showToast(e.message); }
-    state.guaranteedSending = false; render();
-  }
-
-  function renderAdminDrawTab(container){
-    const availablePrizes = sortPrizesByValue(state.prizes.filter(p=>p.qty>0));
-    const eligibleCount = eligibleEntries().length;
-    const ticketCount = eligibleTicketPool().length;
-    const maxWins = state.eventConfig.maxWinsPerPerson || 0;
-    const guaranteedList = eligibleGuaranteedEntries();
-    const guaranteedThreshold = state.eventConfig.guaranteedGiftThreshold || 0;
-    const guaranteedPool = guaranteedPrizePool();
-    const selectedPrize = state.prizes.find(p=>p.id===state.drawSelectedPrize);
-    const selectedTotalQty = selectedPrize ? (selectedPrize.qty||0)+(selectedPrize.guaranteedQty||0) : null;
-    container.innerHTML = `
-      <div class="toggle-row" style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:12px 16px;margin-bottom:20px;">
-        <div class="toggle-row-text">
-          <span class="title">${t('现场同步','Live Sync')}</span>
-          <label class="switch" style="margin:0 6px;">
-            <input type="checkbox" id="ev-livedraw" ${state.eventConfig.liveDrawEnabled?'checked':''}>
-            <span class="slider"></span>
-          </label>
-          <button class="small-btn ghost" id="focus-live-btn" type="button" ${state.eventConfig.liveDrawEnabled?'':'disabled'} title="${state.eventConfig.liveDrawEnabled?t('点一下，正在看报名页的人会立刻跳转到现场同步画面','Click once — anyone on the entry page will jump straight to the live view'):t('请先打开左边的开关','Turn on the switch first')}">🔴 ${t('现在抽','Draw Focus')}</button>
-          ${hintIcon(t('打开后，参与者报名页可以看到「现场同步」连结；开关本身不会主动切换他们的画面——点旁边的「现在抽」按钮才会把大家的画面拉过来。关闭时参与者完全看不到抽奖过程','When on, participants can see a "Live Draw" link on the entry page; the switch itself does not switch their screen — click "Draw Focus" beside it to pull everyone into the live view. When off, participants cannot see the draw at all'))}
-        </div>
-        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;justify-content:flex-end;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:13px;font-weight:700;color:var(--plum);">${t('抽奖秒数','Draw Seconds')}</span>
-            <input type="number" id="draw-duration-input" min="3" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}" style="width:72px;padding:7px 8px;border:1.5px solid var(--line);border-radius:8px;text-align:center;">
-            <span style="font-size:12.5px;color:var(--ink-soft);">${t('秒（3~10）','sec (3–10)')}</span>
-          </div>
-        </div>
-      </div>
-      <div class="select-row">
-        <div id="prize-dd-wrap" style="position:relative;width:100%;max-width:520px;">
-          <button type="button" id="prize-dd-btn" style="width:100%;text-align:left;padding:10px 34px 10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;cursor:pointer;position:relative;">${selectedPrize?`${selectedPrize.tier?`【${escapeHtml(tierLabel(selectedPrize.tier))}】`:''}${escapeHtml(selectedPrize.name)}${selectedPrize.value?` (RM${escapeHtml(selectedPrize.value)})`:''}（${t('剩余','left')} ${selectedPrize.qty}）`:t('选择要抽取的奖品','Select a prize to draw')}<span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:11px;">▼</span></button>
-          ${state.prizeMenuOpen?`
-          <div id="prize-dd-menu" style="position:absolute;left:0;right:0;top:100%;margin-top:4px;background:#fff;border:1.5px solid var(--line);border-radius:8px;max-height:340px;overflow:auto;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.18);">
-            <div class="prize-dd-item" data-pid="" style="padding:9px 12px;font-size:14px;cursor:pointer;color:var(--ink-soft);">${t('选择要抽取的奖品','Select a prize to draw')}</div>
-            ${availablePrizes.map(p=>`<div class="prize-dd-item" data-pid="${p.id}" data-photo="${escapeAttr(p.photo||'')}" style="padding:9px 12px;font-size:14px;cursor:pointer;${state.drawSelectedPrize===p.id?'background:#fdf1e0;font-weight:700;':''}">${p.tier?`【${escapeHtml(tierLabel(p.tier))}】`:''}${escapeHtml(p.name)}${p.value?` (RM${escapeHtml(p.value)})`:''}（${t('剩余','left')} ${p.qty}）</div>`).join('')}
-          </div>
-          <div id="prize-hover-photo" style="display:none;position:absolute;left:calc(100% + 12px);top:0;width:340px;height:340px;background:#fff;border:1.5px solid var(--gold);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:21;padding:6px;"><img style="width:100%;height:100%;object-fit:contain;"></div>`:''}
-        </div>
-      </div>
-      <div class="stat-row">
-        <div class="stat-card"><div class="stat-num">${eligibleCount}</div><div class="stat-label">${t('符合抽奖条件人数','Eligible participants')}</div></div>
-        <div class="stat-card"><div class="stat-num gold">${ticketCount}</div><div class="stat-label">${t('共有机会次数','Total chances')}</div></div>
-        <div class="stat-card"><div class="stat-num gold">${maxWins>0?maxWins:t('不限','Unlimited')}</div><div class="stat-label">${t('每人最多中奖次数','Max wins per person')}</div></div>
-        ${selectedPrize?`<div class="stat-card"><div class="stat-num gold">${selectedTotalQty}</div><div class="stat-label">${escapeHtml(selectedPrize.name)} ${t('总剩余数量','total remaining')}</div></div>`:''}
-      </div>
-      <div class="draw-stage staged ${state.revealedWinner?'revealed':''}">
-        <div class="rev-rays"></div>
-        ${state.revealedWinner?`<div class="rev-banner">${t('恭喜 / Congratulations','Congratulations')}</div>`:''}
-        ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!(pz && pz.photo)) return ''; return `<div class="rev-photo"><img src="${pz.photo}"><i></i></div>`; })()}
-        <div class="draw-prize-label">${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!pz) return t('请先选择奖品','Please select a prize first'); return t('奖品','Prize')+'：'+(pz.tier?`【${escapeHtml(tierLabel(pz.tier))}】`:'')+escapeHtml(pz.name)+(pz.value?` (RM${escapeHtml(pz.value)})`:''); })()}</div>
-        <div class="draw-name ${state.drawing?'rolling':''}" id="draw-name-el">${state.revealedWinner ? escapeHtml(state.revealedWinner.name) : (state.drawing ? escapeHtml(state.rollingName||'…') : '—')}</div>
-        ${state.revealedWinner?`<div class="draw-sub">${t('顾客','Customer')}：${escapeHtml(state.revealedWinner.customerName||'—')} · ${t('DD名字','DD Name')}：${escapeHtml(state.revealedWinner.ddName||'—')} · ${t('联系方式','Contact')}：${escapeHtml(state.revealedWinner.contact)}</div>`:''}
-        <div class="draw-actions">
-          ${!state.drawing && !state.revealedWinner? `<button class="small-btn go-btn" id="start-draw-btn" title="${t('也可以按 Enter / 空格 / 翻页笔','Or press Enter / Space / presenter remote')}">${t('开始抽奖','Start Draw')}</button>`:''}
-          ${state.revealedWinner? `<button class="small-btn" id="confirm-winner-btn">${t('保存中奖结果','Save Result')}</button><button class="small-btn ghost" id="redraw-btn">${t('重新抽一次','Redraw')}</button><button class="small-btn ghost" id="cancel-draw-btn">${t('取消','Cancel')}</button>`:''}
-        </div>
-      </div>
-      <div style="margin-top:30px;border-top:1px solid var(--line);padding-top:20px;">
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:4px;">${t('幸运轮盘','Lucky Wheel')}</label>
-        ${guaranteedThreshold<=0?`<div style="font-size:12.5px;color:var(--ink-soft);">${t('还没有设置门槛，去「活动设置」填「幸运轮盘门槛」后才会显示名单','No threshold set yet — go to Event Settings and fill in the "Lucky Wheel Threshold" to see the list here')}</div>`:
-          guaranteedPool.length===0?`<div style="font-size:12.5px;color:var(--ink-soft);">${t('还没有奖品被勾选「可用于幸运轮盘」，请先到「奖品管理」设置','No prizes are checked as "usable for Lucky Wheel" yet — please set this up in Prize Management first')}</div>`:`
-          <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;">${t('金额达到','Amount reached')} RM${guaranteedThreshold} ${t('以上、且未达最多中奖次数的顾客：共','and under the max win limit: ')} ${guaranteedList.length} ${t('人 · 礼物池：','· Gift pool: ')}${guaranteedPool.map(p=>escapeHtml(p.name)).join('、')}</div>
-          ${guaranteedList.length===0?`<div class="empty-state">${t('暂时没有符合条件的顾客','No eligible customers yet')}</div>`:
-            guaranteedList.map(en=>{
-              const isActive = state.guaranteedDrawEntryId === en.id;
-              return `
-              <div class="prize-card" style="${isActive?'flex-direction:column;align-items:stretch;':''}">
-                <div>
-                  <div class="pname">${escapeHtml(en.name)} <span style="font-weight:400;color:var(--ink-soft);">· ${t('顾客','Customer')} ${escapeHtml(en.customerName||'—')}</span></div>
-                  <div class="pqty">${t('金额','Amount')} RM${escapeHtml(String(en.amount))} · ${t('已中','Won')} ${(en.wonPrizes||[]).length} ${t('次','x')} · ${t('编号','ID')} ${en.id}</div>
-                </div>
-                ${!isActive?`
-                <div style="display:flex;gap:8px;flex-shrink:0;">
-                  <button class="small-btn" data-open-guaranteed="${en.id}" type="button">${t('抽礼物','Spin Wheel')}</button>
-                </div>
-                `:`
-                <div class="draw-stage staged ${state.guaranteedRevealedPrize?'revealed':''}" style="margin-top:10px;">
-                  <div class="rev-rays"></div>
-                  ${state.guaranteedRevealedPrize?`<div class="rev-banner">${t('恭喜 / Congratulations','Congratulations')}</div>`:''}
-                  ${!state.guaranteedRevealedPrize?`
-                    <div class="wheel-wrap" style="position:relative;z-index:2;margin-top:30px;">
-                      <div class="wheel-pointer">▼</div>
-                      <div class="wheel-hub"></div>
-                      <div class="wheel" id="wheel-${en.id}">${buildWheelSvg(state.guaranteedWheelPool||[])}</div>
-                    </div>
-                    <div class="draw-sub">${state.guaranteedSpinning?t('转盘转动中…','Spinning…'):t('准备好了，请按「开始抽」（或 Enter / 空格 / 翻页笔）','Ready — press Start (or Enter / Space / presenter remote)')}</div>
-                  `:`
-                    ${state.guaranteedRevealedPrize.photo?`<div class="rev-photo"><img src="${state.guaranteedRevealedPrize.photo}"><i></i></div>`:'<div style="height:28px;"></div>'}
-                    <div class="draw-name" style="font-size:32px;">${escapeHtml(state.guaranteedRevealedPrize.name)}</div>
-                    <div class="draw-sub">${state.guaranteedRevealedPrize.value?(t('价值','Value')+' RM'+escapeHtml(state.guaranteedRevealedPrize.value)):''}</div>
-                  `}
-                  <div class="draw-actions">
-                    ${state.guaranteedRevealedPrize?`
-                      <button class="small-btn" data-confirm-guaranteed="${en.id}" ${state.guaranteedSending?'disabled':''}>${state.guaranteedSending?t('送出中…','Sending…'):t('确认送出','Confirm & Send')}</button>
-                      <button class="small-btn ghost" data-redraw-guaranteed="${en.id}">${t('重新抽','Spin Again')}</button>
-                    `:''}
-                    ${(!state.guaranteedSpinning && !state.guaranteedRevealedPrize)?`<button class="small-btn go-btn" data-start-guaranteed="${en.id}">${t('开始抽','Start')}</button>`:''}
-                    ${!state.guaranteedSpinning?`<button class="small-btn ghost" data-cancel-guaranteed="${en.id}">${t('取消','Cancel')}</button>`:''}
-                  </div>
-                </div>
-                `}
-              </div>
-            `;}).join('')}
-        `}
-      </div>
-    `;
-    container.querySelector('#ev-livedraw').onchange = async (e)=>{
-      const newValue = e.target.checked;
-      try{
-        await api('/api/config', {method:'PUT', auth:true, body:{liveDrawEnabled: newValue}});
-        state.eventConfig.liveDrawEnabled = newValue;
-        showToast(newValue ? t('现场同步已开启','Live sync turned on') : t('现场同步已关闭','Live sync turned off'));
-        renderAdminDrawTab(container);
-      }catch(err){
-        e.target.checked = !newValue;
-        showToast(err.message);
-      }
-    };
-    container.querySelector('#draw-duration-input').onchange = async (e)=>{
-      const v = parseFloat(e.target.value);
-      if(isNaN(v) || v<3 || v>10){ showToast(t('秒数要在 3~10 之间','Seconds must be between 3 and 10')); e.target.value = state.eventConfig.drawDurationSeconds||5; return; }
-      try{
-        await api('/api/config', {method:'PUT', auth:true, body:{drawDurationSeconds: v}});
-        state.eventConfig.drawDurationSeconds = v;
-        showToast(t('抽奖秒数已保存','Draw seconds saved'));
-      }catch(err){ e.target.value = state.eventConfig.drawDurationSeconds||5; showToast(err.message); }
-    };
-    const focusLiveBtn = container.querySelector('#focus-live-btn');
-    if(focusLiveBtn) focusLiveBtn.onclick = ()=>{
-      const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize);
-      sendLiveMessage({type:'focus', mode:'main', prizeName: pz?pz.name:'', prizeTier: pz?pz.tier:'', prizeValue: pz?pz.value:'', prizePhoto: pz?pz.photo:''});
-      showToast(t('已发出同步信号','Focus signal sent'));
-    };
-    container.querySelector('#prize-dd-btn').onclick = ()=>{ state.prizeMenuOpen = !state.prizeMenuOpen; renderAdminDrawTab(container); };
-    const hoverBox = container.querySelector('#prize-hover-photo');
-    container.querySelectorAll('.prize-dd-item').forEach(it=>{
-      it.onmouseenter = ()=>{ it.style.background = '#f6ecd9'; const ph = it.getAttribute('data-photo'); if(hoverBox){ if(ph){ hoverBox.querySelector('img').src = ph; hoverBox.style.display='block'; } else hoverBox.style.display='none'; } };
-      it.onmouseleave = ()=>{ it.style.background = (it.getAttribute('data-pid')===state.drawSelectedPrize && it.getAttribute('data-pid'))?'#fdf1e0':''; };
-      it.onclick = ()=>{ state.drawSelectedPrize = it.getAttribute('data-pid'); state.prizeMenuOpen = false; state.revealedWinner=null; broadcastPrizeSelection(); renderAdminDrawTab(container); };
-    });
-    const startBtn = container.querySelector('#start-draw-btn'); if(startBtn) startBtn.onclick = startDraw;
-    const confirmBtn = container.querySelector('#confirm-winner-btn'); if(confirmBtn) confirmBtn.onclick = confirmWinner;
-    const redrawBtn = container.querySelector('#redraw-btn'); if(redrawBtn) redrawBtn.onclick = ()=>{ discardDraw(); startDraw(); };
-    const cancelBtn = container.querySelector('#cancel-draw-btn'); if(cancelBtn) cancelBtn.onclick = discardDraw;
-    container.querySelectorAll('[data-open-guaranteed]').forEach(btn=>{
-      btn.onclick = ()=> openGuaranteedStage(btn.getAttribute('data-open-guaranteed'));
-    });
-    container.querySelectorAll('[data-start-guaranteed]').forEach(btn=>{
-      btn.onclick = ()=> startGuaranteedDraw(btn.getAttribute('data-start-guaranteed'));
-    });
-    container.querySelectorAll('[data-focus-guaranteed]').forEach(btn=>{
-      btn.onclick = ()=>{
-        const en = state.entries.find(e=>e.id===btn.getAttribute('data-focus-guaranteed'));
-        const context = en ? (en.name + (en.customerName?` · ${t('顾客','Customer')} ${en.customerName}`:'')) : '';
-        sendLiveMessage({type:'focus', mode:'wheel', context});
-        showToast(t('已发出同步信号','Focus signal sent'));
-      };
-    });
-    container.querySelectorAll('[data-confirm-guaranteed]').forEach(btn=>{
-      btn.onclick = ()=> confirmGuaranteedGift(btn.getAttribute('data-confirm-guaranteed'));
-    });
-    container.querySelectorAll('[data-redraw-guaranteed]').forEach(btn=>{
-      btn.onclick = ()=> startGuaranteedDraw(btn.getAttribute('data-redraw-guaranteed'));
-    });
-    container.querySelectorAll('[data-cancel-guaranteed]').forEach(btn=>{
-      btn.onclick = cancelGuaranteedDraw;
-    });
-  }
-
-  function formatWhatsAppNumber(contact){
-    let digits = (contact||'').replace(/\D/g,'');
-    if(!digits) return '';
-    if(digits.startsWith('60')) return digits;
-    if(digits.startsWith('0')) digits = digits.slice(1);
-    return '60' + digits;
-  }
-  function buildWhatsAppLink(draw){
-    const num = formatWhatsAppNumber(draw.winnerContact);
-    if(!num) return '';
-    const customerName = draw.winnerCustomerName || '';
-    const valuePart = draw.prizeValue?('（价值 RM'+draw.prizeValue+'）'):'';
-    const msg = (customerName && customerName !== draw.winnerName)
-      ? `恭喜 ${draw.winnerName}！您的顾客 ${customerName} 在抽奖活动中获得「${draw.prizeName}」${valuePart}，请联系我们领取奖品，谢谢！`
-      : `恭喜 ${draw.winnerName}！您在抽奖活动中获得「${draw.prizeName}」${valuePart}，请联系我们领取奖品，谢谢！`;
-    return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
-  }
-  function renderAdminHistoryTab(container){
-    const q = (state.historySearch||'').trim().toLowerCase();
-    const filtered = state.draws.filter(d=>{
-      if(!q) return true;
-      return d.winnerName.toLowerCase().includes(q) || d.prizeName.toLowerCase().includes(q)
-        || d.winnerOrderId.toLowerCase().includes(q) || d.winnerContact.toLowerCase().includes(q)
-        || (d.winnerCustomerName||'').toLowerCase().includes(q) || (d.winnerDdName||'').toLowerCase().includes(q);
-    });
-    container.innerHTML = state.draws.length===0? `<div class="empty-state">${t('暂无中奖记录','No draw records yet')}</div>` : `
-      <div class="toolbar" style="gap:12px;">
-        <div style="font-size:13.5px;color:var(--ink-soft);white-space:nowrap;">${t('共','Total:')} ${state.draws.length} ${t('笔中奖记录','draw records')} ${q?`· ${t('筛选出','Filtered:')} ${filtered.length}`:''}</div>
-        <input class="searchbar" id="history-search-input" placeholder="${t('按姓名 / 奖品 / 订单号 / 联系方式搜索','Search by name / prize / order ID / contact')}" value="${escapeAttr(state.historySearch||'')}" style="flex:1;min-width:180px;margin-bottom:0;">
-        <div style="display:flex;gap:10px;flex-shrink:0;">
-          <button class="small-btn ghost" id="export-draws-btn">${t('导出 CSV','Export CSV')}</button>
-          <button class="small-btn danger" id="reset-draws-btn">${t('重置全部','Reset All')}</button>
-        </div>
-      </div>
-      ${filtered.length===0?`<div class="empty-state">${t('暂无符合条件的记录','No matching records')}</div>`:`
-      <div style="overflow-x:auto;">
-      <table>
-        <thead><tr><th>${t('方式','Method')}</th><th>${t('奖品','Prize')}</th><th>${t('价值','Value')}</th><th>${t('姓名','Name')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('联系方式','Contact')}</th><th>${t('订单号','Order ID')}</th><th>${t('时间','Time')}</th><th></th></tr></thead>
-        <tbody>
-          ${filtered.map(d=>{
-            const waLink = buildWhatsAppLink(d);
-            return `
-            <tr>
-              <td>${d.guaranteed?`<span class="pill win">${t('幸运轮盘','Lucky Wheel')}</span>`:`<span class="pill">${t('大抽奖','Main Draw')}</span>`}</td>
-              <td>${escapeHtml(d.prizeName)}</td>
-              <td>${d.prizeValue?('RM'+escapeHtml(d.prizeValue)):'—'}</td>
-              <td>${escapeHtml(d.winnerName)}</td>
-              <td>${escapeHtml(d.winnerDdName||'—')}</td>
-              <td>${escapeHtml(d.winnerCustomerName||'—')}</td>
-              <td>${waLink?`<a href="${waLink}" target="_blank" rel="noopener" style="color:var(--success);font-weight:700;text-decoration:none;">${escapeHtml(d.winnerContact)} 📲</a>`:escapeHtml(d.winnerContact)}</td>
-              <td>${escapeHtml(d.winnerOrderId)}</td>
-              <td>${new Date(d.timestamp).toLocaleString()}</td>
-              <td><button class="del-btn" data-revoke="${d.id}">${t('撤销','Revoke')}</button></td>
-            </tr>`;}).join('')}
-        </tbody>
-      </table>
-      </div>`}`;
-    container.querySelectorAll('[data-revoke]').forEach(btn=>{ btn.onclick = ()=> revokeDraw(btn.getAttribute('data-revoke')); });
-    const resetBtn = container.querySelector('#reset-draws-btn');
-    if(resetBtn) resetBtn.onclick = resetAllDraws;
-    const exportBtn = container.querySelector('#export-draws-btn');
-    if(exportBtn) exportBtn.onclick = exportDrawsCsv;
-    const searchInput = container.querySelector('#history-search-input');
-    if(searchInput) searchInput.oninput = e=>{
-      state.historySearch = e.target.value;
-      const cursorPos = e.target.selectionStart;
-      renderAdminHistoryTab(container);
-      const newInput = container.querySelector('#history-search-input');
-      if(newInput){ newInput.focus(); newInput.setSelectionRange(cursorPos, cursorPos); }
-    };
-  }
-
-  function renderAdminArchivesTab(container){
-    if(state.archiveDetail){
-      const d = state.archiveDetail;
-      container.innerHTML = `
-        <button class="small-btn ghost" id="back-to-archives-btn" style="margin-bottom:16px;">${t('← 返回存档列表','← Back to archive list')}</button>
-        <div style="font-size:16px;font-weight:700;color:var(--plum);margin-bottom:4px;">${escapeHtml(d.meta.label)}</div>
-        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:18px;">${t('存档时间','Archived at')}：${new Date(d.meta.createdAt).toLocaleString()} · ${t('活动标题','Event title')}：${escapeHtml(d.config.title||'')}</div>
-        <button class="small-btn" data-restore-archive="${d.meta.id}" style="margin-bottom:20px;">${t('切换到这一场使用','Use this event')}</button>
-
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin:18px 0 8px;">${t('参与名单','Entries')}（${t('共','total')} ${d.entries.length} ${t('位',' ')}）</label>
-        ${d.entries.length===0?`<div class="empty-state">${t('没有资料','No data')}</div>`:`
-        <div style="overflow-x:auto;">
-        <table>
-          <thead><tr><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('订单日期','Order Date')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th></tr></thead>
-          <tbody>
-            ${d.entries.map(en=>`
-              <tr>
-                <td>${escapeHtml(en.name)}</td>
-                <td>${escapeHtml(en.contact)}</td>
-                <td>${escapeHtml(en.ddName||'—')}</td>
-                <td>${escapeHtml(en.customerName||'—')}</td>
-                <td>${escapeHtml(en.orderId)}</td>
-                <td>${escapeHtml(en.orderDate||'—')}</td>
-                <td>${escapeHtml(String(en.amount))}</td>
-                <td>${en.ticketCount||0} ${t('次','x')}</td>
-                <td>${(en.wonPrizes&&en.wonPrizes.length)?`<span class="pill win">${t('已中奖','Won')}</span>`:`<span class="pill">${t('未中奖','No win')}</span>`}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-        </div>`}
-
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin:22px 0 8px;">${t('奖品','Prizes')}（${t('共','total')} ${d.prizes.length} ${t('项','items')}）</label>
-        ${d.prizes.length===0?`<div class="empty-state">${t('没有资料','No data')}</div>`:
-          d.prizes.map(p=>`<div class="prize-card"><div><div class="pname">${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}</div><div class="pqty">${t('剩余数量','Remaining')}：${p.qty}</div></div></div>`).join('')}
-
-        <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin:22px 0 8px;">${t('中奖记录','Draw History')}（${t('共','total')} ${d.draws.length} ${t('笔','records')}）</label>
-        ${d.draws.length===0?`<div class="empty-state">${t('没有资料','No data')}</div>`:`
-        <div style="overflow-x:auto;">
-        <table>
-          <thead><tr><th>${t('方式','Method')}</th><th>${t('奖品','Prize')}</th><th>${t('姓名','Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('时间','Time')}</th></tr></thead>
-          <tbody>
-            ${d.draws.map(dr=>`
-              <tr>
-                <td>${dr.guaranteed?`<span class="pill win">${t('幸运轮盘','Lucky Wheel')}</span>`:`<span class="pill">${t('大抽奖','Main Draw')}</span>`}</td>
-                <td>${escapeHtml(dr.prizeName)}</td>
-                <td>${escapeHtml(dr.winnerName)}</td>
-                <td>${escapeHtml(dr.winnerCustomerName||'—')}</td>
-                <td>${escapeHtml(dr.winnerOrderId)}</td>
-                <td>${new Date(dr.timestamp).toLocaleString()}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-        </div>`}
-      `;
-      container.querySelector('#back-to-archives-btn').onclick = closeArchiveDetail;
-      container.querySelector('[data-restore-archive]').onclick = ()=> restoreArchive(d.meta.id);
-      return;
-    }
-    container.innerHTML = state.archives.length===0? `<div class="empty-state">${t('还没有任何存档，去「活动设置」用「开始新一场」可以把目前的资料存档','No archives yet — use "Start New Event" in Event Settings to archive your current data')}</div>` : `
-      ${state.archives.map(a=>`
-        <div class="prize-card">
-          <div>
-            <div class="pname">${escapeHtml(a.label)}${a.isActive?` <span class="pill win">${t('使用中','Active')}</span>`:''}</div>
-            <div class="pqty">${new Date(a.updatedAt||a.createdAt).toLocaleString()} · ${a.entryCount} ${t('位登记','entries')} · ${a.drawCount} ${t('笔中奖','wins')}</div>
-          </div>
-          <div style="display:flex;gap:10px;">
-            <button class="small-btn ghost" data-view-archive="${a.id}">${t('查看','View')}</button>
-            ${a.isActive?'':`<button class="small-btn" data-restore-archive="${a.id}">${t('使用','Use')}</button>`}
-            <button class="small-btn danger" data-delete-archive="${a.id}">${t('删除','Delete')}</button>
-          </div>
-        </div>
-      `).join('')}
-    `;
-    container.querySelectorAll('[data-view-archive]').forEach(btn=>{ btn.onclick = ()=> viewArchive(btn.getAttribute('data-view-archive')); });
-    container.querySelectorAll('[data-restore-archive]').forEach(btn=>{ btn.onclick = ()=> restoreArchive(btn.getAttribute('data-restore-archive')); });
-    container.querySelectorAll('[data-delete-archive]').forEach(btn=>{ btn.onclick = ()=> deleteArchive(btn.getAttribute('data-delete-archive')); });
-  }
-
-  function renderAdminSettingsTab(container){
-    if(state.draftTiers === null){
-      state.draftTiers = (state.eventConfig.tiers||[]).map(tr=>({threshold: String(tr.threshold), bonus: String(tr.bonus)}));
-    }
-    async function autoSaveConfig(partialBody, successMsg){
-      try{
-        await api('/api/config', {method:'PUT', auth:true, body: partialBody});
-        await loadEventConfig();
-        showToast(successMsg || t('已保存','Saved'));
-        renderAdminSettingsTab(container);
-      }catch(e){ showToast(e.message); }
-    }
-    async function saveTiers(){
-      const validTiers = state.draftTiers.filter(tr=> tr.threshold.toString().trim() && tr.bonus.toString().trim());
-      await autoSaveConfig({tiers: validTiers}, t('门槛已更新','Tiers updated'));
-    }
-    container.innerHTML = `
-      <div class="settings-note">${t('提示：抽奖资料（含照片）保存在服务器的 data 目录里，只有知道管理员密码的人能查看，请勿将后台密码告诉参与者。','Note: Draw data (including photos) is stored in the server\'s data folder — only people who know the admin password can view it. Do not share the admin password with participants.')}</div>
-      <div style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:16px;margin-bottom:22px;">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
-          <label style="font-size:13.5px;font-weight:700;color:var(--plum);margin:0;">${t('开始新一场活动','Start New Event')}</label>
-          ${hintIcon(t('会把目前所有资料（参与名单、奖品、中奖记录）和活动设置整个存档保存，然后系统重置成全新状态。管理员密码不受影响，存档之后可以在「历史存档」查看或恢复。','This archives all current data (entries, prizes, draw history) and settings, then resets the system to a fresh state. Your admin password is not affected — you can view or restore the archive later under "Archives".'))}
-        </div>
-        <input type="text" id="new-event-label" placeholder="${t('给这次存档取个名字（选填，比如「9月场次」）','Name this archive (optional, e.g. "September Event")')}" style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
-        <br><button class="small-btn" id="start-new-event-btn">${t('开始新一场','Start New Event')}</button>
-      </div>
-      <div class="row2" style="align-items:start;">
-        <div style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:16px;margin-bottom:22px;">
-          <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('后台语言','Admin Language')}</label>
-          <select id="ev-adminlang">
-            <option value="zh" ${state.adminLang==='zh'?'selected':''}>中文</option>
-            <option value="en" ${state.adminLang==='en'?'selected':''}>English</option>
-          </select>
-        </div>
-        <div style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:16px;margin-bottom:22px;">
-          <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('修改管理员密码','Change Admin Password')}</label>
-          <div style="display:flex;gap:8px;">
-            <input type="password" id="new-pw" placeholder="${t('新密码（至少4位）','New password (at least 4 characters)')}" style="flex:1;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;">
-            <button class="small-btn ghost" id="change-pw-btn" style="flex-shrink:0;">${t('更新密码','Update Password')}</button>
-          </div>
-        </div>
-      </div>
-      <div class="field"><label>${t('活动标题','Event Title')}</label><input type="text" id="ev-title" value="${escapeAttr(state.eventConfig.title)}"></div>
-      <div class="field"><label>${t('活动说明','Event Subtitle')}</label><input type="text" id="ev-subtitle" value="${escapeAttr(state.eventConfig.subtitle)}"></div>
-      <div class="row2">
-        <div class="field"><label>${t('换算比例','Conversion Rate')} ${hintIcon(t('每 RM 多少 = 1次抽奖机会（取整数向下），这是基础次数','Every RM how much = 1 chance (rounded down) — this is the base chance count'))}</label><input type="text" id="ev-rate" value="${escapeAttr(state.eventConfig.conversionRate)}"></div>
-        <div class="field">
-          <label>${t('奖励门槛','Bonus Tiers')} ${hintIcon(t('金额达到门槛时，在基础次数上额外加送次数（可叠加多档，跟基础次数相加）','When spending reaches a tier, extra chances are added on top of the base count (multiple tiers stack, added to the base)'))}</label>
-          <div id="tiers-list">
-            ${state.draftTiers.length===0?'':
-              state.draftTiers.map((tr,i)=>`
-                <div class="add-prize-form" style="margin-bottom:8px;" data-tier-row="${i}">
-                  <input type="text" class="tier-threshold" placeholder="${t('满 RM 多少','Spend RM')}" value="${escapeAttr(tr.threshold)}">
-                  <input type="text" class="tier-bonus" placeholder="${t('额外加送次数','Bonus chances')}" value="${escapeAttr(tr.bonus)}" style="max-width:140px;">
-                  <button class="del-btn" data-del-tier="${i}">${t('删除','Delete')}</button>
-                </div>
-              `).join('')}
-          </div>
-          ${state.draftTiers.length===0?`
-            <div style="display:flex;align-items:center;gap:12px;">
-              <span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有设置门槛','No tiers set yet')}</span>
-              <button class="small-btn ghost" id="add-tier-btn" type="button">+ ${t('添加门槛','Add Tier')}</button>
-            </div>
-          `:`<button class="small-btn ghost" id="add-tier-btn" type="button">+ ${t('添加门槛','Add Tier')}</button>`}
-        </div>
-      </div>
-      <div class="row3">
-        <div class="field"><label>${t('每人最多可中奖次数','Max Wins Per Person')} ${hintIcon(t('大抽奖 + 幸运轮盘加起来算，填0代表不限制','Main Draw + Lucky Wheel combined, 0 = unlimited'))}</label><input type="text" id="ev-maxwins" value="${escapeAttr(state.eventConfig.maxWinsPerPerson)}"></div>
-        <div class="field"><label>${t('每人抽奖机会上限','Max Chances Per Person')} ${hintIcon(t('不管基础次数+门槛加起来算出多少票，最多不能超过这个数字；填0代表不限制','Regardless of base + tier chances, the total cannot exceed this number; 0 = unlimited'))}</label><input type="text" id="ev-maxtickets" value="${escapeAttr(state.eventConfig.maxTicketsPerPerson)}"></div>
-        <div class="field"><label>${t('幸运轮盘门槛','Lucky Wheel Threshold')} ${hintIcon(t('金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物，每人限领一次；填0代表不启用','People who reach this amount can be given a guaranteed gift by the admin on the Draw page, once per person; 0 = disabled'))}</label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label>${t('抽奖动画时长（秒）','Draw Animation Duration (sec)')} ${hintIcon(t('大抽奖和幸运轮盘抽礼物共用，3~10秒之间','Shared by Main Draw and Lucky Wheel, 3–10 seconds'))}</label><input type="number" id="ev-drawduration" min="3" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}"></div>
-        <div class="field"><label>${t('抽奖音效主题','Draw Sound Theme')} ${hintIcon(t('大抽奖和转盘共用同一个主题','Shared by Main Draw and the wheel'))}</label>
-          <div style="display:flex;gap:8px;">
-            <select id="ev-soundtheme" style="flex:1;">
-              <option value="classic" ${(!state.eventConfig.soundTheme||state.eventConfig.soundTheme==='classic')?'selected':''}>${t('经典滋答声','Classic Tick')}</option>
-              <option value="electronic" ${state.eventConfig.soundTheme==='electronic'?'selected':''}>${t('电子音效','Electronic')}</option>
-              <option value="drum" ${state.eventConfig.soundTheme==='drum'?'selected':''}>${t('鼓声风','Drum')}</option>
-            </select>
-            <button class="small-btn ghost" id="preview-soundtheme-btn" type="button" style="flex-shrink:0;">${t('试听','Preview')}</button>
-          </div>
-        </div>
-      </div>
-      <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;">
-        <div class="toggle-row">
-          <div class="toggle-row-text">
-            <span class="title">${t('开放报名','Registration Open')}</span>
-            ${hintIcon(t('这个开关拖动后立刻生效，不用按保存。系统也会依照下面的活动日期范围自动开放/关闭，但这个开关随时可以手动覆盖系统的自动判断','This switch takes effect immediately — no need to click Save. The system also auto opens/closes based on the event date range below, but this switch can always manually override the automatic behavior'))}
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="ev-regopen" ${state.eventConfig.registrationOpen?'checked':''}>
-            <span class="slider"></span>
-          </label>
-        </div>
-        <div class="toggle-state-note" style="margin-bottom:14px;">${state.eventConfig.registrationOpen? t('当前：开放中，参与者可以正常登记','Currently: Open — participants can register') : t('当前：已关闭，参与者会看到「报名已结束」或「报名尚未开始」','Currently: Closed — participants will see "Registration closed" or "Registration has not started yet"')}</div>
-      </div>
-      <div style="margin-top:22px;">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
-          <label style="font-size:13.5px;font-weight:700;color:var(--plum);margin:0;">${t('活动日期范围','Event Date Range')}</label>
-          ${hintIcon(t('这个日期范围同时控制两件事：① 报名会自动只在这段期间开放，超出范围自动关闭（上面的开关可以随时手动覆盖）；② 用来核对参与者上传照片里 OCR 识别到的订单日期，不在范围内会拒绝上传。留空代表不限制','This date range controls two things: ① Registration is automatically open only during this period, and closes outside it (the switch above can always manually override this); ② It checks the order date OCR-read from uploaded photos — uploads outside this range are rejected. Leave blank for no limit'))}
-        </div>
-        <div class="row2">
-          <div class="field"><label>${t('开始日期','Start Date')} ${hintIcon(t('留空代表不限制','Leave blank for no limit'))}</label><input type="date" id="ev-startdate" value="${escapeAttr(state.eventConfig.regStartDate)}"></div>
-          <div class="field"><label>${t('报名截止时间','Registration Deadline')} ${hintIcon(t('这里的日期就是活动结束日期，会同时用来核对订单照片日期；时间点可以精确到几点几分（比如晚上6点），也可以只填日期，系统会当作那天午夜关闭；选好之后要按「Set」才会真正生效，不点 Set 不会保存；填了之后仍可手动重新打开','This date is also the event end date, used to check order photo dates too; you can set an exact time (e.g. 6pm) or just a date, treated as midnight that day; you must click "Set" after picking a time for it to actually apply — nothing is saved until you do; you can still manually reopen afterward'))}</label>
-            <div style="display:flex;gap:8px;">
-              <input type="datetime-local" id="ev-deadline" value="${escapeAttr(isoToLocalInputValue(state.eventConfig.registrationDeadline))}" style="flex:1;">
-              <button class="small-btn" id="set-deadline-btn" type="button" style="flex-shrink:0;">Set</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="row2" style="margin-top:22px;align-items:start;">
-        <div>
-          <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('活动海报','Event Poster')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span> ${hintIcon(`${(state.eventConfig.posterImage && state.eventConfig.posterMediaType==='video' && state.eventConfig.posterVideoUrl) ? t('图片和视频都上传了，参与者可以左右切换看：先显示','Both image and video are uploaded — participants can swipe between them, starting with:') : t('目前显示','Currently showing:')} <b style="color:var(--plum);">${state.eventConfig.posterMediaType==='video'&&state.eventConfig.posterVideoUrl?t('视频','Video'):t('图片','Image')}</b>`)}</label>
-          <div class="upload-box">
-            <label class="upload-btn">${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?t('更换海报','Change Poster'):t('上传海报','Upload Poster')}<input type="file" id="poster-upload" accept="image/*"></label>
-            ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage}" src="${state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage}">`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页会显示预设标题','Not uploaded yet — the registration page will show the default title')}</span>`}
-            ${(state.draftPosterImage!==undefined?state.draftPosterImage:state.eventConfig.posterImage)?`<button class="small-btn ghost" id="remove-poster-btn" type="button">${t('移除海报','Remove Poster')}</button>`:''}
-          </div>
-          <button class="small-btn" id="save-poster-btn" style="margin-top:12px;">${t('保存海报','Save Poster')}</button>
-        </div>
-        <div>
-          <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('订单截图教学图','Order Screenshot Tutorial Images')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span> ${hintIcon(`${t('参与者登记页的「上传订单截图」旁边会多一个「如何截图？」连结，点了会弹出教学图，可以上传多张（比如分步骤），教他们去哪里找订单截图','A "How to screenshot?" link will appear next to "Upload Order Screenshot" on the registration page. You can upload several images (e.g. step by step) to guide participants')}`)}</label>
-          ${(()=>{ const imgs = state.draftTutorialImages!==undefined ? state.draftTutorialImages : (state.eventConfig.tutorialImages||[]); return `
-          <div class="upload-box">
-            <label class="upload-btn">${t('添加教学图','Add Tutorial Image(s)')}<input type="file" id="tutorial-upload" accept="image/*" multiple></label>
-            ${imgs.length===0?`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页不会显示「如何截图？」连结','Not uploaded yet — the "How to screenshot?" link will not appear on the registration page')}</span>`:''}
-            ${imgs.map((src,i)=>`
-              <div style="position:relative;">
-                <img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${src}" data-gallery-idx="${i}" src="${src}">
-                <button class="small-btn ghost" data-remove-tutorial-idx="${i}" type="button" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;padding:0;line-height:1;border-radius:50%;font-size:12px;">✕</button>
-              </div>`).join('')}
-          </div>
-          `; })()}
-          <button class="small-btn" id="save-tutorial-btn" style="margin-top:12px;">${t('保存教学图','Save Tutorial Images')}</button>
-        </div>
-      </div>
-      <div class="row2" style="margin-top:22px;align-items:start;">
-        <div>
-          <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('视频海报','Video Poster')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span> ${hintIcon(`${t('或者上传视频海报（会自动静音播放，参与者可以点击画面上的按钮打开声音）','Or upload a video poster (autoplays muted — participants can click the on-screen button to unmute)')}`)}</label>
-          <div class="upload-box">
-            <label class="upload-btn">${state.eventConfig.posterMediaType==='video'&&state.eventConfig.posterVideoUrl?t('更换视频','Change Video'):t('上传视频','Upload Video')}<input type="file" id="poster-video-upload" accept="video/*"></label>
-            ${state.eventConfig.posterMediaType==='video'&&state.eventConfig.posterVideoUrl?`<video src="${state.eventConfig.posterVideoUrl}" muted style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--line);"></video><button class="small-btn ghost" id="remove-poster-video-btn" type="button">${t('移除视频','Remove Video')}</button>`:`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传视频，最大50MB','No video uploaded yet, max 50MB')}</span>`}
-          </div>
-          ${state.posterVideoUploading?`<div style="font-size:12px;color:var(--gold);margin-top:8px;">${t('视频上传中，请稍候…','Uploading video, please wait…')}</div>`:''}
-        </div>
-        <div>
-          <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('帮助说明图片','Help Images')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span> ${hintIcon(`${t('报名页右上角会出现一个「？」小图标，点了会弹出这组图片，可以上传多张，用来解释整体怎么使用/报名','A "?" icon will appear in the top-right corner of the registration page — clicking it pops up these images. Upload several to explain how to use/register in general')}`)}</label>
-          ${(()=>{ const imgs = state.draftHelpImages!==undefined ? state.draftHelpImages : (state.eventConfig.helpImages||[]); return `
-          <div class="upload-box">
-            <label class="upload-btn">${t('添加帮助图','Add Help Image(s)')}<input type="file" id="help-upload" accept="image/*" multiple></label>
-            ${imgs.length===0?`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页不会显示帮助图标','Not uploaded yet — the help icon will not appear on the registration page')}</span>`:''}
-            ${imgs.map((src,i)=>`
-              <div style="position:relative;">
-                <img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${src}" data-help-gallery-idx="${i}" src="${src}">
-                <button class="small-btn ghost" data-remove-help-idx="${i}" type="button" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;padding:0;line-height:1;border-radius:50%;font-size:12px;">✕</button>
-              </div>`).join('')}
-          </div>
-          `; })()}
-          <button class="small-btn" id="save-help-btn" style="margin-top:12px;">${t('保存帮助图','Save Help Images')}</button>
-        </div>
-      </div>
-    `;
-    container.querySelectorAll('[data-tier-row]').forEach(row=>{
-      const i = parseInt(row.getAttribute('data-tier-row'), 10);
-      row.querySelector('.tier-threshold').oninput = e=>{ state.draftTiers[i].threshold = e.target.value; };
-      row.querySelector('.tier-bonus').oninput = e=>{ state.draftTiers[i].bonus = e.target.value; };
-      row.querySelector('.tier-threshold').onchange = saveTiers;
-      row.querySelector('.tier-bonus').onchange = saveTiers;
-    });
-    container.querySelectorAll('[data-del-tier]').forEach(btn=>{
-      btn.onclick = ()=>{ state.draftTiers.splice(parseInt(btn.getAttribute('data-del-tier'),10), 1); saveTiers(); };
-    });
-    container.querySelector('#add-tier-btn').onclick = ()=>{ state.draftTiers.push({threshold:'', bonus:''}); renderAdminSettingsTab(container); };
-    container.querySelector('#ev-title').onchange = e=> autoSaveConfig({title: e.target.value});
-    container.querySelector('#ev-subtitle').onchange = e=> autoSaveConfig({subtitle: e.target.value});
-    container.querySelector('#ev-rate').onchange = e=> autoSaveConfig({conversionRate: e.target.value});
-    container.querySelector('#ev-maxwins').onchange = e=> autoSaveConfig({maxWinsPerPerson: e.target.value});
-    container.querySelector('#ev-maxtickets').onchange = e=> autoSaveConfig({maxTicketsPerPerson: e.target.value});
-    container.querySelector('#ev-giftthreshold').onchange = e=> autoSaveConfig({guaranteedGiftThreshold: e.target.value});
-    container.querySelector('#ev-drawduration').onchange = e=> autoSaveConfig({drawDurationSeconds: e.target.value});
-    container.querySelector('#ev-soundtheme').onchange = e=>{ playWinChime(e.target.value); autoSaveConfig({soundTheme: e.target.value}); };
-    container.querySelector('#preview-soundtheme-btn').onclick = ()=>{ playWinChime(container.querySelector('#ev-soundtheme').value); };
-    container.querySelector('#ev-startdate').onchange = e=> autoSaveConfig({regStartDate: e.target.value});
-    container.querySelector('#set-deadline-btn').onclick = ()=>{
-      const value = container.querySelector('#ev-deadline').value;
-      if(!value){
-        autoSaveConfig({registrationDeadline: '', regEndDate: ''});
-      } else {
-        const [datePart, timePart] = value.split('T');
-        const effectiveValue = (timePart==='00:00') ? (datePart+'T23:59') : value;
-        autoSaveConfig({registrationDeadline: localInputToISO(effectiveValue), regEndDate: datePart});
-      }
-    };
-    container.querySelector('#ev-regopen').onchange = async (e)=>{
-      const newValue = e.target.checked;
-      try{
-        await api('/api/config', {method:'PUT', auth:true, body:{registrationOpen: newValue}});
-        state.eventConfig.registrationOpen = newValue;
-        showToast(newValue ? t('已开放报名','Registration opened') : t('已关闭报名','Registration closed'));
-        renderAdminSettingsTab(container);
-      }catch(err){
-        e.target.checked = !newValue;
-        showToast(err.message);
-      }
-    };
-    container.querySelector('#start-new-event-btn').onclick = ()=> startNewEvent(container.querySelector('#new-event-label').value);
-    container.querySelector('#poster-upload').onchange = async (e)=>{
-      const file = e.target.files[0]; if(!file) return;
-      try{ state.draftPosterImage = await compressImage(file); renderAdminSettingsTab(container); }
-      catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
-    };
-    const removePosterBtn = container.querySelector('#remove-poster-btn');
-    if(removePosterBtn) removePosterBtn.onclick = ()=>{ state.draftPosterImage = null; renderAdminSettingsTab(container); };
-    container.querySelector('#save-poster-btn').onclick = async ()=>{
-      try{
-        await api('/api/config', {method:'PUT', auth:true, body:{posterImage: state.draftPosterImage !== undefined ? state.draftPosterImage : state.eventConfig.posterImage}});
-        state.draftPosterImage = undefined;
-        await loadEventConfig();
-        showToast(t('海报已保存','Poster saved'));
-        renderAdminSettingsTab(container);
-      }catch(e){ showToast(e.message); }
-    };
-    container.querySelector('#poster-video-upload').onchange = async (e)=>{
-      const file = e.target.files[0]; if(!file) return;
-      if(!file.type.startsWith('video/')){ showToast(t('只支持视频文件','Only video files are supported')); return; }
-      if(file.size > 50*1024*1024){ showToast(t('视频不能超过50MB','Video cannot exceed 50MB')); return; }
-      state.posterVideoUploading = true; renderAdminSettingsTab(container);
-      try{
-        const fd = new FormData();
-        fd.append('video', file);
-        const headers = {};
-        if(state.token) headers['Authorization'] = 'Bearer '+state.token;
-        const res = await fetch('/api/admin/poster-video', {method:'POST', headers, body: fd});
-        const data = await res.json().catch(()=>null);
-        if(!res.ok) throw new Error((data&&data.error)||t('视频上传失败','Video upload failed'));
-        state.eventConfig.posterMediaType = data.posterMediaType;
-        state.eventConfig.posterVideoUrl = data.posterVideoUrl;
-        showToast(t('视频海报已保存','Video poster saved'));
-      }catch(err){ showToast(err.message); }
-      state.posterVideoUploading = false; renderAdminSettingsTab(container);
-    };
-    const removePosterVideoBtn = container.querySelector('#remove-poster-video-btn');
-    if(removePosterVideoBtn) removePosterVideoBtn.onclick = async ()=>{
-      try{
-        await api('/api/admin/poster-video', {method:'DELETE', auth:true});
-        state.eventConfig.posterMediaType = 'image';
-        state.eventConfig.posterVideoUrl = '';
-        showToast(t('视频海报已移除','Video poster removed'));
-        renderAdminSettingsTab(container);
-      }catch(err){ showToast(err.message); }
-    };
-    container.querySelector('#change-pw-btn').onclick = async ()=>{
-      const v = container.querySelector('#new-pw').value;
-      if(!v || v.length<4){ showToast(t('密码至少4位','Password must be at least 4 characters')); return; }
-      try{ await api('/api/admin/change-password', {method:'POST', auth:true, body:{password:v}}); showToast(t('密码已更新','Password updated')); }
-      catch(e){ showToast(e.message); }
-    };
-    container.querySelector('#tutorial-upload').onchange = async (e)=>{
-      const files = Array.from(e.target.files||[]); if(!files.length) return;
-      if(state.draftTutorialImages===undefined) state.draftTutorialImages = (state.eventConfig.tutorialImages||[]).slice();
-      try{
-        for(const file of files){ state.draftTutorialImages.push(await compressImageHQ(file)); }
-        renderAdminSettingsTab(container);
-      }catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
-    };
-    container.querySelectorAll('[data-remove-tutorial-idx]').forEach(btn=>{
-      btn.onclick = ()=>{
-        const idx = parseInt(btn.getAttribute('data-remove-tutorial-idx'),10);
-        const imgs = (state.draftTutorialImages!==undefined ? state.draftTutorialImages : (state.eventConfig.tutorialImages||[])).slice();
-        imgs.splice(idx,1);
-        state.draftTutorialImages = imgs;
-        renderAdminSettingsTab(container);
-      };
-    });
-    container.querySelector('#save-tutorial-btn').onclick = async ()=>{
-      try{
-        const imgs = state.draftTutorialImages !== undefined ? state.draftTutorialImages : (state.eventConfig.tutorialImages||[]);
-        await api('/api/config', {method:'PUT', auth:true, body:{tutorialImages: imgs}});
-        state.draftTutorialImages = undefined;
-        await loadEventConfig();
-        showToast(t('教学图已保存','Tutorial image saved'));
-        renderAdminSettingsTab(container);
-      }catch(e){ showToast(e.message); }
-    };
-    container.querySelector('#help-upload').onchange = async (e)=>{
-      const files = Array.from(e.target.files||[]); if(!files.length) return;
-      if(state.draftHelpImages===undefined) state.draftHelpImages = (state.eventConfig.helpImages||[]).slice();
-      try{
-        for(const file of files){ state.draftHelpImages.push(await compressImageHQ(file)); }
-        renderAdminSettingsTab(container);
-      }catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
-    };
-    container.querySelectorAll('[data-remove-help-idx]').forEach(btn=>{
-      btn.onclick = ()=>{
-        const idx = parseInt(btn.getAttribute('data-remove-help-idx'),10);
-        const imgs = (state.draftHelpImages!==undefined ? state.draftHelpImages : (state.eventConfig.helpImages||[])).slice();
-        imgs.splice(idx,1);
-        state.draftHelpImages = imgs;
-        renderAdminSettingsTab(container);
-      };
-    });
-    container.querySelector('#save-help-btn').onclick = async ()=>{
-      try{
-        const imgs = state.draftHelpImages !== undefined ? state.draftHelpImages : (state.eventConfig.helpImages||[]);
-        await api('/api/config', {method:'PUT', auth:true, body:{helpImages: imgs}});
-        state.draftHelpImages = undefined;
-        await loadEventConfig();
-        showToast(t('帮助图已保存','Help images saved'));
-        renderAdminSettingsTab(container);
-      }catch(e){ showToast(e.message); }
-    };
-    container.querySelector('#ev-adminlang').onchange = e=>{
-      state.adminLang = e.target.value;
-      localStorage.setItem('ld_admin_lang', state.adminLang);
-      render();
-    };
-    container.querySelectorAll('.mini-thumb').forEach(img=>{
-      img.onclick = ()=>{
-        if(img.hasAttribute('data-gallery-idx')){
-          state.lightboxSrcs = state.draftTutorialImages!==undefined ? state.draftTutorialImages : (state.eventConfig.tutorialImages||[]);
-          state.lightboxIndex = parseInt(img.getAttribute('data-gallery-idx'),10) || 0;
-        } else if(img.hasAttribute('data-help-gallery-idx')){
-          state.lightboxSrcs = state.draftHelpImages!==undefined ? state.draftHelpImages : (state.eventConfig.helpImages||[]);
-          state.lightboxIndex = parseInt(img.getAttribute('data-help-gallery-idx'),10) || 0;
-        } else {
-          state.lightboxSrc = img.getAttribute('data-src');
-        }
-        render();
-      };
-    });
-  }
-
-  function renderAdminView(){
-    const tabs = [['entries',t('参与名单','Entries')],['prizes',t('奖品管理','Prizes')],['draw',t('开始抽奖','Draw')],['history',t('中奖记录','History')],['archives',t('历史存档','Archives')],['settings',t('活动设置','Settings')]];
-    app.innerHTML = `
-      <div class="admin-wrap">
-        <div class="admin-header">
-          <div><h2>${t('抽奖后台管理','Lucky Draw Admin')}</h2><div class="sub">${escapeHtml(state.eventConfig.title)}</div></div>
-          <div style="display:flex;gap:10px;">
-            <button class="logout-btn" id="refresh-btn" type="button">${t('刷新','Refresh')}</button>
-            <button class="logout-btn" id="logout-btn">${t('退出管理','Log Out')}</button>
-          </div>
-        </div>
-        ${state.eventConfig.registrationDeadline?`<div id="countdown-admin" style="background:#fdf1e0;color:var(--rose);font-weight:700;font-size:12.5px;padding:8px 14px;"></div>`:''}
-        <div class="tabs">${tabs.map(tb=>`<div class="tab ${state.adminTab===tb[0]?'active':''}" data-tab="${tb[0]}">${tb[1]}</div>`).join('')}</div>
-        <div class="admin-content" id="admin-content"></div>
-      </div>`;
-    document.getElementById('logout-btn').onclick = logout;
-    document.getElementById('refresh-btn').onclick = async ()=>{
-      try{
-        const tasks = [loadEventConfig(), loadAdminData()];
-        if(state.adminTab==='archives') tasks.push(loadArchives());
-        await Promise.all(tasks);
-        showToast(t('已刷新','Refreshed'));
-        render();
-      }catch(e){ showToast(e.message); }
-    };
-    app.querySelectorAll('.tab').forEach(tabEl=>{
-      tabEl.onclick = ()=>{
-        const newTab = tabEl.getAttribute('data-tab');
-        if(newTab==='archives' && state.adminTab!=='archives'){ state.archiveDetail = null; }
-        state.adminTab = newTab;
-        if(state.adminTab==='archives' && state.archives.length===0){ loadArchives().then(render); }
-        if(state.adminTab==='draw') broadcastPrizeSelection();
-        render();
-      };
-    });
-    const content = document.getElementById('admin-content');
-    if(state.adminTab==='entries') renderAdminEntriesTab(content);
-    else if(state.adminTab==='prizes') renderAdminPrizesTab(content);
-    else if(state.adminTab==='draw') renderAdminDrawTab(content);
-    else if(state.adminTab==='history') renderAdminHistoryTab(content);
-    else if(state.adminTab==='archives') renderAdminArchivesTab(content);
-    else if(state.adminTab==='settings') renderAdminSettingsTab(content);
-    tickCountdown();
-  }
-
-  function render(){
-    app.classList.toggle('app-wide', state.view==='admin');
-    if(state.view==='entry') renderEntryView();
-    else if(state.view==='success') renderSuccessView();
-    else if(state.view==='adminLogin') renderAdminLoginView();
-    else if(state.view==='admin') renderAdminView();
-    else if(state.view==='live') renderLiveView();
-    document.querySelectorAll('.lightbox').forEach(el=> el.remove());
-    if(state.lightboxSrcs && state.lightboxSrcs.length){
-      const total = state.lightboxSrcs.length;
-      const idx = Math.max(0, Math.min(state.lightboxIndex||0, total-1));
-      const arrowBtnStyle = 'position:fixed;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;border:1.5px solid rgba(255,255,255,.4);font-size:20px;line-height:1;z-index:51;display:flex;align-items:center;justify-content:center;';
-      const lb = el(`<div class="lightbox">
-        <button class="lightbox-close" type="button">✕ 关闭</button>
-        ${total>1?`<button id="lightbox-prev" type="button" style="${arrowBtnStyle}left:14px;">‹</button>`:''}
-        <img src="${state.lightboxSrcs[idx]}">
-        ${total>1?`<button id="lightbox-next" type="button" style="${arrowBtnStyle}right:14px;">›</button>
-        <div style="position:fixed;bottom:24px;left:0;right:0;text-align:center;color:#fff;font-size:13px;">${idx+1} / ${total}</div>`:''}
-      </div>`);
-      lb.onclick = (e)=>{
-        if(e.target.closest('#lightbox-prev')){ e.stopPropagation(); state.lightboxIndex = (idx-1+total)%total; render(); return; }
-        if(e.target.closest('#lightbox-next')){ e.stopPropagation(); state.lightboxIndex = (idx+1)%total; render(); return; }
-        if(e.target===lb || e.target.closest('.lightbox-close')){ state.lightboxSrcs=null; render(); }
-      };
-      if(total>1){
-        let touchStartX = null;
-        lb.addEventListener('touchstart', (e)=>{ touchStartX = e.touches[0].clientX; }, {passive:true});
-        lb.addEventListener('touchend', (e)=>{
-          if(touchStartX===null) return;
-          const dx = e.changedTouches[0].clientX - touchStartX;
-          touchStartX = null;
-          if(Math.abs(dx) < 40) return;
-          state.lightboxIndex = dx < 0 ? (idx+1)%total : (idx-1+total)%total;
-          render();
-        }, {passive:true});
-      }
-      document.body.appendChild(lb);
-    } else if(state.lightboxSrc){
-      const lb = el(`<div class="lightbox"><button class="lightbox-close" type="button">✕ 关闭</button><img src="${state.lightboxSrc}"></div>`);
-      lb.onclick = (e)=>{ if(e.target===lb || e.target.closest('.lightbox-close')){ state.lightboxSrc=null; render(); } };
-      document.body.appendChild(lb);
-    }
-  }
-
-  document.addEventListener('click', (e)=>{
-    if(state.prizeMenuOpen && !(e.target && e.target.closest && e.target.closest('#prize-dd-wrap'))){
-      state.prizeMenuOpen = false;
-      const c2 = document.getElementById('admin-content');
-      if(c2 && state.view==='admin' && state.adminTab==='draw') renderAdminDrawTab(c2);
-    }
-    if(!state.ddMenuOpen) return;
-    if(e.target && e.target.closest && e.target.closest('#dd-filter-wrap')) return;
-    state.ddMenuOpen = false;
-    const c = document.getElementById('admin-content');
-    if(c && state.view==='admin' && state.adminTab==='entries') renderAdminEntriesTab(c);
+function computeTicketCount(amount, rate, tiers, maxTicketsPerPerson) {
+  const amt = parseFloat(amount) || 0;
+  const r = parseFloat(rate) || 0;
+  let base = 0;
+  if (r <= 0) base = amt > 0 ? 1 : 0;
+  else base = Math.max(0, Math.floor(amt / r));
+  let bonus = 0;
+  (tiers || []).forEach(t => {
+    const threshold = parseFloat(t.threshold) || 0;
+    const b = parseFloat(t.bonus) || 0;
+    if (threshold > 0 && amt >= threshold) bonus += b;
   });
-  /* ---------------- keyboard / presenter-remote start (Enter, Space, PageDown, Right Arrow) ---------------- */
-  let __keyHandledSpace = false;
-  document.addEventListener('keydown', (e)=>{
-    if(state.view!=='admin' || state.adminTab!=='draw') return;
-    if(!(e.key==='Enter' || e.key===' ' || e.key==='PageDown' || e.key==='ArrowRight')) return;
-    if(e.repeat || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
-    if(state.lightboxSrc || (state.lightboxSrcs && state.lightboxSrcs.length)) return;
-    const tag = (e.target && e.target.tagName || '').toLowerCase();
-    if(tag==='input' || tag==='textarea' || tag==='select' || (e.target && e.target.isContentEditable)) return;
-    if(state.drawing || state.guaranteedSpinning) return;
-    let action = null;
-    if(state.guaranteedDrawEntryId && !state.guaranteedRevealedPrize){
-      const id = state.guaranteedDrawEntryId;
-      action = ()=> startGuaranteedDraw(id);
-    } else if(!state.guaranteedDrawEntryId && !state.revealedWinner && state.drawSelectedPrize){
-      action = ()=> startDraw();
-    }
-    if(!action) return;
-    e.preventDefault();
-    if(tag==='button' && e.target.blur) e.target.blur();
-    if(e.key===' ') __keyHandledSpace = true;
-    action();
+  let total = base + bonus;
+  const cap = parseFloat(maxTicketsPerPerson) || 0;
+  if (cap > 0 && total > cap) total = cap;
+  return total;
+}
+
+/* ---------------- event config ---------------- */
+function isDateStr(s){ return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s); }
+app.get('/api/config', (req, res) => {
+  const cfg = enforceDeadline(readConfig());
+  res.json({
+    title: cfg.title || '幸运抽奖登记',
+    subtitle: cfg.subtitle || '',
+    conversionRate: cfg.conversionRate || 100,
+    tiers: cfg.tiers || [],
+    maxWinsPerPerson: cfg.maxWinsPerPerson || 0,
+    guaranteedGiftThreshold: cfg.guaranteedGiftThreshold || 0,
+    maxTicketsPerPerson: cfg.maxTicketsPerPerson || 0,
+    registrationOpen: cfg.registrationOpen !== false,
+    regStartDate: cfg.regStartDate || '',
+    regEndDate: cfg.regEndDate || '',
+    posterImage: cfg.posterImage || null,
+    tutorialImage: cfg.tutorialImage || null,
+    tutorialImages: (Array.isArray(cfg.tutorialImages) && cfg.tutorialImages.length) ? cfg.tutorialImages : (cfg.tutorialImage ? [cfg.tutorialImage] : []),
+    helpImages: Array.isArray(cfg.helpImages) ? cfg.helpImages : [],
+    posterMediaType: cfg.posterMediaType || 'image',
+    posterVideoUrl: cfg.posterVideoUrl || '',
+    liveDrawEnabled: !!cfg.liveDrawEnabled,
+    drawDurationSeconds: cfg.drawDurationSeconds || 5,
+    registrationDeadline: cfg.registrationDeadline || '',
+    soundTheme: cfg.soundTheme || 'classic'
   });
-  document.addEventListener('keyup', (e)=>{
-    if(e.key===' ' && __keyHandledSpace){ e.preventDefault(); __keyHandledSpace = false; }
-  });
-  async function init(){
-    await loadEventConfig();
-    render();
+});
+app.put('/api/config', requireAdmin, (req, res) => {
+  const cfg = readConfig();
+  cfg.title = (req.body.title || cfg.title || '幸运抽奖登记').toString().slice(0, 60);
+  if (req.body.subtitle !== undefined) {
+    cfg.subtitle = (req.body.subtitle || '').toString().slice(0, 140);
   }
-  init();
-})();
-</script>
-</body>
-</html>
+  const rate = parseFloat(req.body.conversionRate);
+  cfg.conversionRate = (!isNaN(rate) && rate > 0) ? rate : (cfg.conversionRate || 100);
+  if (Array.isArray(req.body.tiers)) {
+    cfg.tiers = req.body.tiers
+      .map(t => ({ threshold: parseFloat(t.threshold), bonus: parseFloat(t.bonus) }))
+      .filter(t => !isNaN(t.threshold) && t.threshold > 0 && !isNaN(t.bonus) && t.bonus >= 0)
+      .sort((a, b) => a.threshold - b.threshold);
+  }
+  if (req.body.maxWinsPerPerson !== undefined) {
+    const m = parseInt(req.body.maxWinsPerPerson, 10);
+    cfg.maxWinsPerPerson = (!isNaN(m) && m >= 0) ? m : (cfg.maxWinsPerPerson || 0);
+  }
+  if (req.body.guaranteedGiftThreshold !== undefined) {
+    const g = parseFloat(req.body.guaranteedGiftThreshold);
+    cfg.guaranteedGiftThreshold = (!isNaN(g) && g >= 0) ? g : (cfg.guaranteedGiftThreshold || 0);
+  }
+  if (req.body.maxTicketsPerPerson !== undefined) {
+    const mt = parseInt(req.body.maxTicketsPerPerson, 10);
+    cfg.maxTicketsPerPerson = (!isNaN(mt) && mt >= 0) ? mt : (cfg.maxTicketsPerPerson || 0);
+  }
+  if (req.body.registrationOpen !== undefined) {
+    cfg.registrationOpen = !!req.body.registrationOpen;
+  }
+  if (req.body.regStartDate !== undefined) {
+    cfg.regStartDate = isDateStr(req.body.regStartDate) ? req.body.regStartDate : '';
+  }
+  if (req.body.regEndDate !== undefined) {
+    cfg.regEndDate = isDateStr(req.body.regEndDate) ? req.body.regEndDate : '';
+  }
+  if (req.body.posterImage !== undefined) {
+    cfg.posterImage = req.body.posterImage || null;
+    if (req.body.posterImage) cfg.posterMediaType = 'image';
+  }
+  if (req.body.tutorialImage !== undefined) {
+    cfg.tutorialImage = req.body.tutorialImage || null;
+  }
+  if (req.body.tutorialImages !== undefined) {
+    cfg.tutorialImages = Array.isArray(req.body.tutorialImages) ? req.body.tutorialImages.filter(Boolean).slice(0, 20) : [];
+    cfg.tutorialImage = cfg.tutorialImages[0] || null;
+  }
+  if (req.body.helpImages !== undefined) {
+    cfg.helpImages = Array.isArray(req.body.helpImages) ? req.body.helpImages.filter(Boolean).slice(0, 20) : [];
+  }
+  if (req.body.drawDurationSeconds !== undefined) {
+    const ds = parseFloat(req.body.drawDurationSeconds);
+    cfg.drawDurationSeconds = (!isNaN(ds) && ds >= 3 && ds <= 10) ? ds : (cfg.drawDurationSeconds || 5);
+  }
+  if (req.body.registrationDeadline !== undefined) {
+    const dl = req.body.registrationDeadline;
+    if (!dl) { cfg.registrationDeadline = ''; }
+    else {
+      const ms = new Date(dl).getTime();
+      cfg.registrationDeadline = !isNaN(ms) ? dl : '';
+    }
+  }
+  if (req.body.soundTheme !== undefined) {
+    cfg.soundTheme = ['classic','electronic','drum'].includes(req.body.soundTheme) ? req.body.soundTheme : (cfg.soundTheme || 'classic');
+  }
+  if (req.body.liveDrawEnabled !== undefined) {
+    cfg.liveDrawEnabled = !!req.body.liveDrawEnabled;
+  }
+  writeConfig(cfg);
+  res.json({ ok: true });
+});
+
+/* ---------------- poster video upload ---------------- */
+app.use('/media', express.static(MEDIA_DIR));
+const posterVideoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, MEDIA_DIR),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase() || '.mp4';
+      cb(null, 'poster-' + Date.now() + ext);
+    }
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype || !file.mimetype.startsWith('video/')) {
+      return cb(new Error('只支持上传视频文件 / Only video files are supported'));
+    }
+    cb(null, true);
+  }
+});
+function deleteOldPosterVideo(cfg) {
+  if (cfg.posterVideoUrl) {
+    const oldPath = path.join(MEDIA_DIR, path.basename(cfg.posterVideoUrl));
+    try { if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath); } catch (e) {}
+  }
+}
+app.post('/api/admin/poster-video', requireAdmin, (req, res) => {
+  posterVideoUpload.single('video')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message || '视频上传失败 / Video upload failed' });
+    if (!req.file) return res.status(400).json({ error: '没有收到视频文件 / No video file received' });
+    const cfg = readConfig();
+    deleteOldPosterVideo(cfg);
+    cfg.posterMediaType = 'video';
+    cfg.posterVideoUrl = '/media/' + req.file.filename;
+    writeConfig(cfg);
+    res.json({ posterMediaType: cfg.posterMediaType, posterVideoUrl: cfg.posterVideoUrl });
+  });
+});
+app.delete('/api/admin/poster-video', requireAdmin, (req, res) => {
+  const cfg = readConfig();
+  deleteOldPosterVideo(cfg);
+  cfg.posterVideoUrl = '';
+  cfg.posterMediaType = 'image';
+  writeConfig(cfg);
+  res.json({ ok: true });
+});
+
+/* ---------------- admin auth ---------------- */
+app.get('/api/admin/status', (req, res) => {
+  const cfg = readConfig();
+  res.json({ passwordSet: !!cfg.passwordHash });
+});
+app.post('/api/admin/setup', (req, res) => {
+  const cfg = readConfig();
+  if (cfg.passwordHash) return res.status(400).json({ error: '管理员密码已经设置过了' });
+  const { password } = req.body || {};
+  if (!password || password.length < 4) return res.status(400).json({ error: '密码至少4位' });
+  const { salt, hash } = hashPassword(password);
+  cfg.passwordSalt = salt; cfg.passwordHash = hash;
+  writeConfig(cfg);
+  res.json({ token: issueToken() });
+});
+app.post('/api/admin/login', (req, res) => {
+  const cfg = readConfig();
+  const { password } = req.body || {};
+  if (!verifyPassword(password, cfg.passwordSalt, cfg.passwordHash)) {
+    return res.status(401).json({ error: '密码不正确' });
+  }
+  res.json({ token: issueToken() });
+});
+app.post('/api/admin/change-password', requireAdmin, (req, res) => {
+  const { password } = req.body || {};
+  if (!password || password.length < 4) return res.status(400).json({ error: '密码至少4位' });
+  const cfg = readConfig();
+  const { salt, hash } = hashPassword(password);
+  cfg.passwordSalt = salt; cfg.passwordHash = hash;
+  writeConfig(cfg);
+  res.json({ ok: true });
+});
+
+/* ---------------- entries (public submits, admin manages) ---------------- */
+app.post('/api/entries', (req, res) => {
+  const cfg = enforceDeadline(readConfig());
+  if (cfg.registrationOpen === false) {
+    const today = serverTodayStr();
+    if (cfg.regStartDate && today < cfg.regStartDate) {
+      return res.status(400).json({ error: '报名尚未开始 / Registration has not started yet' });
+    }
+    return res.status(400).json({ error: '报名已结束 / Registration is closed' });
+  }
+  const { name, contact, ddName, customerName, orderId, amount, photo, ocrOverride, orderDate } = req.body || {};
+  if (!name || !contact || !ddName || !orderId || !amount || !photo) {
+    return res.status(400).json({ error: '资料不完整，请填写全部字段并上传照片 / Missing information, please fill in all fields and upload a photo' });
+  }
+  if (!orderDate && !ocrOverride) {
+    return res.status(400).json({ error: '请输入订单日期，或勾选OCR确认框 / Please enter the order date, or check the OCR confirmation box' });
+  }
+  const orderIdNorm = String(orderId).trim().toLowerCase();
+  const existingFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
+  const isDuplicate = existingFiles.some(f => {
+    const existing = readJson(path.join(ENTRIES_DIR, f), null);
+    return existing && String(existing.orderId || '').trim().toLowerCase() === orderIdNorm;
+  });
+  if (isDuplicate) {
+    return res.status(400).json({ error: '该订单号已经登记过 / This Order ID has already been registered' });
+  }
+  const id = genId('LD-', 6);
+  const entry = {
+    id,
+    name: String(name).slice(0, 100),
+    contact: String(contact).slice(0, 100),
+    ddName: String(ddName).slice(0, 100),
+    customerName: String(customerName || '').slice(0, 100),
+    orderId: String(orderId).slice(0, 100),
+    amount: String(amount).slice(0, 50),
+    orderDate: isDateStr(orderDate) ? orderDate : '',
+    photo,
+    ocrOverride: !!ocrOverride,
+    submittedAt: Date.now(),
+    wonPrizes: []
+  };
+  fs.writeFileSync(path.join(ENTRIES_DIR, id + '.json'), JSON.stringify(entry));
+  const rate = cfg.conversionRate || 100;
+  const tiers = cfg.tiers || [];
+  const maxTickets = cfg.maxTicketsPerPerson || 0;
+  const ticketCount = computeTicketCount(entry.amount, rate, tiers, maxTickets);
+  const threshold = cfg.guaranteedGiftThreshold || 0;
+  const wheelEligible = threshold > 0 && (parseFloat(entry.amount) || 0) >= threshold;
+  res.json({ id, ticketCount, wheelEligible });
+});
+app.post('/api/admin/entries', requireAdmin, (req, res) => {
+  const cfg = readConfig();
+  const { name, contact, ddName, customerName, orderId, amount, photo, orderDate } = req.body || {};
+  if (!name || !contact || !ddName || !customerName || !orderId || !amount) {
+    return res.status(400).json({ error: '资料不完整，请填写全部必填字段 / Missing information, please fill in all required fields' });
+  }
+  const orderIdNorm = String(orderId).trim().toLowerCase();
+  const existingFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
+  const isDuplicate = existingFiles.some(f => {
+    const existing = readJson(path.join(ENTRIES_DIR, f), null);
+    return existing && String(existing.orderId || '').trim().toLowerCase() === orderIdNorm;
+  });
+  if (isDuplicate) {
+    return res.status(400).json({ error: '该订单号已经登记过 / This Order ID has already been registered' });
+  }
+  const id = genId('LD-', 6);
+  const entry = {
+    id,
+    name: String(name).slice(0, 100),
+    contact: String(contact).slice(0, 100),
+    ddName: String(ddName).slice(0, 100),
+    customerName: String(customerName).slice(0, 100),
+    orderId: String(orderId).slice(0, 100),
+    amount: String(amount).slice(0, 50),
+    orderDate: isDateStr(orderDate) ? orderDate : '',
+    photo: photo || null,
+    ocrOverride: false,
+    manuallyAdded: true,
+    submittedAt: Date.now(),
+    wonPrizes: []
+  };
+  fs.writeFileSync(path.join(ENTRIES_DIR, id + '.json'), JSON.stringify(entry));
+  res.json({ id });
+});
+app.get('/api/entries', requireAdmin, (req, res) => {
+  const cfg = readConfig();
+  const rate = cfg.conversionRate || 100;
+  const tiers = cfg.tiers || [];
+  const maxTickets = cfg.maxTicketsPerPerson || 0;
+  const files = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
+  const list = files.map(f => readJson(path.join(ENTRIES_DIR, f), null)).filter(Boolean);
+  list.forEach(entry => {
+    const count = computeTicketCount(entry.amount, rate, tiers, maxTickets);
+    entry.ticketCount = count;
+    entry.ticketIds = Array.from({ length: count }, (_, i) => entry.id + '-' + (i + 1));
+  });
+  list.sort((a, b) => b.submittedAt - a.submittedAt);
+  res.json(list);
+});
+app.put('/api/entries/:id', requireAdmin, (req, res) => {
+  const file = path.join(ENTRIES_DIR, req.params.id + '.json');
+  const entry = readJson(file, null);
+  if (!entry) return res.status(404).json({ error: '登记资料不存在' });
+  const { orderId, amount, orderDate } = req.body || {};
+  if (orderId !== undefined) {
+    const newOrderId = String(orderId).trim();
+    if (!newOrderId) return res.status(400).json({ error: '订单号不能为空' });
+    const newOrderIdNorm = newOrderId.toLowerCase();
+    const existingFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json') && f !== req.params.id + '.json');
+    const isDuplicate = existingFiles.some(f => {
+      const other = readJson(path.join(ENTRIES_DIR, f), null);
+      return other && String(other.orderId || '').trim().toLowerCase() === newOrderIdNorm;
+    });
+    if (isDuplicate) return res.status(400).json({ error: '该订单号已经登记过 / This Order ID has already been registered' });
+    entry.orderId = newOrderId.slice(0, 100);
+  }
+  if (amount !== undefined) {
+    const newAmount = String(amount).trim();
+    if (!newAmount) return res.status(400).json({ error: '金额不能为空' });
+    entry.amount = newAmount.slice(0, 50);
+  }
+  if (orderDate !== undefined) {
+    entry.orderDate = isDateStr(orderDate) ? orderDate : '';
+  }
+  entry.ocrOverride = false;
+  fs.writeFileSync(file, JSON.stringify(entry));
+  res.json({ ok: true });
+});
+app.delete('/api/entries/:id', requireAdmin, (req, res) => {
+  const file = path.join(ENTRIES_DIR, req.params.id + '.json');
+  if (fs.existsSync(file)) fs.unlinkSync(file);
+  res.json({ ok: true });
+});
+app.delete('/api/entries', requireAdmin, (req, res) => {
+  const files = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
+  files.forEach(f => fs.unlinkSync(path.join(ENTRIES_DIR, f)));
+  res.json({ ok: true, deleted: files.length });
+});
+
+/* ---------------- prizes ---------------- */
+app.get('/api/prizes', requireAdmin, (req, res) => {
+  res.json(readJson(PRIZES_FILE, []));
+});
+const VALID_TIERS = ['', '大奖', '二奖', '三奖'];
+app.post('/api/prizes', requireAdmin, (req, res) => {
+  const { name, qty, photo, value, guaranteedEligible, guaranteedQty, tier, outsideGift } = req.body || {};
+  if (!name || !String(name).trim()) return res.status(400).json({ error: '请输入奖品名称' });
+  const prizes = readJson(PRIZES_FILE, []);
+  const prize = { id: genId('PZ-', 6), name: String(name).slice(0, 100), qty: Math.max(1, parseInt(qty, 10) || 1), photo: photo || null, value: value ? String(value).slice(0, 30) : '', guaranteedEligible: !!guaranteedEligible, guaranteedQty: Math.max(0, parseInt(guaranteedQty, 10) || 0), tier: VALID_TIERS.includes(tier) ? tier : '', outsideGift: !!outsideGift, createdAt: Date.now() };
+  prizes.push(prize);
+  writeJson(PRIZES_FILE, prizes);
+  res.json(prize);
+});
+app.delete('/api/prizes/:id', requireAdmin, (req, res) => {
+  let prizes = readJson(PRIZES_FILE, []);
+  prizes = prizes.filter(p => p.id !== req.params.id);
+  writeJson(PRIZES_FILE, prizes);
+  res.json({ ok: true });
+});
+app.put('/api/prizes/:id', requireAdmin, (req, res) => {
+  const prizes = readJson(PRIZES_FILE, []);
+  const prize = prizes.find(p => p.id === req.params.id);
+  if (!prize) return res.status(404).json({ error: '奖品不存在' });
+  const { name, qty, photo, value, guaranteedEligible, guaranteedQty, tier, outsideGift } = req.body || {};
+  if (name && String(name).trim()) prize.name = String(name).slice(0, 100);
+  if (qty !== undefined) prize.qty = Math.max(0, parseInt(qty, 10) || 0);
+  if (value !== undefined) prize.value = value ? String(value).slice(0, 30) : '';
+  if (photo !== undefined) prize.photo = photo || null;
+  if (guaranteedEligible !== undefined) prize.guaranteedEligible = !!guaranteedEligible;
+  if (guaranteedQty !== undefined) prize.guaranteedQty = Math.max(0, parseInt(guaranteedQty, 10) || 0);
+  if (tier !== undefined) prize.tier = VALID_TIERS.includes(tier) ? tier : '';
+  if (outsideGift !== undefined) prize.outsideGift = !!outsideGift;
+  writeJson(PRIZES_FILE, prizes);
+  res.json(prize);
+});
+/* ---------------- draws ---------------- */
+app.get('/api/draws', requireAdmin, (req, res) => {
+  res.json(readJson(DRAWS_FILE, []));
+});
+app.post('/api/draws', requireAdmin, (req, res) => {
+  const { prizeId, entryId, guaranteed } = req.body || {};
+  const cfg = readConfig();
+  const prizes = readJson(PRIZES_FILE, []);
+  const prize = prizes.find(p => p.id === prizeId);
+  if (!prize) return res.status(400).json({ error: '奖品无效' });
+  if (guaranteed) {
+    if ((prize.guaranteedQty || 0) < 1) return res.status(400).json({ error: '该礼物幸运轮盘预留数量不足' });
+  } else {
+    if (prize.qty < 1) return res.status(400).json({ error: '奖品无效或数量不足' });
+  }
+  const entryFile = path.join(ENTRIES_DIR, entryId + '.json');
+  const entry = readJson(entryFile, null);
+  if (!entry) return res.status(400).json({ error: '参与者不存在，可能已被删除' });
+
+  const maxWins = cfg.maxWinsPerPerson || 0;
+  const currentWins = (entry.wonPrizes || []).length;
+  if (maxWins > 0 && currentWins >= maxWins) {
+    return res.status(400).json({ error: '该顾客已达到最多中奖次数上限' });
+  }
+  if (guaranteed) {
+    const threshold = cfg.guaranteedGiftThreshold || 0;
+    if (threshold > 0 && (parseFloat(entry.amount) || 0) < threshold) {
+      return res.status(400).json({ error: '该顾客金额未达到幸运轮盘门槛' });
+    }
+    if (!prize.guaranteedEligible) {
+      return res.status(400).json({ error: '该礼物未开放用于幸运轮盘' });
+    }
+    const allDraws = readJson(DRAWS_FILE, []);
+    const alreadyGuaranteed = allDraws.some(d => d.entryId === entryId && d.guaranteed);
+    if (alreadyGuaranteed) {
+      return res.status(400).json({ error: '该顾客已经领取过幸运轮盘礼物，每人限领一次' });
+    }
+  }
+
+  const draw = {
+    id: genId('DR-', 6),
+    prizeId, prizeName: prize.name, prizeValue: prize.value || '',
+    entryId, winnerName: entry.name, winnerContact: entry.contact,
+    winnerDdName: entry.ddName || '', winnerCustomerName: entry.customerName || '',
+    winnerOrderId: entry.orderId,
+    guaranteed: !!guaranteed,
+    timestamp: Date.now()
+  };
+  const draws = readJson(DRAWS_FILE, []);
+  draws.push(draw);
+  writeJson(DRAWS_FILE, draws);
+
+  if (guaranteed) { prize.guaranteedQty = Math.max(0, (prize.guaranteedQty || 0) - 1); }
+  else { prize.qty -= 1; }
+  writeJson(PRIZES_FILE, prizes);
+
+  entry.wonPrizes = entry.wonPrizes || [];
+  entry.wonPrizes.push(prize.name);
+  fs.writeFileSync(entryFile, JSON.stringify(entry));
+
+  res.json(draw);
+});
+app.delete('/api/draws/:id', requireAdmin, (req, res) => {
+  let draws = readJson(DRAWS_FILE, []);
+  const draw = draws.find(d => d.id === req.params.id);
+  if (!draw) return res.status(404).json({ error: '记录不存在' });
+  draws = draws.filter(d => d.id !== req.params.id);
+  writeJson(DRAWS_FILE, draws);
+
+  const prizes = readJson(PRIZES_FILE, []);
+  const prize = prizes.find(p => p.id === draw.prizeId);
+  if (prize) {
+    if (draw.guaranteed) prize.guaranteedQty = (prize.guaranteedQty || 0) + 1;
+    else prize.qty += 1;
+    writeJson(PRIZES_FILE, prizes);
+  }
+
+  const entryFile = path.join(ENTRIES_DIR, draw.entryId + '.json');
+  const entry = readJson(entryFile, null);
+  if (entry && entry.wonPrizes) {
+    const idx = entry.wonPrizes.indexOf(draw.prizeName);
+    if (idx > -1) entry.wonPrizes.splice(idx, 1);
+    fs.writeFileSync(entryFile, JSON.stringify(entry));
+  }
+  res.json({ ok: true });
+});
+app.delete('/api/draws', requireAdmin, (req, res) => {
+  const draws = readJson(DRAWS_FILE, []);
+  const prizes = readJson(PRIZES_FILE, []);
+  draws.forEach(draw => {
+    const prize = prizes.find(p => p.id === draw.prizeId);
+    if (prize) {
+      if (draw.guaranteed) prize.guaranteedQty = (prize.guaranteedQty || 0) + 1;
+      else prize.qty += 1;
+    }
+    const entryFile = path.join(ENTRIES_DIR, draw.entryId + '.json');
+    const entry = readJson(entryFile, null);
+    if (entry && entry.wonPrizes) {
+      const idx = entry.wonPrizes.indexOf(draw.prizeName);
+      if (idx > -1) entry.wonPrizes.splice(idx, 1);
+      fs.writeFileSync(entryFile, JSON.stringify(entry));
+    }
+  });
+  writeJson(PRIZES_FILE, prizes);
+  writeJson(DRAWS_FILE, []);
+  res.json({ ok: true, reset: draws.length });
+});
+
+/* ---------------- archives (snapshot current event, start fresh, restore) ---------------- */
+const ACTIVE_ARCHIVE_FILE = path.join(DATA_DIR, 'active-archive.json');
+function readActiveArchiveId() {
+  const d = readJson(ACTIVE_ARCHIVE_FILE, { archiveId: null });
+  return d.archiveId || null;
+}
+function writeActiveArchiveId(id) {
+  writeJson(ACTIVE_ARCHIVE_FILE, { archiveId: id || null });
+}
+function snapshotActiveInto(archiveDir, label) {
+  fs.mkdirSync(path.join(archiveDir, 'entries'), { recursive: true });
+  const oldEntryFiles = fs.readdirSync(path.join(archiveDir, 'entries'));
+  oldEntryFiles.forEach(f => fs.unlinkSync(path.join(archiveDir, 'entries', f)));
+  const entryFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
+  entryFiles.forEach(f => {
+    fs.copyFileSync(path.join(ENTRIES_DIR, f), path.join(archiveDir, 'entries', f));
+  });
+  fs.copyFileSync(PRIZES_FILE, path.join(archiveDir, 'prizes.json'));
+  fs.copyFileSync(DRAWS_FILE, path.join(archiveDir, 'draws.json'));
+  fs.copyFileSync(CONFIG_FILE, path.join(archiveDir, 'config.json'));
+  const draws = readJson(DRAWS_FILE, []);
+  const cfg = readConfig();
+  const existingMeta = readJson(path.join(archiveDir, 'meta.json'), null);
+  const meta = {
+    id: path.basename(archiveDir),
+    label: label || (existingMeta && existingMeta.label) || (cfg.title || '未命名活动') + ' - ' + new Date().toLocaleString(),
+    createdAt: (existingMeta && existingMeta.createdAt) || Date.now(),
+    updatedAt: Date.now(),
+    entryCount: entryFiles.length,
+    drawCount: draws.length,
+    title: cfg.title || ''
+  };
+  writeJson(path.join(archiveDir, 'meta.json'), meta);
+  return meta;
+}
+function clearActiveData() {
+  const entryFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
+  entryFiles.forEach(f => fs.unlinkSync(path.join(ENTRIES_DIR, f)));
+  writeJson(PRIZES_FILE, []);
+  writeJson(DRAWS_FILE, []);
+  const cfg = readConfig();
+  const fresh = defaultConfig();
+  fresh.passwordHash = cfg.passwordHash;
+  fresh.passwordSalt = cfg.passwordSalt;
+  writeConfig(fresh);
+}
+
+app.get('/api/archives', requireAdmin, (req, res) => {
+  const ids = fs.readdirSync(ARCHIVES_DIR).filter(f => fs.statSync(path.join(ARCHIVES_DIR, f)).isDirectory());
+  const list = ids.map(id => readJson(path.join(ARCHIVES_DIR, id, 'meta.json'), null)).filter(Boolean);
+  list.sort((a, b) => (b.updatedAt||b.createdAt) - (a.updatedAt||a.createdAt));
+  const activeId = readActiveArchiveId();
+  list.forEach(m => { m.isActive = m.id === activeId; });
+  res.json(list);
+});
+app.post('/api/archives', requireAdmin, (req, res) => {
+  const id = genId('AR-', 8);
+  const archiveDir = path.join(ARCHIVES_DIR, id);
+  const meta = snapshotActiveInto(archiveDir, (req.body && req.body.label) || '');
+  clearActiveData();
+  writeActiveArchiveId(null);
+  res.json(meta);
+});
+app.get('/api/archives/:id', requireAdmin, (req, res) => {
+  const archiveDir = path.join(ARCHIVES_DIR, req.params.id);
+  const meta = readJson(path.join(archiveDir, 'meta.json'), null);
+  if (!meta) return res.status(404).json({ error: '存档不存在' });
+  const cfg = readJson(path.join(archiveDir, 'config.json'), {});
+  const rate = cfg.conversionRate || 100;
+  const tiers = cfg.tiers || [];
+  const maxTickets = cfg.maxTicketsPerPerson || 0;
+  const entriesDir = path.join(archiveDir, 'entries');
+  const entryFiles = fs.existsSync(entriesDir) ? fs.readdirSync(entriesDir).filter(f => f.endsWith('.json')) : [];
+  const entries = entryFiles.map(f => readJson(path.join(entriesDir, f), null)).filter(Boolean);
+  entries.forEach(entry => {
+    const count = computeTicketCount(entry.amount, rate, tiers, maxTickets);
+    entry.ticketCount = count;
+  });
+  entries.sort((a, b) => b.submittedAt - a.submittedAt);
+  const prizes = readJson(path.join(archiveDir, 'prizes.json'), []);
+  const draws = readJson(path.join(archiveDir, 'draws.json'), []);
+  draws.sort((a, b) => b.timestamp - a.timestamp);
+  res.json({ meta, config: { title: cfg.title, subtitle: cfg.subtitle }, entries, prizes, draws });
+});
+app.post('/api/archives/:id/restore', requireAdmin, (req, res) => {
+  const archiveDir = path.join(ARCHIVES_DIR, req.params.id);
+  const meta = readJson(path.join(archiveDir, 'meta.json'), null);
+  if (!meta) return res.status(404).json({ error: '存档不存在' });
+
+  const currentActiveId = readActiveArchiveId();
+  if (currentActiveId && currentActiveId !== req.params.id) {
+    const currentArchiveDir = path.join(ARCHIVES_DIR, currentActiveId);
+    if (fs.existsSync(currentArchiveDir)) {
+      snapshotActiveInto(currentArchiveDir, null);
+    }
+  } else if (!currentActiveId) {
+    const autoArchiveId = genId('AR-', 8);
+    snapshotActiveInto(path.join(ARCHIVES_DIR, autoArchiveId), '自动备份 - ' + new Date().toLocaleString());
+  }
+  clearActiveData();
+
+  const entriesDir = path.join(archiveDir, 'entries');
+  if (fs.existsSync(entriesDir)) {
+    fs.readdirSync(entriesDir).filter(f => f.endsWith('.json')).forEach(f => {
+      fs.copyFileSync(path.join(entriesDir, f), path.join(ENTRIES_DIR, f));
+    });
+  }
+  const archivedPrizes = readJson(path.join(archiveDir, 'prizes.json'), []);
+  writeJson(PRIZES_FILE, archivedPrizes);
+  const archivedDraws = readJson(path.join(archiveDir, 'draws.json'), []);
+  writeJson(DRAWS_FILE, archivedDraws);
+
+  const archivedConfig = readJson(path.join(archiveDir, 'config.json'), defaultConfig());
+  const currentCfg = readConfig();
+  archivedConfig.passwordHash = currentCfg.passwordHash;
+  archivedConfig.passwordSalt = currentCfg.passwordSalt;
+  writeConfig(archivedConfig);
+
+  writeActiveArchiveId(req.params.id);
+  res.json({ ok: true });
+});
+function rimraf(dir) {
+  if (!fs.existsSync(dir)) return;
+  fs.readdirSync(dir).forEach(f => {
+    const p = path.join(dir, f);
+    if (fs.statSync(p).isDirectory()) rimraf(p);
+    else fs.unlinkSync(p);
+  });
+  fs.rmdirSync(dir);
+}
+app.delete('/api/archives/:id', requireAdmin, (req, res) => {
+  const archiveDir = path.join(ARCHIVES_DIR, req.params.id);
+  const meta = readJson(path.join(archiveDir, 'meta.json'), null);
+  if (!meta) return res.status(404).json({ error: '存档不存在' });
+  rimraf(archiveDir);
+  if (readActiveArchiveId() === req.params.id) writeActiveArchiveId(null);
+  res.json({ ok: true });
+});
+
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+const PORT = process.env.PORT || 3000;
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+let lastLiveState = null;
+wss.on('connection', (ws) => {
+  if (lastLiveState) {
+    try { ws.send(JSON.stringify(lastLiveState)); } catch (e) {}
+  }
+  ws.on('message', (raw) => {
+    let msg;
+    try { msg = JSON.parse(raw); } catch (e) { return; }
+    if (!msg || (msg.type !== 'draw_start' && msg.type !== 'draw_reveal' && msg.type !== 'prize_selected' && msg.type !== 'focus')) return;
+    // only a logged-in admin session may broadcast live draw events
+    const token = msg.token;
+    const expiry = token && tokens.get(token);
+    if (!expiry || expiry < Date.now()) return;
+    const outbound = Object.assign({}, msg);
+    delete outbound.token;
+    lastLiveState = outbound;
+    const payload = JSON.stringify(outbound);
+    wss.clients.forEach((client) => {
+      if (client !== ws && client.readyState === 1) {
+        try { client.send(payload); } catch (e) {}
+      }
+    });
+  });
+});
+server.listen(PORT, () => console.log('幸运抽奖系统 running on port ' + PORT));
