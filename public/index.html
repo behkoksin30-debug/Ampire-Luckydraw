@@ -209,7 +209,7 @@
     draftPosterImage: undefined,
     posterVideoUploading: false,
     ddFilters: [],
-    ddMenuOpen: false,
+    ddMenuOpen: false, prizeMenuOpen: false,
     showAddEntryForm: false,
     newEntryForm: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null },
     newEntryFormErrors: {},
@@ -1937,12 +1937,16 @@
         </div>
       </div>
       <div class="select-row">
-        <select id="prize-select">
-          <option value="">${t('选择要抽取的奖品','Select a prize to draw')}</option>
-          ${availablePrizes.map(p=>`<option value="${p.id}" ${state.drawSelectedPrize===p.id?'selected':''}>${p.tier?`【${escapeHtml(tierLabel(p.tier))}】`:''}${escapeHtml(p.name)}${p.value?` (RM${escapeHtml(p.value)})`:''}（${t('剩余','left')} ${p.qty}）</option>`).join('')}
-        </select>
+        <div id="prize-dd-wrap" style="position:relative;width:100%;max-width:520px;">
+          <button type="button" id="prize-dd-btn" style="width:100%;text-align:left;padding:10px 34px 10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;cursor:pointer;position:relative;">${selectedPrize?`${selectedPrize.tier?`【${escapeHtml(tierLabel(selectedPrize.tier))}】`:''}${escapeHtml(selectedPrize.name)}${selectedPrize.value?` (RM${escapeHtml(selectedPrize.value)})`:''}（${t('剩余','left')} ${selectedPrize.qty}）`:t('选择要抽取的奖品','Select a prize to draw')}<span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:11px;">▼</span></button>
+          ${state.prizeMenuOpen?`
+          <div id="prize-dd-menu" style="position:absolute;left:0;right:0;top:100%;margin-top:4px;background:#fff;border:1.5px solid var(--line);border-radius:8px;max-height:340px;overflow:auto;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.18);">
+            <div class="prize-dd-item" data-pid="" style="padding:9px 12px;font-size:14px;cursor:pointer;color:var(--ink-soft);">${t('选择要抽取的奖品','Select a prize to draw')}</div>
+            ${availablePrizes.map(p=>`<div class="prize-dd-item" data-pid="${p.id}" data-photo="${escapeAttr(p.photo||'')}" style="padding:9px 12px;font-size:14px;cursor:pointer;${state.drawSelectedPrize===p.id?'background:#fdf1e0;font-weight:700;':''}">${p.tier?`【${escapeHtml(tierLabel(p.tier))}】`:''}${escapeHtml(p.name)}${p.value?` (RM${escapeHtml(p.value)})`:''}（${t('剩余','left')} ${p.qty}）</div>`).join('')}
+          </div>
+          <div id="prize-hover-photo" style="display:none;position:absolute;left:calc(100% + 12px);top:0;width:260px;height:260px;background:#fff;border:1.5px solid var(--gold);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:21;padding:6px;"><img style="width:100%;height:100%;object-fit:contain;"></div>`:''}
+        </div>
       </div>
-      ${selectedPrize && selectedPrize.photo ? `<div style="text-align:center;margin:0 0 18px;"><img id="prize-select-photo" src="${selectedPrize.photo}" title="${t('点一下放大','Click to enlarge')}" style="width:min(100%,260px);height:220px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:10px;cursor:zoom-in;"></div>` : ''}
       <div class="stat-row">
         <div class="stat-card"><div class="stat-num">${eligibleCount}</div><div class="stat-label">${t('符合抽奖条件人数','Eligible participants')}</div></div>
         <div class="stat-card"><div class="stat-num gold">${ticketCount}</div><div class="stat-label">${t('共有机会次数','Total chances')}</div></div>
@@ -2037,8 +2041,13 @@
       sendLiveMessage({type:'focus', mode:'main', prizeName: pz?pz.name:'', prizeTier: pz?pz.tier:'', prizeValue: pz?pz.value:'', prizePhoto: pz?pz.photo:''});
       showToast(t('已发出同步信号','Focus signal sent'));
     };
-    const psp = container.querySelector('#prize-select-photo'); if(psp) psp.onclick = ()=>{ state.lightboxSrc = psp.getAttribute('src'); render(); };
-    container.querySelector('#prize-select').onchange = e=>{ state.drawSelectedPrize = e.target.value; state.revealedWinner=null; broadcastPrizeSelection(); renderAdminDrawTab(container); };
+    container.querySelector('#prize-dd-btn').onclick = ()=>{ state.prizeMenuOpen = !state.prizeMenuOpen; renderAdminDrawTab(container); };
+    const hoverBox = container.querySelector('#prize-hover-photo');
+    container.querySelectorAll('.prize-dd-item').forEach(it=>{
+      it.onmouseenter = ()=>{ it.style.background = '#f6ecd9'; const ph = it.getAttribute('data-photo'); if(hoverBox){ if(ph){ hoverBox.querySelector('img').src = ph; hoverBox.style.display='block'; } else hoverBox.style.display='none'; } };
+      it.onmouseleave = ()=>{ it.style.background = (it.getAttribute('data-pid')===state.drawSelectedPrize && it.getAttribute('data-pid'))?'#fdf1e0':''; };
+      it.onclick = ()=>{ state.drawSelectedPrize = it.getAttribute('data-pid'); state.prizeMenuOpen = false; state.revealedWinner=null; broadcastPrizeSelection(); renderAdminDrawTab(container); };
+    });
     const startBtn = container.querySelector('#start-draw-btn'); if(startBtn) startBtn.onclick = startDraw;
     const confirmBtn = container.querySelector('#confirm-winner-btn'); if(confirmBtn) confirmBtn.onclick = confirmWinner;
     const redrawBtn = container.querySelector('#redraw-btn'); if(redrawBtn) redrawBtn.onclick = ()=>{ discardDraw(); startDraw(); };
@@ -2642,6 +2651,11 @@
   }
 
   document.addEventListener('click', (e)=>{
+    if(state.prizeMenuOpen && !(e.target && e.target.closest && e.target.closest('#prize-dd-wrap'))){
+      state.prizeMenuOpen = false;
+      const c2 = document.getElementById('admin-content');
+      if(c2 && state.view==='admin' && state.adminTab==='draw') renderAdminDrawTab(c2);
+    }
     if(!state.ddMenuOpen) return;
     if(e.target && e.target.closest && e.target.closest('#dd-filter-wrap')) return;
     state.ddMenuOpen = false;
