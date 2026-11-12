@@ -116,6 +116,7 @@
   .draw-sub{font-size:13px;color:var(--ink-soft);margin-top:8px;}
   .draw-actions{margin-top:22px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
   body.confetti-on .rev-rays{animation-play-state:paused !important;}
+  @media (max-width:768px){ .rev-rays{animation:none !important;} }
   @keyframes revSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
   @keyframes revPop{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.18);opacity:1}100%{transform:scale(1);opacity:1}}
   @keyframes revDrop{0%{transform:translateY(-30px);opacity:0}100%{transform:translateY(0);opacity:1}}
@@ -807,21 +808,27 @@
   /* ---------------- win confetti ---------------- */
   const CONFETTI_PALETTE = ['#D85A30','#F0997B','#0F6E56','#5DCAA5','#BA7517','#FAC775'];
   let confettiTimer = null;
+  function isPhoneScreen(){ return window.matchMedia && window.matchMedia('(max-width: 768px)').matches; }
   function fireworksConfetti(){
     if(!window.confetti || window.__confettiLoadFailed) return;
     try{
       clearInterval(confettiTimer);
       document.body.classList.add('confetti-on');
+      const phone = isPhoneScreen();
+      const count = phone ? 4 : 10;
+      const gap = phone ? 140 : 90;
+      const ticks = phone ? 110 : 160;
+      const scalar = phone ? 0.9 : 1.1;
       const end = Date.now() + 2200;
       const shoot = ()=>{
-        confetti({ particleCount: 10, angle: 60, spread: 55, startVelocity: 60, ticks: 160, scalar: 1.1, origin: { x: 0, y: 0.7 }, colors: CONFETTI_PALETTE, useWorker: true, disableForReducedMotion: false });
-        confetti({ particleCount: 10, angle: 120, spread: 55, startVelocity: 60, ticks: 160, scalar: 1.1, origin: { x: 1, y: 0.7 }, colors: CONFETTI_PALETTE, useWorker: true, disableForReducedMotion: false });
+        confetti({ particleCount: count, angle: 60, spread: 55, startVelocity: phone?45:60, ticks, scalar, origin: { x: 0, y: 0.7 }, colors: CONFETTI_PALETTE, useWorker: true, disableForReducedMotion: false });
+        confetti({ particleCount: count, angle: 120, spread: 55, startVelocity: phone?45:60, ticks, scalar, origin: { x: 1, y: 0.7 }, colors: CONFETTI_PALETTE, useWorker: true, disableForReducedMotion: false });
       };
       shoot();
       confettiTimer = setInterval(()=>{
         if(Date.now() >= end){ clearInterval(confettiTimer); setTimeout(()=>document.body.classList.remove('confetti-on'), 1200); return; }
         shoot();
-      }, 90);
+      }, gap);
     }catch(e){ document.body.classList.remove('confetti-on'); }
   }
   function burstConfetti(){ fireworksConfetti(); }
