@@ -195,7 +195,7 @@
     search: '',
     historySearch: '',
     showTotalAmount: true,
-    prizeSortMode: 'value_asc',
+    prizeSortMode: 'value_asc', prizeFilter: 'all',
     editingEntryId: null,
     lightboxSrc: null,
     lightboxSrcs: null,
@@ -605,10 +605,10 @@
   }
 
   /* ---------------- admin: prizes ---------------- */
-  async function addPrize(name, qty, value, guaranteedEligible, guaranteedQty, tier){
+  async function addPrize(name, qty, value, guaranteedEligible, guaranteedQty, tier, outsideGift){
     if(!name.trim()){ showToast(t('请输入奖品名称','Please enter a prize name')); return; }
     try{
-      await api('/api/prizes', {method:'POST', auth:true, body:{name:name.trim(), qty, photo: state.newPrizePhoto, value: (value||'').toString().trim(), guaranteedEligible: !!guaranteedEligible, guaranteedQty, tier: tier||''}});
+      await api('/api/prizes', {method:'POST', auth:true, body:{name:name.trim(), qty, photo: state.newPrizePhoto, value: (value||'').toString().trim(), guaranteedEligible: !!guaranteedEligible, guaranteedQty, tier: tier||'', outsideGift: !!outsideGift}});
       state.newPrizePhoto = null;
       await loadAdminData(); render();
     }
@@ -619,10 +619,10 @@
     try{ await api('/api/prizes/'+id, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
     catch(e){ showToast(e.message); }
   }
-  async function updatePrize(id, name, qty, value, guaranteedEligible, guaranteedQty, tier){
+  async function updatePrize(id, name, qty, value, guaranteedEligible, guaranteedQty, tier, outsideGift){
     if(!name.trim()){ showToast(t('请输入奖品名称','Please enter a prize name')); return; }
     try{
-      const body = {name:name.trim(), qty, value:(value||'').toString().trim(), guaranteedEligible: !!guaranteedEligible, guaranteedQty, tier: tier||''};
+      const body = {name:name.trim(), qty, value:(value||'').toString().trim(), guaranteedEligible: !!guaranteedEligible, guaranteedQty, tier: tier||'', outsideGift: !!outsideGift};
       if(state.editPrizePhoto !== null) body.photo = state.editPrizePhoto;
       await api('/api/prizes/'+id, {method:'PUT', auth:true, body});
       state.editingPrizeId = null; state.editPrizePhoto = null;
@@ -1668,6 +1668,7 @@
     };
   }
 
+  function shownPrizes(){ return sortPrizesByMode(state.prizes.filter(p=> state.prizeFilter!=='outside' || p.outsideGift), state.prizeSortMode); }
   function sortPrizesByValue(prizes){
     return [...prizes].sort((a,b)=> (parseFloat(a.value)||0) - (parseFloat(b.value)||0));
   }
@@ -1708,8 +1709,17 @@
         <button class="small-btn" id="add-prize-btn">${t('添加奖品','Add Prize')}</button>
       </div>
       <label class="checkline" style="margin-bottom:8px;"><input type="checkbox" id="new-prize-guaranteed"> ${t('可用于幸运轮盘','Usable for Lucky Wheel')}</label>
+      <label class="checkline" style="margin-bottom:8px;"><input type="checkbox" id="new-prize-outside"> ${t('外买奖品','Outside-bought prize')}</label>
       <div class="field" style="margin-bottom:16px;"><label style="font-size:12.5px;">${t('幸运轮盘预留数量','Reserved for Lucky Wheel')} ${hintIcon(t('从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存','Reserve a portion of stock exclusively for Lucky Wheel, separate from the Main Draw stock'))}</label><input type="number" id="new-prize-guaranteed-qty" min="0" value="0" style="max-width:140px;"></div>
       ${state.prizes.length>0?`
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="field" style="max-width:220px;">
+        <label style="font-size:12.5px;">${t('显示','Show')}</label>
+        <select id="prize-filter">
+          <option value="all" ${state.prizeFilter==='all'?'selected':''}>${t('全部奖品','All prizes')}</option>
+          <option value="outside" ${state.prizeFilter==='outside'?'selected':''}>${t('只看外买奖品','Outside-bought only')}</option>
+        </select>
+      </div>
       <div class="field" style="max-width:220px;">
         <label style="font-size:12.5px;">${t('排序方式','Sort by')}</label>
         <select id="prize-sort-mode">
@@ -1718,10 +1728,12 @@
           <option value="qty_desc" ${state.prizeSortMode==='qty_desc'?'selected':''}>${t('最多数量','Most quantity')}</option>
         </select>
       </div>
+      </div>
       <button class="small-btn ghost" id="export-prizes-btn" style="margin:10px 0 16px;">${t('导出 CSV','Export CSV')}</button>
       `:''}
       ${state.prizes.length===0?`<div class="empty-state">${t('还没有添加奖品','No prizes added yet')}</div>`:
-        sortPrizesByMode(state.prizes, state.prizeSortMode).map(p=> p.id===state.editingPrizeId ? `
+        shownPrizes().length===0?`<div class="empty-state">${t('没有外买奖品','No outside-bought prizes')}</div>`:
+        shownPrizes().map(p=> p.id===state.editingPrizeId ? `
           <div class="prize-card" style="flex-direction:column;align-items:stretch;gap:10px;">
             <div class="upload-box">
               <label class="upload-btn">${t('更换图片','Change photo')}<input type="file" class="edit-prize-photo" data-id="${p.id}" accept="image/*"></label>
@@ -1739,6 +1751,7 @@
               </select>
             </div>
             <label class="checkline"><input type="checkbox" class="edit-guaranteed" ${p.guaranteedEligible?'checked':''}> ${t('可用于幸运轮盘','Usable for Lucky Wheel')}</label>
+            <label class="checkline"><input type="checkbox" class="edit-outside" ${p.outsideGift?'checked':''}> ${t('外买奖品','Outside-bought prize')}</label>
             <div class="field"><label style="font-size:12.5px;">${t('幸运轮盘预留数量','Reserved for Lucky Wheel')} ${hintIcon(t('从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存','Reserve a portion of stock exclusively for Lucky Wheel, separate from the Main Draw stock'))}</label><input type="number" class="edit-guaranteed-qty" min="0" value="${p.guaranteedQty||0}" style="max-width:140px;"></div>
             <div style="display:flex;gap:10px;">
               <button class="small-btn" data-save-prize="${p.id}">${t('保存','Save')}</button>
@@ -1749,7 +1762,7 @@
           <div class="prize-card">
             <div style="display:flex;align-items:center;gap:12px;">
               ${p.photo?`<img class="thumb prize-zoom" style="cursor:zoom-in;" data-src="${p.photo}" src="${p.photo}">`:''}
-              <div><div class="pname">${p.tier?`<span class="pill" style="background:var(--gold);color:var(--plum);">${escapeHtml(tierLabel(p.tier))}</span> `:''}${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}${p.guaranteedEligible?` <span class="pill win">${t('幸运轮盘','Lucky Wheel')}</span>`:''}</div><div class="pqty">${t('大抽奖剩余','Main Draw left')}：${p.qty}${p.guaranteedEligible?` · ${t('幸运轮盘预留剩余','Lucky Wheel reserved left')}：${p.guaranteedQty||0}`:''}</div></div>
+              <div><div class="pname">${p.tier?`<span class="pill" style="background:var(--gold);color:var(--plum);">${escapeHtml(tierLabel(p.tier))}</span> `:''}${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}${p.guaranteedEligible?` <span class="pill win">${t('幸运轮盘','Lucky Wheel')}</span>`:''}${p.outsideGift?` <span class="pill" style="background:#e9e2f3;color:var(--plum);">${t('外买奖品','Outside-bought')}</span>`:''}</div><div class="pqty">${t('大抽奖剩余','Main Draw left')}：${p.qty}${p.guaranteedEligible?` · ${t('幸运轮盘预留剩余','Lucky Wheel reserved left')}：${p.guaranteedQty||0}`:''}</div></div>
             </div>
             <div style="display:flex;gap:14px;align-items:center;">
               <button class="del-btn" data-edit-prize="${p.id}" style="color:var(--plum);">${t('编辑','Edit')}</button>
@@ -1766,16 +1779,18 @@
     const sortModeSelect = container.querySelector('#prize-sort-mode');
     const exportPrizesBtn = container.querySelector('#export-prizes-btn');
     if(exportPrizesBtn) exportPrizesBtn.onclick = ()=>{
-      const rows = [[t('奖品名字','Prize Name'), t('价值(RM)','Value (RM)'), t('数量','Quantity')]];
-      sortPrizesByMode(state.prizes, state.prizeSortMode).forEach(p=> rows.push([p.name, p.value||'', (p.qty||0)+(p.guaranteedQty||0)]));
+      const rows = [[t('奖品名字','Prize Name'), t('价值(RM)','Value (RM)'), t('数量','Quantity'), t('外买奖品','Outside-bought')]];
+      shownPrizes().forEach(p=> rows.push([p.name, p.value||'', (p.qty||0)+(p.guaranteedQty||0), p.outsideGift?t('是','Yes'):t('否','No')]));
       const csv = rows.map(r=> r.map(c=> '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
       const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href=url; a.download=t('奖品列表.csv','prizes.csv'); a.click();
       setTimeout(()=>URL.revokeObjectURL(url), 1000);
     };
+    const filterSelect = container.querySelector('#prize-filter');
+    if(filterSelect) filterSelect.onchange = e=>{ state.prizeFilter = e.target.value; renderAdminPrizesTab(container); };
     if(sortModeSelect) sortModeSelect.onchange = e=>{ state.prizeSortMode = e.target.value; renderAdminPrizesTab(container); };
-    container.querySelector('#add-prize-btn').onclick = ()=> addPrize(container.querySelector('#new-prize-name').value, container.querySelector('#new-prize-qty').value, container.querySelector('#new-prize-value').value, container.querySelector('#new-prize-guaranteed').checked, container.querySelector('#new-prize-guaranteed-qty').value, container.querySelector('#new-prize-tier').value);
+    container.querySelector('#add-prize-btn').onclick = ()=> addPrize(container.querySelector('#new-prize-name').value, container.querySelector('#new-prize-qty').value, container.querySelector('#new-prize-value').value, container.querySelector('#new-prize-guaranteed').checked, container.querySelector('#new-prize-guaranteed-qty').value, container.querySelector('#new-prize-tier').value, container.querySelector('#new-prize-outside').checked);
     container.querySelectorAll('[data-del-prize]').forEach(btn=>{ btn.onclick = ()=> deletePrize(btn.getAttribute('data-del-prize')); });
     container.querySelectorAll('[data-edit-prize]').forEach(btn=>{
       btn.onclick = ()=>{ state.editingPrizeId = btn.getAttribute('data-edit-prize'); state.editPrizePhoto = null; renderAdminPrizesTab(container); };
@@ -1800,7 +1815,7 @@
         const guaranteedEligible = card.querySelector('.edit-guaranteed').checked;
         const guaranteedQty = card.querySelector('.edit-guaranteed-qty').value;
         const tier = card.querySelector('.edit-tier').value;
-        updatePrize(id, name, qty, value, guaranteedEligible, guaranteedQty, tier);
+        updatePrize(id, name, qty, value, guaranteedEligible, guaranteedQty, tier, card.querySelector('.edit-outside').checked);
       };
     });
   }
