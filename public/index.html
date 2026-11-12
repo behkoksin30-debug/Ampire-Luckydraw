@@ -1003,6 +1003,11 @@
     next();
   }
 
+  function displayName(en){
+    if(!en) return '';
+    const c = String(en.customerName||'').trim();
+    return (c && c!=='—' && c!=='-') ? c : (en.name||'');
+  }
   function custKey(en){
     const k = String((en && en.customerName) || '').trim().toLowerCase().replace(/\s+/g,' ');
     return (k && k!=='—' && k!=='-') ? k : '';
@@ -1044,12 +1049,12 @@
     const pool = eligibleTicketPool();
     if(pool.length===0){ showToast(t('没有符合条件的参与者','No eligible participants')); return; }
     state.drawing = true; state.revealedWinner = null; render();
-    sendLiveMessage({type:'draw_start', mode:'main', rollingItems: Array.from(new Set(pool.map(p=>p.name))), context: selectedPrize.name, prizeTier: selectedPrize.tier, prizeValue: selectedPrize.value, prizePhoto: selectedPrize.photo, durationSeconds: state.eventConfig.drawDurationSeconds || 5});
+    sendLiveMessage({type:'draw_start', mode:'main', rollingItems: Array.from(new Set(pool.map(p=>displayName(p)))), context: selectedPrize.name, prizeTier: selectedPrize.tier, prizeValue: selectedPrize.value, prizePhoto: selectedPrize.photo, durationSeconds: state.eventConfig.drawDurationSeconds || 5});
     let count = 0; const totalTicks = drawTickCount();
     clearInterval(rollInterval);
     rollInterval = setInterval(()=>{
       const r = pool[Math.floor(Math.random()*pool.length)];
-      state.rollingName = r.name; count++;
+      state.rollingName = displayName(r); count++;
       const nameEl = document.getElementById('draw-name-el');
       if(nameEl) nameEl.textContent = state.rollingName;
       const progress = count/totalTicks;
@@ -1060,7 +1065,7 @@
         state.drawing = false;
         playWinChime();
         celebrateMainDrawWin(selectedPrize);
-        lastRevealPayload = Object.assign({type:'draw_reveal', mode:'main', resultTitle: state.revealedWinner.name, resultSub: selectedPrize.name, prizeTier: selectedPrize.tier, prizePhoto: selectedPrize.photo||'', prizeLabel: (selectedPrize.tier?`【${tierLabel(selectedPrize.tier)}】`:'')+selectedPrize.name+(selectedPrize.value?` (RM${selectedPrize.value})`:'')}, liveWinnerExtra(state.revealedWinner));
+        lastRevealPayload = Object.assign({type:'draw_reveal', mode:'main', resultTitle: displayName(state.revealedWinner), resultSub: selectedPrize.name, prizeTier: selectedPrize.tier, prizePhoto: selectedPrize.photo||'', prizeLabel: (selectedPrize.tier?`【${tierLabel(selectedPrize.tier)}】`:'')+selectedPrize.name+(selectedPrize.value?` (RM${selectedPrize.value})`:'')}, liveWinnerExtra(state.revealedWinner));
         sendLiveMessage(lastRevealPayload);
         render();
       }
@@ -1923,7 +1928,7 @@
     state.guaranteedSpinning = true;
     state.guaranteedWheelPool = pool;
     render();
-    sendLiveMessage({type:'draw_start', mode:'wheel', rollingItems: pool.map(p=>p.name), context: (spinningEntry?spinningEntry.name:''), durationSeconds: duration});
+    sendLiveMessage({type:'draw_start', mode:'wheel', rollingItems: pool.map(p=>p.name), context: displayName(spinningEntry), durationSeconds: duration});
     requestAnimationFrame(()=>{
       const wheelEl = document.getElementById('wheel-'+entryId);
       if(wheelEl){
@@ -1937,7 +1942,7 @@
       state.guaranteedSpinning = false;
       playWinChime();
       celebrateGuaranteedWin();
-      lastRevealPayload = Object.assign({type:'draw_reveal', mode:'wheel', resultTitle: (spinningEntry?spinningEntry.name:''), resultSub: winner.name, prizePhoto: winner.photo||'', prizeLabel: winner.name+(winner.value?` (RM${winner.value})`:'')}, liveWinnerExtra(spinningEntry));
+      lastRevealPayload = Object.assign({type:'draw_reveal', mode:'wheel', resultTitle: displayName(spinningEntry), resultSub: winner.name, prizePhoto: winner.photo||'', prizeLabel: winner.name+(winner.value?` (RM${winner.value})`:'')}, liveWinnerExtra(spinningEntry));
       sendLiveMessage(lastRevealPayload);
       render();
     }, duration*1000 + 150);
@@ -2019,7 +2024,7 @@
         ${state.revealedWinner?`<div class="rev-banner">${t('恭喜 / Congratulations','Congratulations')}</div>`:''}
         ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!(pz && pz.photo)) return ''; return `<div class="rev-photo"><img src="${pz.photo}"><i></i></div>`; })()}
         <div class="draw-prize-label">${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!pz) return t('请先选择奖品','Please select a prize first'); return t('奖品','Prize')+'：'+(pz.tier?`【${escapeHtml(tierLabel(pz.tier))}】`:'')+escapeHtml(pz.name)+(pz.value?` (RM${escapeHtml(pz.value)})`:''); })()}</div>
-        <div class="draw-name ${state.drawing?'rolling':''}" id="draw-name-el">${state.revealedWinner ? escapeHtml(state.revealedWinner.name) : (state.drawing ? escapeHtml(state.rollingName||'…') : '—')}</div>
+        <div class="draw-name ${state.drawing?'rolling':''}" id="draw-name-el">${state.revealedWinner ? escapeHtml(displayName(state.revealedWinner)) : (state.drawing ? escapeHtml(state.rollingName||'…') : '—')}</div>
         ${state.revealedWinner?`<div class="draw-sub">${t('顾客','Customer')}：${escapeHtml(state.revealedWinner.customerName||'—')} · ${t('DD名字','DD Name')}：${escapeHtml(state.revealedWinner.ddName||'—')} · ${t('联系方式','Contact')}：${escapeHtml(state.revealedWinner.contact)}</div>`:''}
         <div class="draw-actions">
           ${!state.drawing && !state.revealedWinner? `<button class="small-btn go-btn" id="start-draw-btn" title="${t('也可以按 Enter / 空格 / 翻页笔','Or press Enter / Space / presenter remote')}">${t('开始抽奖','Start Draw')}</button>`:''}
