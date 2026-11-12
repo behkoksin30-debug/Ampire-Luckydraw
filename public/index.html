@@ -1003,9 +1003,18 @@
     next();
   }
 
+  function custKey(en){
+    const k = String((en && en.customerName) || '').trim().toLowerCase().replace(/\s+/g,' ');
+    return (k && k!=='—' && k!=='-') ? k : '';
+  }
+  function winsOf(en){
+    const k = custKey(en);
+    if(!k) return (en.wonPrizes||[]).length;
+    return state.entries.reduce((sum,e)=> custKey(e)===k ? sum + (e.wonPrizes||[]).length : sum, 0);
+  }
   function eligibleEntries(){
     const maxWins = state.eventConfig.maxWinsPerPerson || 0;
-    return state.entries.filter(en=> maxWins>0 ? (en.wonPrizes||[]).length < maxWins : true).filter(en=> (en.ticketCount||0) > 0);
+    return state.entries.filter(en=> maxWins>0 ? winsOf(en) < maxWins : true).filter(en=> (en.ticketCount||0) > 0);
   }
   function eligibleTicketPool(){
     const pool = [];
@@ -1836,7 +1845,7 @@
       return { label: t('已使用','Used'), count: 0 };
     }
     const maxWins = state.eventConfig.maxWinsPerPerson || 0;
-    if(maxWins>0 && (en.wonPrizes||[]).length >= maxWins){
+    if(maxWins>0 && winsOf(en) >= maxWins){
       return { label: t('已达中奖上限','Win cap reached'), count: 0 };
     }
     return { label: '1'+t('次','x'), count: 1 };
@@ -1847,7 +1856,7 @@
     const maxWins = state.eventConfig.maxWinsPerPerson || 0;
     const guaranteedWinnerIds = new Set(state.draws.filter(d=>d.guaranteed).map(d=>d.entryId));
     return state.entries.filter(en=> (parseFloat(en.amount)||0) >= threshold)
-      .filter(en=> maxWins>0 ? (en.wonPrizes||[]).length < maxWins : true)
+      .filter(en=> maxWins>0 ? winsOf(en) < maxWins : true)
       .filter(en=> !guaranteedWinnerIds.has(en.id));
   }
   function guaranteedPrizePool(){
@@ -2029,7 +2038,7 @@
               <div class="prize-card" style="${isActive?'flex-direction:column;align-items:stretch;':''}">
                 <div>
                   <div class="pname">${escapeHtml(en.name)} <span style="font-weight:400;color:var(--ink-soft);">· ${t('顾客','Customer')} ${escapeHtml(en.customerName||'—')}</span></div>
-                  <div class="pqty">${t('金额','Amount')} RM${escapeHtml(String(en.amount))} · ${t('已中','Won')} ${(en.wonPrizes||[]).length} ${t('次','x')} · ${t('编号','ID')} ${en.id}</div>
+                  <div class="pqty">${t('金额','Amount')} RM${escapeHtml(String(en.amount))} · ${t('已中','Won')} ${winsOf(en)} ${t('次','x')} · ${t('编号','ID')} ${en.id}</div>
                 </div>
                 ${!isActive?`
                 <div style="display:flex;gap:8px;flex-shrink:0;">
