@@ -1708,13 +1708,13 @@
         </select>
         <button class="small-btn" id="add-prize-btn">${t('添加奖品','Add Prize')}</button>
       </div>
-      <div style="display:flex;align-items:flex-end;gap:12px 22px;flex-wrap:wrap;margin-bottom:16px;">
-        <label class="checkline" style="margin:0 0 12px;"><input type="checkbox" id="new-prize-guaranteed"> ${t('可用于幸运轮盘','Usable for Lucky Wheel')}</label>
-        <label class="checkline" style="margin:0 0 12px;"><input type="checkbox" id="new-prize-outside"> ${t('外买奖品','Outside-bought prize')}</label>
+      <div style="display:flex;align-items:flex-end;gap:14px 24px;flex-wrap:wrap;margin-bottom:16px;">
+        <div style="display:flex;flex-direction:column;gap:10px;padding-bottom:10px;">
+          <label class="checkline" style="margin:0;"><input type="checkbox" id="new-prize-guaranteed"> ${t('可用于幸运轮盘','Usable for Lucky Wheel')}</label>
+          <label class="checkline" style="margin:0;"><input type="checkbox" id="new-prize-outside"> ${t('外买奖品','Outside-bought prize')}</label>
+        </div>
         <div class="field" style="margin:0;"><label style="font-size:12.5px;">${t('幸运轮盘预留数量','Reserved for Lucky Wheel')} ${hintIcon(t('从总库存里独立预留一部分给满额送礼用，不影响大抽奖库存','Reserve a portion of stock exclusively for Lucky Wheel, separate from the Main Draw stock'))}</label><input type="number" id="new-prize-guaranteed-qty" min="0" value="0" style="width:120px;"></div>
-      </div>
-      ${state.prizes.length>0?`
-      <div style="display:flex;gap:12px 16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
+        ${state.prizes.length>0?`
       <div class="field" style="max-width:220px;margin:0;">
         <label style="font-size:12.5px;">${t('显示','Show')}</label>
         <select id="prize-filter">
@@ -1731,8 +1731,8 @@
         </select>
       </div>
       <button class="small-btn ghost" id="export-prizes-btn" style="margin:0;height:42px;">${t('导出 CSV','Export CSV')}</button>
+        `:''}
       </div>
-      `:''}
       ${state.prizes.length===0?`<div class="empty-state">${t('还没有添加奖品','No prizes added yet')}</div>`:
         shownPrizes().length===0?`<div class="empty-state">${t('没有外买奖品','No outside-bought prizes')}</div>`:
         shownPrizes().map(p=> p.id===state.editingPrizeId ? `
