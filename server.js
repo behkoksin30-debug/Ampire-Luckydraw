@@ -334,7 +334,7 @@ app.post('/api/entries', (req, res) => {
     return res.status(400).json({ error: '报名已结束 / Registration is closed' });
   }
   const { name, contact, ddName, customerName, orderId, amount, photo, ocrOverride, orderDate } = req.body || {};
-  if (!name || !contact || !ddName || !orderId || !amount || !photo) {
+  if (!name || !contact || !ddName || !String(customerName || '').trim() || !orderId || !amount || !photo) {
     return res.status(400).json({ error: '资料不完整，请填写全部字段并上传照片 / Missing information, please fill in all fields and upload a photo' });
   }
   if (!orderDate && !ocrOverride) {
