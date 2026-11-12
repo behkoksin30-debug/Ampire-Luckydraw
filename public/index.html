@@ -1685,12 +1685,13 @@
     return tier;
   }
   function renderAdminPrizesTab(container){
-    const totalQty = state.prizes.reduce((sum,p)=> sum + (p.qty||0) + (p.guaranteedQty||0), 0);
-    const totalValue = state.prizes.reduce((sum,p)=> sum + ((parseFloat(p.value)||0) * ((p.qty||0)+(p.guaranteedQty||0))), 0);
+    const totalsBase = state.prizes.filter(p=> state.prizeFilter!=='outside' || p.outsideGift);
+    const totalQty = totalsBase.reduce((sum,p)=> sum + (p.qty||0) + (p.guaranteedQty||0), 0);
+    const totalValue = totalsBase.reduce((sum,p)=> sum + ((parseFloat(p.value)||0) * ((p.qty||0)+(p.guaranteedQty||0))), 0);
     container.innerHTML = `
       <div class="stat-row">
-        <div class="stat-card"><div class="stat-num">${totalQty}</div><div class="stat-label">${t('总奖品数量','Total prize qty')}</div></div>
-        <div class="stat-card"><div class="stat-num gold">RM${totalValue.toLocaleString(undefined,{maximumFractionDigits:2})}</div><div class="stat-label">${t('总价值','Total value')}</div></div>
+        <div class="stat-card"><div class="stat-num">${totalQty}</div><div class="stat-label">${state.prizeFilter==='outside'?t('外买奖品数量','Outside-bought qty'):t('总奖品数量','Total prize qty')}</div></div>
+        <div class="stat-card"><div class="stat-num gold">RM${totalValue.toLocaleString(undefined,{maximumFractionDigits:2})}</div><div class="stat-label">${state.prizeFilter==='outside'?t('外买奖品总价值','Outside-bought value'):t('总价值','Total value')}</div></div>
       </div>
       <div class="upload-box" style="margin-bottom:12px;">
         <label class="upload-btn">${t('上载奖品图片','Upload prize photo')}<input type="file" id="new-prize-photo" accept="image/*"></label>
