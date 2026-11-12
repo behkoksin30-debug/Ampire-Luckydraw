@@ -1691,6 +1691,7 @@
           <option value="qty_desc" ${state.prizeSortMode==='qty_desc'?'selected':''}>${t('最多数量','Most quantity')}</option>
         </select>
       </div>
+      <button class="small-btn ghost" id="export-prizes-btn" style="margin:10px 0 16px;">${t('导出 CSV','Export CSV')}</button>
       `:''}
       ${state.prizes.length===0?`<div class="empty-state">${t('还没有添加奖品','No prizes added yet')}</div>`:
         sortPrizesByMode(state.prizes, state.prizeSortMode).map(p=> p.id===state.editingPrizeId ? `
@@ -1736,6 +1737,16 @@
       catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
     };
     const sortModeSelect = container.querySelector('#prize-sort-mode');
+    const exportPrizesBtn = container.querySelector('#export-prizes-btn');
+    if(exportPrizesBtn) exportPrizesBtn.onclick = ()=>{
+      const rows = [[t('奖品名字','Prize Name'), t('价值(RM)','Value (RM)'), t('数量','Quantity')]];
+      sortPrizesByMode(state.prizes, state.prizeSortMode).forEach(p=> rows.push([p.name, p.value||'', (p.qty||0)+(p.guaranteedQty||0)]));
+      const csv = rows.map(r=> r.map(c=> '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+      const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download=t('奖品列表.csv','prizes.csv'); a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    };
     if(sortModeSelect) sortModeSelect.onchange = e=>{ state.prizeSortMode = e.target.value; renderAdminPrizesTab(container); };
     container.querySelector('#add-prize-btn').onclick = ()=> addPrize(container.querySelector('#new-prize-name').value, container.querySelector('#new-prize-qty').value, container.querySelector('#new-prize-value').value, container.querySelector('#new-prize-guaranteed').checked, container.querySelector('#new-prize-guaranteed-qty').value, container.querySelector('#new-prize-tier').value);
     container.querySelectorAll('[data-del-prize]').forEach(btn=>{ btn.onclick = ()=> deletePrize(btn.getAttribute('data-del-prize')); });
