@@ -2003,6 +2003,7 @@
         <div class="stat-card"><div class="stat-num">${eligibleCount}</div><div class="stat-label">${t('符合抽奖条件人数','Eligible participants')}</div></div>
         <div class="stat-card"><div class="stat-num gold">${ticketCount}</div><div class="stat-label">${t('共有机会次数','Total chances')}</div></div>
         <div class="stat-card"><div class="stat-num gold">${maxWins>0?maxWins:t('不限','Unlimited')}</div><div class="stat-label">${t('每人最多中奖次数','Max wins per person')}</div></div>
+        <div class="stat-card"><div class="stat-num">${state.prizes.filter(p=>p.guaranteedEligible).reduce((sum,p)=>sum+(p.guaranteedQty||0),0)}</div><div class="stat-label">${t('幸运轮盘抽奖奖品数量','Lucky Wheel prizes left')}</div></div>
         ${selectedPrize?`<div class="stat-card"><div class="stat-num gold">${selectedTotalQty}</div><div class="stat-label">${escapeHtml(selectedPrize.name)} ${t('总剩余数量','total remaining')}</div></div>`:''}
       </div>
       <div class="draw-stage staged ${state.revealedWinner?'revealed':''}">
