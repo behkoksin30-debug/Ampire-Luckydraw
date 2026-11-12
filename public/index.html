@@ -842,6 +842,8 @@
       else ws.addEventListener('open', ()=>{ try{ ws.send(JSON.stringify(payload)); }catch(e){} }, {once:true});
     }catch(e){}
   }
+  let lastRevealPayload = null;
+  function sendRevealConfirmed(){ if(lastRevealPayload) sendLiveMessage(Object.assign({}, lastRevealPayload, {confirmed:true})); }
   function maskPhone(c){
     const d = String(c||'');
     if(d.length<7) return d ? d.slice(0,1)+'***' : '—';
@@ -928,6 +930,8 @@
       const rdt = document.getElementById('live-reveal-detail');
       rdt.textContent = (msg.customerName!==undefined) ? `${t('顾客','Customer')}：${msg.customerName||'—'} · ${t('DD名字','DD Name')}：${msg.ddName||'—'} · ${t('联系方式','Contact')}：${msg.contactMasked||'—'}` : '';
       revealEl.style.display = 'block';
+      const cf = document.getElementById('live-reveal-confirmed'); if(cf) cf.style.display = msg.confirmed ? 'block' : 'none';
+      if(msg.confirmed){ try{ playTick(1000); setTimeout(()=>playTick(1400),120); }catch(e){} return; }
       playWinChime();
       if(msg.mode==='wheel'){ fireworksConfetti(); }
       else { (msg.prizeTier==='大奖'||msg.prizeTier==='二奖'||msg.prizeTier==='三奖') ? fireworksConfetti() : burstConfetti(); }
@@ -954,6 +958,7 @@
             <div id="live-reveal-sub" style="font-size:14px;color:var(--gold-light);margin-bottom:6px;"></div>
             <div id="live-reveal-title" style="font-family:var(--serif,inherit);font-size:34px;font-weight:700;color:var(--gold-light);word-break:break-word;"></div>
             <div id="live-reveal-detail" style="font-size:13px;color:#e8dcc0;margin-top:12px;line-height:1.6;"></div>
+            <div id="live-reveal-confirmed" style="display:none;margin-top:16px;padding:9px 14px;border-radius:999px;background:var(--gold-light);color:var(--plum);font-weight:700;font-size:15px;">✅ 中奖结果已确认 / Result confirmed</div>
           </div>
         </div>
         <div class="admin-link"><a id="back-to-entry-link">${t('← 返回报名','← Back to entry')}</a></div>
@@ -1037,7 +1042,8 @@
         state.drawing = false;
         playWinChime();
         celebrateMainDrawWin(selectedPrize);
-        sendLiveMessage(Object.assign({type:'draw_reveal', mode:'main', resultTitle: state.revealedWinner.name, resultSub: selectedPrize.name, prizeTier: selectedPrize.tier, prizePhoto: selectedPrize.photo||'', prizeLabel: (selectedPrize.tier?`【${tierLabel(selectedPrize.tier)}】`:'')+selectedPrize.name+(selectedPrize.value?` (RM${selectedPrize.value})`:'')}, liveWinnerExtra(state.revealedWinner)));
+        lastRevealPayload = Object.assign({type:'draw_reveal', mode:'main', resultTitle: state.revealedWinner.name, resultSub: selectedPrize.name, prizeTier: selectedPrize.tier, prizePhoto: selectedPrize.photo||'', prizeLabel: (selectedPrize.tier?`【${tierLabel(selectedPrize.tier)}】`:'')+selectedPrize.name+(selectedPrize.value?` (RM${selectedPrize.value})`:'')}, liveWinnerExtra(state.revealedWinner));
+        sendLiveMessage(lastRevealPayload);
         render();
       }
     }, 90);
@@ -1047,13 +1053,14 @@
     if(!winner || !state.drawSelectedPrize) return;
     try{
       await api('/api/draws', {method:'POST', auth:true, body:{prizeId: state.drawSelectedPrize, entryId: winner.id}});
+      sendRevealConfirmed();
       state.revealedWinner = null;
       await loadAdminData();
       showToast(t('中奖结果已保存','Result saved'));
       render();
     }catch(e){ showToast(e.message); }
   }
-  function discardDraw(){ state.revealedWinner = null; render(); }
+  function discardDraw(){ state.revealedWinner = null; broadcastPrizeSelection(); render(); }
   async function revokeDraw(drawId){
     if(!confirm(t('确定撤销此中奖记录吗？奖品数量与中奖状态将会恢复。','Revoke this draw record? The prize quantity and win status will be restored.'))) return;
     try{ await api('/api/draws/'+drawId, {method:'DELETE', auth:true}); await loadAdminData(); render(); }
@@ -1894,7 +1901,8 @@
       state.guaranteedSpinning = false;
       playWinChime();
       celebrateGuaranteedWin();
-      sendLiveMessage(Object.assign({type:'draw_reveal', mode:'wheel', resultTitle: (spinningEntry?spinningEntry.name:''), resultSub: winner.name, prizePhoto: winner.photo||'', prizeLabel: winner.name+(winner.value?` (RM${winner.value})`:'')}, liveWinnerExtra(spinningEntry)));
+      lastRevealPayload = Object.assign({type:'draw_reveal', mode:'wheel', resultTitle: (spinningEntry?spinningEntry.name:''), resultSub: winner.name, prizePhoto: winner.photo||'', prizeLabel: winner.name+(winner.value?` (RM${winner.value})`:'')}, liveWinnerExtra(spinningEntry));
+      sendLiveMessage(lastRevealPayload);
       render();
     }, duration*1000 + 150);
     scheduleWheelTicks(duration);
@@ -1914,6 +1922,7 @@
     try{
       await api('/api/draws', {method:'POST', auth:true, body:{prizeId: prize.id, entryId, guaranteed:true}});
       state.guaranteedDrawEntryId = null;
+      sendRevealConfirmed();
       state.guaranteedRevealedPrize = null;
       await loadAdminData();
       showToast(t('礼物已送出','Gift sent'));
