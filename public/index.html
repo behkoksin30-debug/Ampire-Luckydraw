@@ -1720,7 +1720,7 @@
         ` : `
           <div class="prize-card">
             <div style="display:flex;align-items:center;gap:12px;">
-              ${p.photo?`<img class="thumb" src="${p.photo}">`:''}
+              ${p.photo?`<img class="thumb prize-zoom" style="cursor:zoom-in;" data-src="${p.photo}" src="${p.photo}">`:''}
               <div><div class="pname">${p.tier?`<span class="pill" style="background:var(--gold);color:var(--plum);">${escapeHtml(tierLabel(p.tier))}</span> `:''}${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}${p.guaranteedEligible?` <span class="pill win">${t('幸运轮盘','Lucky Wheel')}</span>`:''}</div><div class="pqty">${t('大抽奖剩余','Main Draw left')}：${p.qty}${p.guaranteedEligible?` · ${t('幸运轮盘预留剩余','Lucky Wheel reserved left')}：${p.guaranteedQty||0}`:''}</div></div>
             </div>
             <div style="display:flex;gap:14px;align-items:center;">
@@ -1729,6 +1729,7 @@
             </div>
           </div>`).join('')}
     `;
+    container.querySelectorAll('.prize-zoom').forEach(img=>{ img.onclick = ()=>{ state.lightboxSrc = img.getAttribute('data-src'); render(); }; });
     container.querySelector('#new-prize-photo').onchange = async (e)=>{
       const file = e.target.files[0]; if(!file) return;
       try{ state.newPrizePhoto = await compressImage(file); renderAdminPrizesTab(container); }
