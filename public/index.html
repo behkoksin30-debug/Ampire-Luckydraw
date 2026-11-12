@@ -871,6 +871,21 @@
   function liveWinnerExtra(en){
     return en ? {customerName: en.customerName||'', ddName: en.ddName||'', contactMasked: maskPhone(en.contact)} : {};
   }
+  let liveWheelKey = '';
+  function setupLiveWheel(items){
+    const rot = document.getElementById('live-wheel-rot');
+    if(!rot || !items || !items.length) return;
+    const key = JSON.stringify(items);
+    if(key !== liveWheelKey){ liveWheelKey = key; rot.innerHTML = buildWheelSvg(items.map(n=>({name:n}))); }
+    rot.style.transition = 'none'; rot.style.transform = 'rotate(0deg)';
+  }
+  function spinLiveWheel(deg, dur){
+    const rot = document.getElementById('live-wheel-rot'); if(!rot) return;
+    rot.style.transition = 'none'; rot.style.transform = 'rotate(0deg)';
+    void rot.offsetWidth;
+    rot.style.transition = 'transform '+dur+'s cubic-bezier(0.15,0.65,0.15,1)';
+    rot.style.transform = 'rotate('+deg+'deg)';
+  }
   function handleLiveMessage(msg){
     if(state.view!=='live'){
       const isProgressMsg = (msg.type==='prize_selected' && msg.prizeName) || msg.type==='draw_start' || msg.type==='focus';
@@ -899,6 +914,7 @@
       } else if(msg.mode==='wheel'){
         statusEl.textContent = t('幸运轮盘 · 即将抽出','Lucky Wheel · Coming up');
         contextEl.textContent = msg.context || '';
+        if(msg.wheelItems) setupLiveWheel(msg.wheelItems);
         wheelEl.style.display = 'block';
       } else {
         statusEl.textContent = t('等待管理员开始抽奖…','Waiting for the draw to start…');
@@ -926,6 +942,13 @@
       contextEl.textContent = (msg.prizeTier?`【${msg.prizeTier}】`:'') + (msg.context || '') + (msg.prizeValue?` (RM${msg.prizeValue})`:'');
       if(msg.mode==='main' && msg.prizePhoto){ photoEl.src = msg.prizePhoto; photoEl.style.display = 'inline-block'; }
       else { photoEl.style.display = 'none'; }
+      if(msg.mode==='wheel' && msg.wheelItems && msg.wheelItems.length){
+        setupLiveWheel(msg.wheelItems);
+        wheelEl.style.display = 'block';
+        rollEl.style.display = 'none';
+        spinLiveWheel(msg.finalRotation || 0, msg.durationSeconds || 5);
+        return;
+      }
       const items = (msg.rollingItems && msg.rollingItems.length) ? msg.rollingItems : ['—'];
       const duration = msg.durationSeconds || 5;
       const totalTicks = Math.max(4, Math.round(duration*1000/90));
@@ -977,7 +1000,7 @@
           <div style="height:22px;position:relative;z-index:2;"></div>
           <div id="live-status" class="draw-prize-label" style="font-size:14px;margin-bottom:10px;position:relative;z-index:2;">${t('等待管理员开始抽奖…','Waiting for the draw to start…')}</div>
           <div style="position:relative;z-index:2;"><img id="live-focus-photo" style="width:180px;height:180px;border:3px solid var(--gold-light);border-radius:10px;object-fit:contain;background:#fff;margin:0 auto 12px;display:none;"></div>
-          <div id="live-focus-wheel" style="position:relative;z-index:2;width:120px;height:120px;border-radius:50%;margin:0 auto 12px;border:3px solid var(--gold-light);display:none;background:conic-gradient(var(--gold) 0deg 60deg,var(--gold-light) 60deg 120deg,var(--rose) 120deg 180deg,var(--plum-2) 180deg 240deg,var(--plum) 240deg 300deg,var(--gold) 300deg 360deg);"></div>
+          <div id="live-focus-wheel" class="wheel-wrap" style="display:none;position:relative;z-index:2;width:min(78vw,250px);height:min(78vw,250px);margin:30px auto 14px;"><div class="wheel-pointer">▼</div><div class="wheel-hub"></div><div class="wheel" id="live-wheel-rot"></div></div>
           <div id="live-context" class="draw-prize-label" style="position:relative;z-index:2;margin-bottom:14px;"></div>
           <div id="live-idle-name" class="draw-name" style="position:relative;z-index:2;">—</div>
           <div id="live-rolling" class="draw-name rolling" style="display:none;position:relative;z-index:2;"></div>
@@ -1913,9 +1936,18 @@
       const tx = cx + (r*0.6)*Math.cos(midAngle*Math.PI/180);
       const ty = cy + (r*0.6)*Math.sin(midAngle*Math.PI/180);
       const textRotate = midAngle + 90;
-      const label = escapeHtml(truncateName(p.name, 14));
+      const arcW = 2*Math.PI*(r*0.6)/pool.length;
+      const words = String(p.name||'').split(/\s+/).filter(Boolean);
+      const maxChars = pool.length<=3 ? 16 : 12;
+      const lines = []; let cur = '';
+      words.forEach(w=>{ if(cur && (cur+' '+w).length>maxChars){ lines.push(cur); cur = w; } else cur = cur ? cur+' '+w : w; });
+      if(cur) lines.push(cur);
+      const longest = Math.max(1, ...lines.map(l=>l.length));
+      const fs = Math.max(4.5, Math.min(9, arcW/(lines.length*1.2), 74/(longest*0.6)));
+      const lh = fs*1.2;
+      const tspans = lines.map((l,k)=>`<tspan x="${tx.toFixed(2)}" dy="${k===0 ? (-(lines.length-1)/2*lh).toFixed(2) : lh.toFixed(2)}">${escapeHtml(l)}</tspan>`).join('');
       return `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${wheelColor(i)}" stroke="#fffdf9" stroke-width="1.5"/>`
-        + `<text x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" fill="#fff" font-size="10" font-weight="700" text-anchor="middle" dominant-baseline="middle" transform="rotate(${textRotate.toFixed(2)}, ${tx.toFixed(2)}, ${ty.toFixed(2)})" style="paint-order:stroke;stroke:#00000066;stroke-width:2px;">${label}</text>`;
+        + `<text x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" fill="#fff" font-size="${fs.toFixed(2)}" font-weight="700" text-anchor="middle" dominant-baseline="middle" transform="rotate(${textRotate.toFixed(2)}, ${tx.toFixed(2)}, ${ty.toFixed(2)})" style="paint-order:stroke;stroke:#00000066;stroke-width:1.6px;">${tspans}</text>`;
     }).join('');
     return `<svg viewBox="0 0 200 200" style="width:100%;height:100%;display:block;">${parts}</svg>`;
   }
@@ -1929,7 +1961,7 @@
     state.guaranteedRevealedPrize = null;
     state.guaranteedSpinning = false;
     state.guaranteedWheelPool = pool;
-    sendLiveMessage({type:'focus', mode:'wheel', context: en ? (en.name + (en.customerName?` · ${t('顾客','Customer')} ${en.customerName}`:'')) : ''});
+    sendLiveMessage({type:'focus', mode:'wheel', wheelItems: pool.map(p=>p.name), context: en ? (en.name + (en.customerName?` · ${t('顾客','Customer')} ${en.customerName}`:'')) : ''});
     render();
   }
   async function startGuaranteedDraw(entryId){
@@ -1951,7 +1983,7 @@
     state.guaranteedSpinning = true;
     state.guaranteedWheelPool = pool;
     render();
-    sendLiveMessage({type:'draw_start', mode:'wheel', rollingItems: pool.map(p=>p.name), context: displayName(spinningEntry), durationSeconds: duration});
+    sendLiveMessage({type:'draw_start', mode:'wheel', wheelItems: pool.map(p=>p.name), finalRotation, rollingItems: pool.map(p=>p.name), context: displayName(spinningEntry), durationSeconds: duration});
     requestAnimationFrame(()=>{
       const wheelEl = document.getElementById('wheel-'+entryId);
       if(wheelEl){
@@ -2025,11 +2057,11 @@
       </div>
       <div class="select-row">
         <div id="prize-dd-wrap" style="position:relative;width:100%;max-width:520px;">
-          <button type="button" id="prize-dd-btn" style="width:100%;text-align:left;padding:10px 34px 10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;cursor:pointer;position:relative;">${selectedPrize?`${selectedPrize.tier?`【${escapeHtml(tierLabel(selectedPrize.tier))}】`:''}${escapeHtml(selectedPrize.name)}${selectedPrize.value?` (RM${escapeHtml(selectedPrize.value)})`:''}（${t('剩余','left')} ${selectedPrize.qty}）`:t('选择要抽取的奖品','Select a prize to draw')}<span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:11px;">▼</span></button>
+          <button type="button" id="prize-dd-btn" style="width:100%;text-align:left;padding:10px 34px 10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;cursor:pointer;position:relative;">${selectedPrize?`${selectedPrize.tier?`【${escapeHtml(tierLabel(selectedPrize.tier))}】`:''}${escapeHtml(selectedPrize.name)}${selectedPrize.value?` (RM${escapeHtml(selectedPrize.value)})`:''}${selectedPrize.guaranteedEligible?` <span class="pill win">${t('幸运轮盘','Lucky Wheel')}</span>`:''}（${t('剩余','left')} ${selectedPrize.qty}）`:t('选择要抽取的奖品','Select a prize to draw')}<span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:11px;">▼</span></button>
           ${state.prizeMenuOpen?`
           <div id="prize-dd-menu" style="position:absolute;left:0;right:0;top:100%;margin-top:4px;background:#fff;border:1.5px solid var(--line);border-radius:8px;max-height:340px;overflow:auto;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.18);">
             <div class="prize-dd-item" data-pid="" style="padding:9px 12px;font-size:14px;cursor:pointer;color:var(--ink-soft);">${t('选择要抽取的奖品','Select a prize to draw')}</div>
-            ${availablePrizes.map(p=>`<div class="prize-dd-item" data-pid="${p.id}" data-photo="${escapeAttr(p.photo||'')}" style="padding:9px 12px;font-size:14px;cursor:pointer;${state.drawSelectedPrize===p.id?'background:#fdf1e0;font-weight:700;':''}">${p.tier?`【${escapeHtml(tierLabel(p.tier))}】`:''}${escapeHtml(p.name)}${p.value?` (RM${escapeHtml(p.value)})`:''}（${t('剩余','left')} ${p.qty}）</div>`).join('')}
+            ${availablePrizes.map(p=>`<div class="prize-dd-item" data-pid="${p.id}" data-photo="${escapeAttr(p.photo||'')}" style="padding:9px 12px;font-size:14px;cursor:pointer;${state.drawSelectedPrize===p.id?'background:#fdf1e0;font-weight:700;':''}">${p.tier?`【${escapeHtml(tierLabel(p.tier))}】`:''}${escapeHtml(p.name)}${p.value?` (RM${escapeHtml(p.value)})`:''}${p.guaranteedEligible?` <span class="pill win">${t('幸运轮盘','Lucky Wheel')}</span>`:''}（${t('剩余','left')} ${p.qty}）</div>`).join('')}
           </div>
           <div id="prize-hover-photo" style="display:none;position:absolute;left:calc(100% + 12px);top:0;width:340px;height:340px;background:#fff;border:1.5px solid var(--gold);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:21;padding:6px;"><img style="width:100%;height:100%;object-fit:contain;"></div>`:''}
         </div>
