@@ -518,7 +518,19 @@ app.post('/api/draws', requireAdmin, (req, res) => {
   if (!entry) return res.status(400).json({ error: '参与者不存在，可能已被删除' });
 
   const maxWins = cfg.maxWinsPerPerson || 0;
-  const currentWins = (entry.wonPrizes || []).length;
+  const custKey = (e) => {
+    const k = String((e && e.customerName) || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    return (k && k !== '—' && k !== '-') ? k : '';
+  };
+  let currentWins = (entry.wonPrizes || []).length;
+  const myKey = custKey(entry);
+  if (myKey) {
+    currentWins = 0;
+    for (const f of fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'))) {
+      const other = readJson(path.join(ENTRIES_DIR, f), null);
+      if (other && custKey(other) === myKey) currentWins += (other.wonPrizes || []).length;
+    }
+  }
   if (maxWins > 0 && currentWins >= maxWins) {
     return res.status(400).json({ error: '该顾客已达到最多中奖次数上限' });
   }
