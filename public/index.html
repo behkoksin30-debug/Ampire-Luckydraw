@@ -866,6 +866,8 @@
     const photoEl = document.getElementById('live-focus-photo');
     const wheelEl = document.getElementById('live-focus-wheel');
     if(!statusEl) return;
+    const bannerEl = document.getElementById('live-banner'); if(bannerEl) bannerEl.style.display = msg.type==='draw_reveal' ? 'block' : 'none';
+    const idleEl = document.getElementById('live-idle-name'); if(idleEl) idleEl.style.display = (msg.type==='focus'||msg.type==='prize_selected') ? 'block' : 'none';
     if(msg.type==='focus'){
       revealEl.style.display = 'none';
       rollEl.style.display = 'none';
@@ -947,18 +949,22 @@
           <p>${t('抽奖进行时会自动同步画面','The screen updates automatically while a draw is happening')}</p>
         </div>
         <div class="perforation"></div>
-        <div class="ticket-body" style="text-align:center;padding:50px 30px;min-height:220px;">
-          <div id="live-status" style="font-size:15px;color:var(--ink-soft);margin-bottom:8px;">${t('等待管理员开始抽奖…','Waiting for the draw to start…')}</div>
-          <img id="live-focus-photo" style="width:120px;height:120px;border-radius:8px;object-fit:cover;margin:0 auto 12px;display:none;">
-          <div id="live-focus-wheel" style="width:120px;height:120px;border-radius:50%;margin:0 auto 12px;border:3px solid var(--plum);display:none;background:conic-gradient(var(--gold) 0deg 60deg,var(--gold-light) 60deg 120deg,var(--rose) 120deg 180deg,var(--plum-2) 180deg 240deg,var(--plum) 240deg 300deg,var(--gold) 300deg 360deg);"></div>
-          <div id="live-context" style="font-size:13px;color:var(--gold);margin-bottom:18px;"></div>
-          <div id="live-rolling" style="font-size:28px;font-weight:700;color:var(--plum);display:none;"></div>
-          <div id="live-reveal" style="display:none;margin:0 -14px;padding:22px 16px 24px;border-radius:14px;background:radial-gradient(circle at 50% 30%,#5a2a56,#3a1838 70%);border:2px dashed var(--gold);">
-            <img id="live-reveal-photo" style="display:none;width:min(70%,220px);height:200px;object-fit:contain;background:#fff;border:3px solid var(--gold-light);border-radius:12px;margin:0 auto 14px;">
-            <div id="live-reveal-sub" style="font-size:14px;color:var(--gold-light);margin-bottom:6px;"></div>
-            <div id="live-reveal-title" style="font-family:var(--serif,inherit);font-size:34px;font-weight:700;color:var(--gold-light);word-break:break-word;"></div>
-            <div id="live-reveal-detail" style="font-size:13px;color:#e8dcc0;margin-top:12px;line-height:1.6;"></div>
-            <div id="live-reveal-confirmed" style="display:none;margin-top:16px;padding:9px 14px;border-radius:999px;background:var(--gold-light);color:var(--plum);font-weight:700;font-size:15px;">✅ 中奖结果已确认 / Result confirmed</div>
+        <div class="draw-stage staged" id="live-stage" style="border-radius:0;border-left:0;border-right:0;padding:0 20px 34px;min-height:260px;">
+          <div class="rev-rays"></div>
+          <div id="live-banner" class="rev-banner" style="display:none;">${t('恭喜 / Congratulations','Congratulations')}</div>
+          <div style="height:22px;position:relative;z-index:2;"></div>
+          <div id="live-status" class="draw-prize-label" style="font-size:14px;margin-bottom:10px;position:relative;z-index:2;">${t('等待管理员开始抽奖…','Waiting for the draw to start…')}</div>
+          <div style="position:relative;z-index:2;"><img id="live-focus-photo" style="width:180px;height:180px;border:3px solid var(--gold-light);border-radius:10px;object-fit:contain;background:#fff;margin:0 auto 12px;display:none;"></div>
+          <div id="live-focus-wheel" style="position:relative;z-index:2;width:120px;height:120px;border-radius:50%;margin:0 auto 12px;border:3px solid var(--gold-light);display:none;background:conic-gradient(var(--gold) 0deg 60deg,var(--gold-light) 60deg 120deg,var(--rose) 120deg 180deg,var(--plum-2) 180deg 240deg,var(--plum) 240deg 300deg,var(--gold) 300deg 360deg);"></div>
+          <div id="live-context" class="draw-prize-label" style="position:relative;z-index:2;margin-bottom:14px;"></div>
+          <div id="live-idle-name" class="draw-name" style="position:relative;z-index:2;">—</div>
+          <div id="live-rolling" class="draw-name rolling" style="display:none;position:relative;z-index:2;"></div>
+          <div id="live-reveal" style="display:none;position:relative;z-index:2;">
+            <img id="live-reveal-photo" style="display:none;width:200px;height:200px;object-fit:contain;background:#fff;border:3px solid var(--gold-light);border-radius:10px;margin:0 auto 14px;">
+            <div id="live-reveal-sub" class="draw-prize-label" style="margin-bottom:6px;"></div>
+            <div id="live-reveal-title" class="draw-name" style="font-size:40px;word-break:break-word;"></div>
+            <div id="live-reveal-detail" class="draw-sub" style="font-size:13px;margin-top:12px;line-height:1.6;"></div>
+            <div id="live-reveal-confirmed" style="display:none;margin-top:16px;padding:9px 14px;border-radius:999px;background:var(--gold-light);color:var(--plum);font-weight:700;font-size:15px;display:none;">✅ 中奖结果已确认 / Result confirmed</div>
           </div>
         </div>
         <div class="admin-link"><a id="back-to-entry-link">${t('← 返回报名','← Back to entry')}</a></div>
