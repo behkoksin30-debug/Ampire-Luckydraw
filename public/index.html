@@ -467,6 +467,7 @@
       const { data } = await worker.recognize(ocrImage);
       const text = (data && data.text) ? data.text : '';
       state.ocrText = text.trim();
+      if(ocrIsCancelled(state.ocrText)){ state.formErrors = Object.assign({}, state.formErrors, {ocr: CANCELLED_MSG}); }
       const guess = guessOrderIdAndAmount(text);
       if(guess.orderId) state.form.orderId = guess.orderId;
       if(guess.amount) state.form.amount = guess.amount;
@@ -496,6 +497,8 @@
     }
     return { orderIdMismatch, amountMismatch, dateMismatch, foundOrderIds, foundAmount, foundDates, typedDate, hasIssue: orderIdMismatch||amountMismatch||dateMismatch };
   }
+  const CANCELLED_MSG = '此订单状态为 CANCELLED（已取消），不能参加抽奖，请上传有效订单的截图 / This order is CANCELLED and is not eligible for the lucky draw, please upload a valid order';
+  function ocrIsCancelled(text){ return /cancell?ed|已取消|已撤销/i.test(String(text||'')); }
   function validateForm(){
     const errs = {};
     if(!state.form.name.trim()) errs.name = '请输入姓名 / Please enter your name';
@@ -505,7 +508,9 @@
     if(!state.form.photo) errs.photo = '请上传订单截图 / Please upload the order screenshot';
     if(!state.form.orderId.trim()) errs.orderId = '请输入订单号 / Please enter the Order ID';
     if(!state.form.amount.toString().trim()) errs.amount = '请输入金额 / Please enter the amount';
-    if(state.form.photo && state.form.orderId.trim() && state.form.amount.toString().trim()){
+    if(state.form.photo && ocrIsCancelled(state.ocrText)){
+      errs.ocr = CANCELLED_MSG;
+    } else if(state.form.photo && state.form.orderId.trim() && state.form.amount.toString().trim()){
       const ocrText = state.ocrText || '';
       if(!ocrText.trim()){
         errs.ocr = '请先点击「OCR自动识别」核对照片内容，再提交 / Please click "OCR Auto-Detect" to verify the photo before submitting';
