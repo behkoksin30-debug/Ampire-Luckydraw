@@ -418,17 +418,9 @@ app.get('/api/entries', requireAdmin, (req, res) => {
     const count = computeTicketCount(entry.amount, rate, tiers, maxTickets);
     entry.ticketCount = count;
     entry.ticketIds = Array.from({ length: count }, (_, i) => entry.id + '-' + (i + 1));
-    entry.hasPhoto = !!entry.photo;
-    delete entry.photo;
   });
   list.sort((a, b) => b.submittedAt - a.submittedAt);
   res.json(list);
-});
-app.get('/api/entries/:id/photo', requireAdmin, (req, res) => {
-  const id = String(req.params.id).replace(/[^A-Za-z0-9_-]/g, '');
-  const entry = readJson(path.join(ENTRIES_DIR, id + '.json'), null);
-  if (!entry) return res.status(404).json({ error: '登记资料不存在' });
-  res.json({ photo: entry.photo || null });
 });
 app.put('/api/entries/:id', requireAdmin, (req, res) => {
   const file = path.join(ENTRIES_DIR, req.params.id + '.json');
