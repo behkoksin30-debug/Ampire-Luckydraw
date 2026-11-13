@@ -225,7 +225,7 @@ app.put('/api/config', requireAdmin, (req, res) => {
   }
   if (req.body.drawDurationSeconds !== undefined) {
     const ds = parseFloat(req.body.drawDurationSeconds);
-    cfg.drawDurationSeconds = (!isNaN(ds) && ds >= 1.5 && ds <= 10) ? ds : (cfg.drawDurationSeconds || 5);
+    cfg.drawDurationSeconds = (!isNaN(ds) && ds >= 1 && ds <= 10) ? ds : (cfg.drawDurationSeconds || 5);
   }
   if (req.body.registrationDeadline !== undefined) {
     const dl = req.body.registrationDeadline;
