@@ -122,13 +122,12 @@
   @keyframes revDrop{0%{transform:translateY(-30px);opacity:0}100%{transform:translateY(0);opacity:1}}
   @keyframes revShine{0%{transform:translateX(-140%) skewX(-20deg)}60%,100%{transform:translateX(240%) skewX(-20deg)}}
   .draw-stage.staged{background:var(--plum);border-color:var(--gold);padding:0 20px 30px;}
-  .draw-stage .rev-rays{position:absolute;left:50%;top:48%;width:900px;height:900px;transform:translate(-50%,-50%);background:repeating-conic-gradient(rgba(240,217,160,.20) 0deg 9deg,rgba(240,217,160,0) 9deg 18deg);-webkit-mask-image:radial-gradient(circle,#000 8%,transparent 66%);mask-image:radial-gradient(circle,#000 8%,transparent 66%);pointer-events:none;}
-  .draw-stage.revealed .rev-rays{animation:revSpin 18s linear 1 forwards;}
+  .draw-stage .rev-rays{position:absolute;left:50%;top:48%;width:900px;height:900px;transform:translate(-50%,-50%);background:repeating-conic-gradient(rgba(240,217,160,.20) 0deg 9deg,rgba(240,217,160,0) 9deg 18deg);-webkit-mask-image:radial-gradient(circle,#000 8%,transparent 66%);mask-image:radial-gradient(circle,#000 8%,transparent 66%);animation:revSpin 18s linear infinite;pointer-events:none;}
   .draw-stage .rev-banner{position:relative;z-index:2;margin:0 -20px;padding:10px 12px;background:var(--gold);color:var(--plum);font-size:14px;font-weight:700;letter-spacing:.04em;animation:revDrop .5s ease-out both;}
   .draw-stage .rev-photo{position:relative;z-index:2;display:inline-block;margin:28px 0 14px;border:3px solid var(--gold-light);border-radius:10px;overflow:hidden;background:#fff;line-height:0;}
   .draw-stage.revealed .rev-photo{animation:revDrop .6s .15s ease-out both;}
   .draw-stage .rev-photo img{display:block;width:280px;height:280px;max-width:100%;object-fit:contain;background:#fff;}
-  .draw-stage .rev-photo i{position:absolute;top:0;left:0;width:40%;height:100%;background:rgba(255,255,255,.75);animation:revShine 2.6s ease-in-out 2;}
+  .draw-stage .rev-photo i{position:absolute;top:0;left:0;width:40%;height:100%;background:rgba(255,255,255,.75);animation:revShine 2.6s ease-in-out infinite;}
   .draw-stage.staged .draw-prize-label{position:relative;z-index:2;color:var(--gold-light);}
   .draw-stage.staged .draw-name{position:relative;z-index:2;color:var(--gold-light);text-shadow:0 0 18px rgba(198,150,60,.7);}
   .draw-stage.staged .draw-name.rolling{color:#e8d6a8;}
@@ -140,7 +139,7 @@
   .draw-stage.staged .small-btn:hover{background:var(--gold-light);}
   .draw-stage.staged .small-btn.ghost{background:transparent;color:var(--gold-light);border:1.5px solid var(--gold-light);}
   @keyframes goGlow{0%,100%{box-shadow:0 0 0 0 rgba(198,150,60,.55)}50%{box-shadow:0 0 22px 6px rgba(198,150,60,.45)}}
-  .draw-stage.staged .small-btn.go-btn{padding:13px 42px;font-size:17px;letter-spacing:.08em;border-radius:10px;animation:goGlow 2s 3;}
+  .draw-stage.staged .small-btn.go-btn{padding:13px 42px;font-size:17px;letter-spacing:.08em;border-radius:10px;animation:goGlow 2s infinite;}
   .draw-stage.staged .small-btn.ghost:hover{background:rgba(240,217,160,.15);}
   .draw-stage.staged .wheel-pointer{color:var(--gold-light);}
   .select-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;}
@@ -1641,7 +1640,7 @@
             const isEditing = state.editingEntryId === en.id;
             return `
             <tr>
-              <td>${en.hasPhoto?`<button class="small-btn ghost view-proof" data-eid="${en.id}" type="button">${t('查看','View')}</button>`:'—'}</td>
+              <td><img class="mini-thumb" data-src="${en.photo}" src="${en.photo}"></td>
               <td>${escapeHtml(en.name)}</td>
               <td>${escapeHtml(en.contact)}</td>
               <td>${escapeHtml(en.ddName||'—')}</td>
@@ -1666,12 +1665,7 @@
       </table>
       </div>`}
     `;
-    container.querySelectorAll('.view-proof').forEach(btn=>{ btn.onclick = async ()=>{
-      const old = btn.textContent; btn.textContent = '…'; btn.disabled = true;
-      try{ const r = await api('/api/entries/'+btn.getAttribute('data-eid')+'/photo', {auth:true}); if(r && r.photo){ state.lightboxSrc = r.photo; render(); } else showToast(t('没有截图','No screenshot')); }
-      catch(e){ showToast(e.message); }
-      btn.textContent = old; btn.disabled = false;
-    }; });
+    container.querySelectorAll('.mini-thumb').forEach(img=>{ img.onclick = ()=>{ state.lightboxSrc = img.getAttribute('data-src'); render(); }; });
     container.querySelectorAll('[data-del]').forEach(btn=>{ btn.onclick = ()=> deleteEntry(btn.getAttribute('data-del')); });
     container.querySelectorAll('[data-edit-entry]').forEach(btn=>{
       btn.onclick = ()=>{ state.editingEntryId = btn.getAttribute('data-edit-entry'); renderAdminEntriesTab(container); };
