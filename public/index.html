@@ -645,7 +645,7 @@
     if(audioCtx.state==='suspended') audioCtx.resume();
     return audioCtx;
   }
-  let audioUnlocked = false, silentEl = null;
+  let audioUnlocked = false;
   function updateSoundBtn(){
     const b = document.getElementById('live-sound-btn'); if(!b) return;
     if(audioUnlocked){ b.textContent = t('🔊 声音已开启','🔊 Sound on'); b.style.opacity = '.7'; setTimeout(()=>{ const x=document.getElementById('live-sound-btn'); if(x && audioUnlocked) x.style.display='none'; }, 1800); }
@@ -656,15 +656,10 @@
       const ctx = getAudioCtx();
       if(ctx.resume) ctx.resume();
       const buf = ctx.createBuffer(1, 1, 22050); const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start(0);
-      if(!silentEl){
-        silentEl = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=');
-        silentEl.loop = true; silentEl.volume = 0.01; silentEl.setAttribute('playsinline','');
-      }
-      const pr = silentEl.play(); if(pr && pr.catch) pr.catch(()=>{});
-      if(ctx.state==='running' || ctx.state==='suspended'){ audioUnlocked = true; updateSoundBtn(); }
+      audioUnlocked = true; updateSoundBtn();
     }catch(e){}
   }
-  ['touchend','click'].forEach(ev=> document.addEventListener(ev, ()=>{ if(!audioUnlocked) unlockAudio(); }, {passive:true}));
+  ['touchend','click'].forEach(ev=> document.addEventListener(ev, ()=>{ if(!audioUnlocked && state.view==='live') unlockAudio(); }, {passive:true}));
   function playTick(pitch){
     const theme = state.eventConfig.soundTheme || 'classic';
     try{
