@@ -7,6 +7,23 @@ const http = require('http');
 const { WebSocketServer } = require('ws');
 
 const app = express();
+/* in-memory index of order IDs so submitting never has to re-read every entry file */
+let orderIndex = null;
+function normOrderId(x) { return String(x || '').trim().toLowerCase(); }
+function getOrderIndex() {
+  if (!orderIndex) {
+    orderIndex = new Map();
+    for (const f of fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'))) {
+      const e = readJson(path.join(ENTRIES_DIR, f), null);
+      if (e && e.id) orderIndex.set(e.id, normOrderId(e.orderId));
+    }
+  }
+  return orderIndex;
+}
+function orderIdTaken(norm, exceptId) {
+  for (const [id, o] of getOrderIndex()) { if (o === norm && id !== exceptId) return true; }
+  return false;
+}
 app.use(express.json({ limit: '12mb' }));
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
@@ -340,13 +357,8 @@ app.post('/api/entries', (req, res) => {
   if (!orderDate && !ocrOverride) {
     return res.status(400).json({ error: '请输入订单日期，或勾选OCR确认框 / Please enter the order date, or check the OCR confirmation box' });
   }
-  const orderIdNorm = String(orderId).trim().toLowerCase();
-  const existingFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
-  const isDuplicate = existingFiles.some(f => {
-    const existing = readJson(path.join(ENTRIES_DIR, f), null);
-    return existing && String(existing.orderId || '').trim().toLowerCase() === orderIdNorm;
-  });
-  if (isDuplicate) {
+  const orderIdNorm = normOrderId(orderId);
+  if (orderIdTaken(orderIdNorm)) {
     return res.status(400).json({ error: '该订单号已经登记过 / This Order ID has already been registered' });
   }
   const id = genId('LD-', 6);
@@ -365,6 +377,7 @@ app.post('/api/entries', (req, res) => {
     wonPrizes: []
   };
   fs.writeFileSync(path.join(ENTRIES_DIR, id + '.json'), JSON.stringify(entry));
+  getOrderIndex().set(id, orderIdNorm);
   const rate = cfg.conversionRate || 100;
   const tiers = cfg.tiers || [];
   const maxTickets = cfg.maxTicketsPerPerson || 0;
@@ -379,13 +392,8 @@ app.post('/api/admin/entries', requireAdmin, (req, res) => {
   if (!name || !contact || !ddName || !customerName || !orderId || !amount) {
     return res.status(400).json({ error: '资料不完整，请填写全部必填字段 / Missing information, please fill in all required fields' });
   }
-  const orderIdNorm = String(orderId).trim().toLowerCase();
-  const existingFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
-  const isDuplicate = existingFiles.some(f => {
-    const existing = readJson(path.join(ENTRIES_DIR, f), null);
-    return existing && String(existing.orderId || '').trim().toLowerCase() === orderIdNorm;
-  });
-  if (isDuplicate) {
+  const orderIdNorm = normOrderId(orderId);
+  if (orderIdTaken(orderIdNorm)) {
     return res.status(400).json({ error: '该订单号已经登记过 / This Order ID has already been registered' });
   }
   const id = genId('LD-', 6);
@@ -405,6 +413,7 @@ app.post('/api/admin/entries', requireAdmin, (req, res) => {
     wonPrizes: []
   };
   fs.writeFileSync(path.join(ENTRIES_DIR, id + '.json'), JSON.stringify(entry));
+  getOrderIndex().set(id, orderIdNorm);
   res.json({ id });
 });
 app.get('/api/entries', requireAdmin, (req, res) => {
@@ -430,13 +439,8 @@ app.put('/api/entries/:id', requireAdmin, (req, res) => {
   if (orderId !== undefined) {
     const newOrderId = String(orderId).trim();
     if (!newOrderId) return res.status(400).json({ error: '订单号不能为空' });
-    const newOrderIdNorm = newOrderId.toLowerCase();
-    const existingFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json') && f !== req.params.id + '.json');
-    const isDuplicate = existingFiles.some(f => {
-      const other = readJson(path.join(ENTRIES_DIR, f), null);
-      return other && String(other.orderId || '').trim().toLowerCase() === newOrderIdNorm;
-    });
-    if (isDuplicate) return res.status(400).json({ error: '该订单号已经登记过 / This Order ID has already been registered' });
+    const newOrderIdNorm = normOrderId(newOrderId);
+    if (orderIdTaken(newOrderIdNorm, entry.id)) return res.status(400).json({ error: '该订单号已经登记过 / This Order ID has already been registered' });
     entry.orderId = newOrderId.slice(0, 100);
   }
   if (amount !== undefined) {
@@ -449,16 +453,19 @@ app.put('/api/entries/:id', requireAdmin, (req, res) => {
   }
   entry.ocrOverride = false;
   fs.writeFileSync(file, JSON.stringify(entry));
+  getOrderIndex().set(entry.id, normOrderId(entry.orderId));
   res.json({ ok: true });
 });
 app.delete('/api/entries/:id', requireAdmin, (req, res) => {
   const file = path.join(ENTRIES_DIR, req.params.id + '.json');
   if (fs.existsSync(file)) fs.unlinkSync(file);
+  getOrderIndex().delete(req.params.id);
   res.json({ ok: true });
 });
 app.delete('/api/entries', requireAdmin, (req, res) => {
   const files = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
   files.forEach(f => fs.unlinkSync(path.join(ENTRIES_DIR, f)));
+  orderIndex = null;
   res.json({ ok: true, deleted: files.length });
 });
 
@@ -656,6 +663,7 @@ function snapshotActiveInto(archiveDir, label) {
 function clearActiveData() {
   const entryFiles = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
   entryFiles.forEach(f => fs.unlinkSync(path.join(ENTRIES_DIR, f)));
+  orderIndex = null;
   writeJson(PRIZES_FILE, []);
   writeJson(DRAWS_FILE, []);
   const cfg = readConfig();
@@ -724,6 +732,7 @@ app.post('/api/archives/:id/restore', requireAdmin, (req, res) => {
     fs.readdirSync(entriesDir).filter(f => f.endsWith('.json')).forEach(f => {
       fs.copyFileSync(path.join(entriesDir, f), path.join(ENTRIES_DIR, f));
     });
+    orderIndex = null;
   }
   const archivedPrizes = readJson(path.join(archiveDir, 'prizes.json'), []);
   writeJson(PRIZES_FILE, archivedPrizes);
