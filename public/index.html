@@ -2067,8 +2067,8 @@
         <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;justify-content:flex-end;">
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="font-size:13px;font-weight:700;color:var(--plum);">${t('抽奖秒数','Draw Seconds')}</span>
-            <input type="number" id="draw-duration-input" min="1.5" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}" style="width:72px;padding:7px 8px;border:1.5px solid var(--line);border-radius:8px;text-align:center;">
-            <span style="font-size:12.5px;color:var(--ink-soft);">${t('秒（1.5~10）','sec (1.5–10)')}</span>
+            <input type="number" id="draw-duration-input" min="1" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}" style="width:72px;padding:7px 8px;border:1.5px solid var(--line);border-radius:8px;text-align:center;">
+            <span style="font-size:12.5px;color:var(--ink-soft);">${t('秒（1~10）','sec (1–10)')}</span>
           </div>
         </div>
       </div>
@@ -2166,7 +2166,7 @@
     };
     container.querySelector('#draw-duration-input').onchange = async (e)=>{
       const v = parseFloat(e.target.value);
-      if(isNaN(v) || v<1.5 || v>10){ showToast(t('秒数要在 1.5~10 之间','Seconds must be between 1.5 and 10')); e.target.value = state.eventConfig.drawDurationSeconds||5; return; }
+      if(isNaN(v) || v<1 || v>10){ showToast(t('秒数要在 1~10 之间','Seconds must be between 1 and 10')); e.target.value = state.eventConfig.drawDurationSeconds||5; return; }
       try{
         await api('/api/config', {method:'PUT', auth:true, body:{drawDurationSeconds: v}});
         state.eventConfig.drawDurationSeconds = v;
@@ -2461,7 +2461,7 @@
         <div class="field"><label>${t('幸运轮盘门槛','Lucky Wheel Threshold')} ${hintIcon(t('金额达到这个数字的人，可以在「开始抽奖」页由管理员指定送出保证礼物，每人限领一次；填0代表不启用','People who reach this amount can be given a guaranteed gift by the admin on the Draw page, once per person; 0 = disabled'))}</label><input type="text" id="ev-giftthreshold" value="${escapeAttr(state.eventConfig.guaranteedGiftThreshold)}"></div>
       </div>
       <div class="row2">
-        <div class="field"><label>${t('抽奖动画时长（秒）','Draw Animation Duration (sec)')} ${hintIcon(t('大抽奖和幸运轮盘抽礼物共用，1.5~10秒之间','Shared by Main Draw and Lucky Wheel, 1.5–10 seconds'))}</label><input type="number" id="ev-drawduration" min="1.5" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}"></div>
+        <div class="field"><label>${t('抽奖动画时长（秒）','Draw Animation Duration (sec)')} ${hintIcon(t('大抽奖和幸运轮盘抽礼物共用，1~10秒之间','Shared by Main Draw and Lucky Wheel, 1–10 seconds'))}</label><input type="number" id="ev-drawduration" min="1" max="10" step="0.5" value="${escapeAttr(state.eventConfig.drawDurationSeconds||5)}"></div>
         <div class="field"><label>${t('抽奖音效主题','Draw Sound Theme')} ${hintIcon(t('大抽奖和转盘共用同一个主题','Shared by Main Draw and the wheel'))}</label>
           <div style="display:flex;gap:8px;">
             <select id="ev-soundtheme" style="flex:1;">
