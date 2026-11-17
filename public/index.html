@@ -117,6 +117,14 @@
   .draw-actions{margin-top:22px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
   body.confetti-on .rev-rays{animation-play-state:paused !important;}
   @media (max-width:768px){ .rev-rays{animation:none !important;} }
+  .help-tap{position:fixed;top:14px;right:18px;z-index:40;width:60px;height:60px;padding:0;border:0;background:none;cursor:pointer;}
+  .help-tap .help-face{position:relative;width:60px;height:60px;border-radius:50%;background:var(--plum);border:2.5px solid var(--gold);color:var(--gold-light);font-weight:800;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(62,22,56,.35);animation:helpBlink 1.6s ease-in-out infinite;}
+  .help-tap .help-ring{position:absolute;inset:0;border-radius:50%;border:3px solid var(--gold);animation:helpRing 1.6s ease-out infinite;pointer-events:none;}
+  .help-tap .help-ring.r2{animation-delay:.8s;}
+  .help-tap .help-hand{position:absolute;right:-12px;bottom:-12px;font-size:24px;animation:helpTap 1.6s ease-in-out infinite;transform-origin:bottom right;}
+  @keyframes helpRing{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.9);opacity:0}}
+  @keyframes helpBlink{0%,100%{transform:scale(1);box-shadow:0 4px 12px rgba(62,22,56,.35);background:var(--plum);color:var(--gold-light)}50%{transform:scale(1.12);box-shadow:0 0 22px 6px rgba(240,200,90,.85);background:var(--gold);color:var(--plum)}}
+  @keyframes helpTap{0%,100%{transform:translate(0,0)}50%{transform:translate(-5px,-6px)}}
   @keyframes revSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
   @keyframes revPop{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.18);opacity:1}100%{transform:scale(1);opacity:1}}
   @keyframes revDrop{0%{transform:translateY(-30px);opacity:0}100%{transform:translateY(0);opacity:1}}
@@ -1324,7 +1332,7 @@
   }
   function renderHelpIcon(){
     if(!(state.eventConfig.helpImages && state.eventConfig.helpImages.length)) return '';
-    return `<button id="help-icon-btn" type="button" title="${t('不懂请点我','Click me if unsure')}" style="position:fixed;top:16px;right:16px;z-index:40;width:40px;height:40px;border-radius:50%;background:var(--plum);color:var(--gold-light);border:2px solid var(--gold);font-size:18px;cursor:pointer;box-shadow:0 4px 12px rgba(62,22,56,.3);">❓</button>`;
+    return `<button id="help-icon-btn" class="help-tap" type="button" title="${t('不懂请点我','Click me if unsure')}"><span class="help-ring"></span><span class="help-ring r2"></span><span class="help-face">${t('点我','Tap')}<span class="help-hand">👆</span></span></button>`;
   }
   function wireHelpIcon(){
     const btn = document.getElementById('help-icon-btn');
