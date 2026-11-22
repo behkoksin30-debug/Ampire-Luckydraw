@@ -239,6 +239,7 @@ app.put('/api/config', requireAdmin, (req, res) => {
   }
   if (req.body.helpImages !== undefined) {
     cfg.helpImages = Array.isArray(req.body.helpImages) ? req.body.helpImages.filter(Boolean).slice(0, 20) : [];
+    cleanupHelpVideos(cfg);
   }
   if (req.body.drawDurationSeconds !== undefined) {
     const ds = parseFloat(req.body.drawDurationSeconds);
@@ -298,6 +299,37 @@ app.post('/api/admin/poster-video', requireAdmin, (req, res) => {
     res.json({ posterMediaType: cfg.posterMediaType, posterVideoUrl: cfg.posterVideoUrl });
   });
 });
+const helpVideoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, MEDIA_DIR),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase() || '.mp4';
+      cb(null, 'help-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) + ext);
+    }
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype || !file.mimetype.startsWith('video/')) {
+      return cb(new Error('只支持上传视频文件 / Only video files are supported'));
+    }
+    cb(null, true);
+  }
+});
+app.post('/api/admin/help-video', requireAdmin, (req, res) => {
+  helpVideoUpload.single('video')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message || '视频上传失败 / Video upload failed' });
+    if (!req.file) return res.status(400).json({ error: '没有收到视频文件 / No video file received' });
+    res.json({ url: '/media/' + req.file.filename });
+  });
+});
+function cleanupHelpVideos(cfg) {
+  try {
+    const keep = new Set((cfg.helpImages || []).map(s => path.basename(String(s))));
+    fs.readdirSync(MEDIA_DIR).forEach(f => {
+      if (f.startsWith('help-') && !keep.has(f)) { try { fs.unlinkSync(path.join(MEDIA_DIR, f)); } catch (e) {} }
+    });
+  } catch (e) {}
+}
 app.delete('/api/admin/poster-video', requireAdmin, (req, res) => {
   const cfg = readConfig();
   deleteOldPosterVideo(cfg);
