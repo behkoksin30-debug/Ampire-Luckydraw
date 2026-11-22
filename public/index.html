@@ -237,6 +237,7 @@
     draftPosterImage: undefined,
     posterVideoUploading: false,
     ddFilters: [],
+    pdpaFilter: 'all',
     ddMenuOpen: false, prizeMenuOpen: false,
     showAddEntryForm: false,
     newEntryForm: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null },
@@ -1614,6 +1615,10 @@
     const q = state.search.trim().toLowerCase();
     return state.entries.filter(en=>{
       if(state.ddFilters.length && !state.ddFilters.includes(ddKey(en))) return false;
+      if(state.eventConfig.pdpaEnabled){
+        if(state.pdpaFilter==='yes' && !en.pdpaConsent) return false;
+        if(state.pdpaFilter==='no' && en.pdpaConsent) return false;
+      }
       if(!q) return true;
       return en.name.toLowerCase().includes(q) || en.orderId.toLowerCase().includes(q) || en.contact.toLowerCase().includes(q) || en.id.toLowerCase().includes(q)
         || (en.ddName||'').toLowerCase().includes(q) || (en.customerName||'').toLowerCase().includes(q);
@@ -1658,6 +1663,11 @@
         </div>
         <div style="display:flex;gap:10px;flex-shrink:0;">
           <button class="small-btn" id="toggle-add-entry-btn">${state.showAddEntryForm?t('取消添加','Cancel Add'):t('+ 添加新订单','+ Add Entry')}</button>
+          ${state.eventConfig.pdpaEnabled?`<select id="pdpa-filter" style="padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;">
+            <option value="all" ${state.pdpaFilter==='all'?'selected':''}>${t('PDPA：全部','PDPA: All')}</option>
+            <option value="yes" ${state.pdpaFilter==='yes'?'selected':''}>${t('只看已同意','Agreed only')}</option>
+            <option value="no" ${state.pdpaFilter==='no'?'selected':''}>${t('只看没同意','Not agreed only')}</option>
+          </select>`:''}
           <button class="small-btn ghost" id="export-btn">${t('导出 CSV','Export CSV')}</button>
           <button class="small-btn danger" id="delete-all-btn">${t('全部删除','Delete All')}</button>
         </div>
@@ -1696,7 +1706,7 @@
       ${list.length===0?`<div class="empty-state">${t('暂无符合条件的登记资料','No matching entries')}</div>`:`
       <div style="overflow-x:auto;">
       <table>
-        <thead><tr><th>${t('照片','Photo')}</th><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('订单日期','Order Date')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th><th>${t('中奖次数','Wins')}</th><th>${t('幸运轮盘次数','Wheel')}</th><th>${t('时间','Time')}</th><th></th></tr></thead>
+        <thead><tr><th>${t('照片','Photo')}</th><th>${t('姓名','Name')}</th><th>${t('电话','Phone')}</th><th>${t('DD名字','DD Name')}</th><th>${t('顾客名字','Customer Name')}</th><th>${t('订单号','Order ID')}</th><th>${t('订单日期','Order Date')}</th><th>${t('金额','Amount')}</th><th>${t('抽奖次数','Chances')}</th><th>${t('状态','Status')}</th><th>${t('中奖次数','Wins')}</th><th>${t('幸运轮盘次数','Wheel')}</th><th>${t('时间','Time')}</th>${state.eventConfig.pdpaEnabled?'<th>PDPA</th>':''}<th></th></tr></thead>
         <tbody>
           ${list.map(en=>{
             const isEditing = state.editingEntryId === en.id;
@@ -1715,6 +1725,7 @@
               <td>${(en.wonPrizes&&en.wonPrizes.length) ? `${en.wonPrizes.length} ${t('次','x')}` : `<span style="color:var(--ink-soft);">${t('0次','0')}</span>`}</td>
               <td>${(()=>{ const ws=wheelStatusFor(en); return ws.count>0 ? ws.label : `<span style="color:var(--ink-soft);">${ws.label}</span>`; })()}</td>
               <td>${new Date(en.submittedAt).toLocaleDateString()}</td>
+              ${state.eventConfig.pdpaEnabled?`<td>${en.pdpaConsent?`<span class="pill win" title="${escapeAttr(new Date(en.pdpaConsentAt).toLocaleString())}">✓ PDPA</span>`:`<span style="color:var(--ink-soft);">—</span>`}</td>`:''}
               <td>${isEditing?`
                 <button class="del-btn" data-save-entry="${en.id}" style="color:var(--plum);">${t('保存','Save')}</button>
                 <button class="del-btn" data-cancel-entry="${en.id}">${t('取消','Cancel')}</button>
@@ -1745,6 +1756,8 @@
         saveEntryEdit(id, orderId, amount, orderDate, container);
       };
     });
+    const pdpaSel = container.querySelector('#pdpa-filter');
+    if(pdpaSel) pdpaSel.onchange = e=>{ state.pdpaFilter = e.target.value; renderAdminEntriesTab(container); };
     container.querySelector('#export-btn').onclick = exportCsv;
     container.querySelector('#delete-all-btn').onclick = deleteAllEntries;
     container.querySelector('#toggle-total-amount-btn').onclick = ()=>{ state.showTotalAmount = !state.showTotalAmount; renderAdminEntriesTab(container); };
