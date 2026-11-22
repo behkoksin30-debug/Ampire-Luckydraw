@@ -183,6 +183,7 @@
   .login-box input{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:9px;font-size:15px;margin-bottom:12px;}
   .lightbox{position:fixed;inset:0;background:rgba(36,28,36,.82);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
   .lightbox-close{position:fixed;top:18px;right:18px;background:var(--plum);color:var(--gold-light);border:2.5px solid var(--gold);box-shadow:0 2px 10px rgba(0,0,0,.45);padding:10px 18px;border-radius:999px;font-size:15px;font-weight:800;z-index:51;}
+  .lightbox video{width:min(92vw,720px);height:min(76vh,560px);margin-bottom:56px;background:#000;border-radius:8px;}
   .lightbox img{width:min(92vw,560px);height:min(76vh,560px);margin-bottom:56px;object-fit:contain;background:#fff;border-radius:8px;}
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--plum);color:#fff;padding:11px 20px;border-radius:30px;font-size:13.5px;z-index:60;box-shadow:0 8px 20px rgba(0,0,0,.25);}
   .settings-note{background:#fdf1e0;border:1px solid var(--gold-light);border-radius:9px;padding:12px 14px;font-size:12.5px;color:var(--ink-soft);margin-bottom:16px;line-height:1.6;}
@@ -1094,6 +1095,7 @@
     next();
   }
 
+  function isVideoSrc(s){ return typeof s==='string' && /^\/media\/help-/.test(s); }
   function displayName(en){
     if(!en) return '';
     const c = String(en.customerName||'').trim();
@@ -2576,10 +2578,13 @@
           ${(()=>{ const imgs = state.draftHelpImages!==undefined ? state.draftHelpImages : (state.eventConfig.helpImages||[]); return `
           <div class="upload-box">
             <label class="upload-btn">${t('添加帮助图','Add Help Image(s)')}<input type="file" id="help-upload" accept="image/*" multiple></label>
+            <label class="upload-btn" style="${state.helpVideoUploading?'opacity:.6;pointer-events:none;':''}">${state.helpVideoUploading?t('视频上传中…','Uploading video…'):t('添加帮助视频','Add Help Video')}<input type="file" id="help-video-upload" accept="video/*"></label>
             ${imgs.length===0?`<span style="font-size:12.5px;color:var(--ink-soft);">${t('还没有上传，参与者登记页不会显示帮助图标','Not uploaded yet — the help icon will not appear on the registration page')}</span>`:''}
             ${imgs.map((src,i)=>`
               <div style="position:relative;">
-                <img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${src}" data-help-gallery-idx="${i}" src="${src}">
+                ${isVideoSrc(src)
+                  ? `<div class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;position:relative;overflow:hidden;background:#000;" data-help-gallery-idx="${i}"><video src="${src}#t=0.1" preload="metadata" muted playsinline style="width:100%;height:100%;object-fit:cover;pointer-events:none;"></video><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;text-shadow:0 1px 6px rgba(0,0,0,.7);pointer-events:none;">▶</span></div>`
+                  : `<img class="thumb mini-thumb" style="width:64px;height:64px;cursor:pointer;" data-src="${src}" data-help-gallery-idx="${i}" src="${src}">`}
                 <button class="small-btn ghost" data-remove-help-idx="${i}" type="button" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;padding:0;line-height:1;border-radius:50%;font-size:12px;">✕</button>
               </div>`).join('')}
           </div>
@@ -2718,6 +2723,23 @@
         renderAdminSettingsTab(container);
       }catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
     };
+    container.querySelector('#help-video-upload').onchange = async (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      if(!file.type.startsWith('video/')){ showToast(t('只支持视频文件','Only video files are supported')); return; }
+      if(file.size > 50*1024*1024){ showToast(t('视频不能超过50MB','Video cannot exceed 50MB')); return; }
+      if(state.draftHelpImages===undefined) state.draftHelpImages = (state.eventConfig.helpImages||[]).slice();
+      state.helpVideoUploading = true; renderAdminSettingsTab(container);
+      try{
+        const fd = new FormData(); fd.append('video', file);
+        const headers = {}; if(state.token) headers['Authorization'] = 'Bearer '+state.token;
+        const res = await fetch('/api/admin/help-video', {method:'POST', headers, body: fd});
+        const data = await res.json().catch(()=>null);
+        if(!res.ok) throw new Error((data&&data.error)||t('视频上传失败','Video upload failed'));
+        state.draftHelpImages.push(data.url);
+        showToast(t('视频已上传，记得按「保存帮助图」','Video uploaded — remember to click Save'));
+      }catch(err){ showToast(err.message); }
+      state.helpVideoUploading = false; renderAdminSettingsTab(container);
+    };
     container.querySelectorAll('[data-remove-help-idx]').forEach(btn=>{
       btn.onclick = ()=>{
         const idx = parseInt(btn.getAttribute('data-remove-help-idx'),10);
@@ -2818,7 +2840,7 @@
       const lb = el(`<div class="lightbox">
         <button class="lightbox-close" type="button">✕ 关闭</button>
         ${total>1?`<button id="lightbox-prev" type="button" style="${arrowBtnStyle}left:calc(50% - 90px);">‹</button>`:''}
-        <img src="${state.lightboxSrcs[idx]}">
+        ${isVideoSrc(state.lightboxSrcs[idx]) ? `<video src="${state.lightboxSrcs[idx]}" controls autoplay playsinline></video>` : `<img src="${state.lightboxSrcs[idx]}">`}
         ${total>1?`<button id="lightbox-next" type="button" style="${arrowBtnStyle}right:calc(50% - 90px);">›</button>
         <div style="position:fixed;bottom:26px;left:0;right:0;text-align:center;color:#fff;font-size:15px;font-weight:700;pointer-events:none;">${idx+1} / ${total}</div>`:''}
       </div>`);
