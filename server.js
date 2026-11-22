@@ -364,10 +364,10 @@ app.post('/api/entries', (req, res) => {
   const id = genId('LD-', 6);
   const entry = {
     id,
-    name: String(name).slice(0, 100),
+    name: String(name).toUpperCase().slice(0, 100),
     contact: String(contact).slice(0, 100),
-    ddName: String(ddName).slice(0, 100),
-    customerName: String(customerName || '').slice(0, 100),
+    ddName: String(ddName).toUpperCase().slice(0, 100),
+    customerName: String(customerName || '').toUpperCase().slice(0, 100),
     orderId: String(orderId).slice(0, 100),
     amount: String(amount).slice(0, 50),
     orderDate: isDateStr(orderDate) ? orderDate : '',
@@ -399,10 +399,10 @@ app.post('/api/admin/entries', requireAdmin, (req, res) => {
   const id = genId('LD-', 6);
   const entry = {
     id,
-    name: String(name).slice(0, 100),
+    name: String(name).toUpperCase().slice(0, 100),
     contact: String(contact).slice(0, 100),
-    ddName: String(ddName).slice(0, 100),
-    customerName: String(customerName).slice(0, 100),
+    ddName: String(ddName).toUpperCase().slice(0, 100),
+    customerName: String(customerName).toUpperCase().slice(0, 100),
     orderId: String(orderId).slice(0, 100),
     amount: String(amount).slice(0, 50),
     orderDate: isDateStr(orderDate) ? orderDate : '',
