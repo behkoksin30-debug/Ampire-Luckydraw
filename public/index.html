@@ -213,7 +213,7 @@
     entries: [], prizes: [], draws: [],
     eventConfig: { title: '幸运抽奖登记', subtitle: '', conversionRate: 100, tiers: [], maxWinsPerPerson: 0, guaranteedGiftThreshold: 0, maxTicketsPerPerson: 0, registrationOpen: true, regStartDate: '', regEndDate: '', posterImage: null, tutorialImage: null, tutorialImages: [], helpImages: [], posterMediaType: 'image', posterVideoUrl: '', drawDurationSeconds: 5, registrationDeadline: '', soundTheme: 'classic', liveDrawEnabled: false },
     adminPasswordSet: null,
-    form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false },
+    form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false, pdpa:false },
     formErrors: {},
     ocrBusy: false, ocrText: '',
     search: '',
@@ -536,6 +536,7 @@
     if(!state.form.ddName.trim()) errs.ddName = '请输入DD名字 / Please enter DD name';
     if(!state.form.customerName.trim()) errs.customerName = '请输入顾客名字 / Please enter the customer name';
 
+    if(state.eventConfig.pdpaEnabled && !state.form.pdpa) errs.pdpa = '请先勾选同意 / Please tick the consent box to continue';
     if(!state.form.photo) errs.photo = '请上传订单截图 / Please upload the order screenshot';
     if(!state.form.orderId.trim()) errs.orderId = '请输入订单号 / Please enter the Order ID';
     if(!state.form.amount.toString().trim()) errs.amount = '请输入金额 / Please enter the amount';
@@ -585,10 +586,11 @@
         name: state.form.name.trim(), contact: state.form.contact.trim(),
         ddName: state.form.ddName.trim(), customerName: state.form.customerName.trim(),
         orderId: state.form.orderId.trim(), amount: state.form.amount.toString().trim(),
-        photo: state.form.photo, ocrOverride: !!state.form.ocrOverride, orderDate: (state.form.orderDate||'').trim()
+        photo: state.form.photo, ocrOverride: !!state.form.ocrOverride, orderDate: (state.form.orderDate||'').trim(),
+        pdpaConsent: !!state.form.pdpa
       }});
       state.lastTicket = { id: r.id, name: state.form.name.trim(), customerName: state.form.customerName.trim(), orderId: state.form.orderId.trim(), ticketCount: r.ticketCount||0, wheelEligible: !!r.wheelEligible };
-      state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false };
+      state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false, pdpa:false };
       state.ocrText=''; state.view='success'; render();
     }catch(e){ showToast(e.message||'提交失败，请重试 / Submission failed, please try again'); }
   }
@@ -618,8 +620,8 @@
     catch(e){ showToast(e.message); }
   }
   function exportCsv(){
-    const rows = [[t('抽奖编号','Entry ID'),t('姓名','Name'),t('电话','Phone'),t('DD名字','DD Name'),t('顾客名字','Customer Name'),t('订单号','Order ID'),t('订单日期','Order Date'),t('金额','Amount'),t('提交时间','Submitted At')]];
-    entriesFiltered().forEach(en=> rows.push([en.id, en.name, en.contact, en.ddName||'', en.customerName||'', en.orderId, en.orderDate||'', en.amount, new Date(en.submittedAt).toLocaleString()]));
+    const rows = [[t('抽奖编号','Entry ID'),t('姓名','Name'),t('电话','Phone'),t('DD名字','DD Name'),t('顾客名字','Customer Name'),t('订单号','Order ID'),t('订单日期','Order Date'),t('金额','Amount'),t('提交时间','Submitted At'),t('PDPA同意','PDPA Consent')]];
+    entriesFiltered().forEach(en=> rows.push([en.id, en.name, en.contact, en.ddName||'', en.customerName||'', en.orderId, en.orderDate||'', en.amount, new Date(en.submittedAt).toLocaleString(), en.pdpaConsent ? (t('已同意','Agreed')+' '+new Date(en.pdpaConsentAt).toLocaleString()) : '']));
     const csv = rows.map(r=> r.map(c=> '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
     const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
@@ -1460,6 +1462,14 @@
             ${errs.ocrOverride?`<div class="error-text">${errs.ocrOverride}</div>`:''}
           </div>
           `:''; })()}
+          ${state.eventConfig.pdpaEnabled?`
+          <div class="field" style="background:#fff;border:1.5px solid ${errs.pdpa?'#b3303f':'var(--line)'};border-radius:10px;padding:12px 14px;">
+            <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-weight:400;font-size:13px;line-height:1.5;">
+              <input type="checkbox" id="f-pdpa" ${f.pdpa?'checked':''} style="width:20px;height:20px;margin-top:2px;flex:none;accent-color:#c6963c;">
+              <span>${escapeHtml(state.eventConfig.pdpaTextZh || '我同意主办方为本次抽奖活动，收集和使用我的姓名、电话、订单截图等资料（根据个人资料保护法令 PDPA 2010）。')}<br><span style="color:var(--ink-soft);">${escapeHtml(state.eventConfig.pdpaTextEn || 'I consent to the organiser collecting and using my name, phone number and order screenshot for this lucky draw, in accordance with the PDPA 2010.')}</span> <b style="color:#b3303f">*</b></span>
+            </label>
+            ${errs.pdpa?`<div class="error-text">${errs.pdpa}</div>`:''}
+          </div>`:''}
           <button class="submit-btn" id="submit-btn">提交登记 / Submit</button>
         </div>
       </div>
@@ -1502,6 +1512,8 @@
       state.formErrors = {};
       render();
     };
+    const pdpaBox = document.getElementById('f-pdpa');
+    if(pdpaBox) pdpaBox.onchange = e=>{ state.form.pdpa = e.target.checked; };
     const ocrOverrideBox = document.getElementById('f-ocroverride');
     if(ocrOverrideBox) ocrOverrideBox.onchange = e=>{ state.form.ocrOverride = e.target.checked; };
     document.getElementById('submit-btn').onclick = submitEntry;
@@ -2573,6 +2585,22 @@
           </div>
           ${state.posterVideoUploading?`<div style="font-size:12px;color:var(--gold);margin-top:8px;">${t('视频上传中，请稍候…','Uploading video, please wait…')}</div>`:''}
         </div>
+        <div class="toggle-row" style="background:#fdf1e0;border:1px solid var(--gold);border-radius:9px;padding:12px 16px;margin-bottom:20px;flex-wrap:wrap;">
+          <div class="toggle-row-text">
+            <span class="title">${t('PDPA 同意书','PDPA Consent')}</span>
+            <label class="switch" style="margin:0 6px;">
+              <input type="checkbox" id="ev-pdpa" ${state.eventConfig.pdpaEnabled?'checked':''}>
+              <span class="slider"></span>
+            </label>
+            ${hintIcon(t('打开后，报名页提交按钮上方会出现必须勾选的个人资料同意框，没勾选不能提交；每笔登记会记录同意时间。关闭则完全不显示。','When on, a required personal-data consent box appears above the Submit button; entries cannot be submitted without ticking it, and the consent time is recorded. When off, nothing is shown.'))}
+          </div>
+          <div style="width:100%;margin-top:10px;display:${state.eventConfig.pdpaEnabled?'block':'none'};">
+            <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:6px;">${t('同意书文字（留空则使用默认文字）','Consent text (leave blank to use the default)')}</div>
+            <textarea id="ev-pdpa-zh" rows="2" placeholder="${escapeAttr(t('中文','Chinese'))}" style="width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;margin-bottom:6px;">${escapeHtml(state.eventConfig.pdpaTextZh||'')}</textarea>
+            <textarea id="ev-pdpa-en" rows="2" placeholder="English" style="width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;margin-bottom:8px;">${escapeHtml(state.eventConfig.pdpaTextEn||'')}</textarea>
+            <button class="small-btn" id="save-pdpa-btn" type="button">${t('保存同意书文字','Save consent text')}</button>
+          </div>
+        </div>
         <div>
           <label style="display:block;font-size:13.5px;font-weight:700;color:var(--plum);margin-bottom:8px;">${t('帮助说明图片','Help Images')} <span class="hint" style="font-size:11.5px;">${t('（改完要按下面的保存）','(click Save below after changing)')}</span> ${hintIcon(`${t('报名页右上角会出现一个「？」小图标，点了会弹出这组图片，可以上传多张，用来解释整体怎么使用/报名','A "?" icon will appear in the top-right corner of the registration page — clicking it pops up these images. Upload several to explain how to use/register in general')}`)}</label>
           ${(()=>{ const imgs = state.draftHelpImages!==undefined ? state.draftHelpImages : (state.eventConfig.helpImages||[]); return `
@@ -2722,6 +2750,23 @@
         for(const file of files){ state.draftHelpImages.push(await compressImageHQ(file)); }
         renderAdminSettingsTab(container);
       }catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
+    };
+    container.querySelector('#ev-pdpa').onchange = async (e)=>{
+      const v = e.target.checked;
+      try{
+        await api('/api/config', {method:'PUT', auth:true, body:{pdpaEnabled: v}});
+        state.eventConfig.pdpaEnabled = v;
+        showToast(v ? t('PDPA 同意书已开启','PDPA consent turned on') : t('PDPA 同意书已关闭','PDPA consent turned off'));
+        renderAdminSettingsTab(container);
+      }catch(err){ e.target.checked = !v; showToast(err.message); }
+    };
+    container.querySelector('#save-pdpa-btn').onclick = async ()=>{
+      const zh = container.querySelector('#ev-pdpa-zh').value.trim(), en = container.querySelector('#ev-pdpa-en').value.trim();
+      try{
+        await api('/api/config', {method:'PUT', auth:true, body:{pdpaTextZh: zh, pdpaTextEn: en}});
+        state.eventConfig.pdpaTextZh = zh; state.eventConfig.pdpaTextEn = en;
+        showToast(t('同意书文字已保存','Consent text saved'));
+      }catch(err){ showToast(err.message); }
     };
     container.querySelector('#help-video-upload').onchange = async (e)=>{
       const file = e.target.files[0]; if(!file) return;
