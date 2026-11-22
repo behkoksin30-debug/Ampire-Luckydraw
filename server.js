@@ -53,6 +53,9 @@ function defaultConfig() {
     posterMediaType: 'image',
     posterVideoUrl: '',
     liveDrawEnabled: false,
+    pdpaEnabled: false,
+    pdpaTextZh: '',
+    pdpaTextEn: '',
     drawDurationSeconds: 5,
     registrationDeadline: '',
     soundTheme: 'classic',
@@ -186,6 +189,9 @@ app.get('/api/config', (req, res) => {
     posterMediaType: cfg.posterMediaType || 'image',
     posterVideoUrl: cfg.posterVideoUrl || '',
     liveDrawEnabled: !!cfg.liveDrawEnabled,
+    pdpaEnabled: !!cfg.pdpaEnabled,
+    pdpaTextZh: cfg.pdpaTextZh || '',
+    pdpaTextEn: cfg.pdpaTextEn || '',
     drawDurationSeconds: cfg.drawDurationSeconds || 5,
     registrationDeadline: cfg.registrationDeadline || '',
     soundTheme: cfg.soundTheme || 'classic'
@@ -256,6 +262,9 @@ app.put('/api/config', requireAdmin, (req, res) => {
   if (req.body.soundTheme !== undefined) {
     cfg.soundTheme = ['classic','electronic','drum'].includes(req.body.soundTheme) ? req.body.soundTheme : (cfg.soundTheme || 'classic');
   }
+  if (req.body.pdpaEnabled !== undefined) cfg.pdpaEnabled = !!req.body.pdpaEnabled;
+  if (req.body.pdpaTextZh !== undefined) cfg.pdpaTextZh = String(req.body.pdpaTextZh).slice(0, 1000);
+  if (req.body.pdpaTextEn !== undefined) cfg.pdpaTextEn = String(req.body.pdpaTextEn).slice(0, 1000);
   if (req.body.liveDrawEnabled !== undefined) {
     cfg.liveDrawEnabled = !!req.body.liveDrawEnabled;
   }
@@ -382,7 +391,10 @@ app.post('/api/entries', (req, res) => {
     }
     return res.status(400).json({ error: '报名已结束 / Registration is closed' });
   }
-  const { name, contact, ddName, customerName, orderId, amount, photo, ocrOverride, orderDate } = req.body || {};
+  const { name, contact, ddName, customerName, orderId, amount, photo, ocrOverride, orderDate, pdpaConsent } = req.body || {};
+  if (cfg.pdpaEnabled && !pdpaConsent) {
+    return res.status(400).json({ error: '请先勾选同意个人资料使用 / Please tick the personal data consent box' });
+  }
   if (!name || !contact || !ddName || !String(customerName || '').trim() || !orderId || !amount || !photo) {
     return res.status(400).json({ error: '资料不完整，请填写全部字段并上传照片 / Missing information, please fill in all fields and upload a photo' });
   }
@@ -405,6 +417,8 @@ app.post('/api/entries', (req, res) => {
     orderDate: isDateStr(orderDate) ? orderDate : '',
     photo,
     ocrOverride: !!ocrOverride,
+    pdpaConsent: cfg.pdpaEnabled ? true : false,
+    pdpaConsentAt: cfg.pdpaEnabled ? Date.now() : null,
     submittedAt: Date.now(),
     wonPrizes: []
   };
