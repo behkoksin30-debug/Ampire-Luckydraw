@@ -1625,6 +1625,61 @@
     tickCountdown();
   }
 
+  async function saveTicketImage(tk){
+    const btn = document.getElementById('save-img-btn');
+    if(btn){ btn.disabled = true; btn.textContent = '⬇ 生成中… / Creating…'; }
+    try{
+      const FONT = "'Manrope','Noto Sans SC',sans-serif";
+      try{ await Promise.all([document.fonts.load('700 40px Manrope'), document.fonts.load('400 30px Manrope'), document.fonts.load('700 40px "Noto Sans SC"'), document.fonts.load('400 30px "Noto Sans SC"')]); }catch(_){}
+      const W = 1080, H = 1020, c = document.createElement('canvas'); c.width = W; c.height = H;
+      const g = c.getContext('2d');
+      const rr = (x,y,w,h,r)=>{ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); };
+      const wrap = (text,x,y,maxW,lh,maxLines)=>{
+        const words = String(text).split(/(\s+)/); let line = '', lines = [];
+        words.forEach(w=>{ const test = line + w; if(g.measureText(test).width > maxW && line){ lines.push(line.trim()); line = w.trimStart(); } else line = test; });
+        if(line.trim()) lines.push(line.trim());
+        lines.slice(0,maxLines).forEach((l,i)=> g.fillText(l,x,y+i*lh)); return Math.min(lines.length,maxLines);
+      };
+      g.fillStyle = '#ffffff'; g.fillRect(0,0,W,H);
+      const grad = g.createLinearGradient(0,0,W,230); grad.addColorStop(0,'#3e1638'); grad.addColorStop(1,'#5a2050');
+      g.fillStyle = grad; g.fillRect(0,0,W,250);
+      g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+      g.fillStyle = '#f0d9a0'; g.font = `400 28px ${FONT}`; g.fillText('幸运抽奖 · 抽奖编号 / Lucky Draw Entry', W/2, 70);
+      g.fillStyle = '#ffffff'; g.font = `700 46px ${FONT}`;
+      wrap(state.eventConfig.title || '幸运抽奖', W/2, 135, W-140, 58, 2);
+      // ticket card
+      g.setLineDash([14,10]); g.lineWidth = 3; g.strokeStyle = '#c6963c'; rr(70,300,W-140,540,24); g.stroke(); g.setLineDash([]);
+      g.fillStyle = '#6b5b66'; g.font = `400 32px ${FONT}`; g.fillText('您的抽奖编号 / Your Entry Number', W/2, 375);
+      g.fillStyle = '#3e1638'; g.font = `700 112px ${FONT}`; g.fillText(tk.id, W/2, 510);
+      g.fillStyle = '#241c24'; g.font = `400 34px ${FONT}`;
+      g.fillText('顾客 / Customer：' + (tk.customerName||'—'), W/2, 590);
+      g.fillText('订单号 / Order ID：' + tk.orderId, W/2, 645);
+      g.font = `700 38px ${FONT}`; g.fillStyle = '#3e1638';
+      g.fillText('抽奖次数 / Draw Chances：' + (tk.ticketCount||0), W/2, 725);
+      g.fillText('幸运轮盘次数 / Lucky Wheel：' + (tk.wheelEligible?1:0), W/2, 785);
+      // footer
+      g.fillStyle = '#fbf3e7'; g.fillRect(0,H-120,W,120);
+      g.fillStyle = '#6b5b66'; g.font = `400 28px ${FONT}`;
+      g.fillText('开奖时请出示此图 · Please show this at the draw', W/2, H-68);
+      g.font = `400 24px ${FONT}`; g.fillText(new Date().toLocaleString(), W/2, H-30);
+      const blob = await new Promise(res=> c.toBlob(res,'image/png'));
+      if(!blob) throw new Error('toBlob failed');
+      const fname = tk.id + '.png';
+      const file = new File([blob], fname, {type:'image/png'});
+      const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+      if(isIOS && navigator.canShare && navigator.canShare({files:[file]})){
+        try{ await navigator.share({files:[file]}); }catch(e){ if(e && e.name!=='AbortError') throw e; }
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 4000);
+      }
+    }catch(err){
+      showToast('保存失败，请改用截图 / Could not save — please take a screenshot');
+    }
+    const b2 = document.getElementById('save-img-btn');
+    if(b2){ b2.disabled = false; b2.textContent = '⬇ 保存为图片 / Save as Image'; }
+  }
   function renderSuccessView(){
     const t = state.lastTicket;
     app.innerHTML = `
@@ -1643,11 +1698,13 @@
             <div class="label" style="margin-top:10px;">抽奖次数 / Draw Chances：${t.ticketCount||0}</div>
             <div class="label">幸运轮盘次数 / Lucky Wheel：${t.wheelEligible ? '1' : '0'}</div>
           </div>
+          <button class="again-btn" id="save-img-btn" style="background:var(--gold);color:var(--plum);border-color:var(--gold);margin-bottom:10px;">⬇ 保存为图片 / Save as Image</button>
           <button class="again-btn" id="again-btn">再登记一位 / Register Another</button>
         </div>
       </div>
     `;
     document.getElementById('again-btn').onclick = ()=>{ state.view='entry'; render(); };
+    document.getElementById('save-img-btn').onclick = ()=> saveTicketImage(t);
     if(state.eventConfig.liveDrawEnabled) connectLiveSocket();
   }
 
