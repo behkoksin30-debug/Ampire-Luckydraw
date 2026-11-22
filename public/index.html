@@ -269,7 +269,15 @@
       api('/api/prizes', {auth:true}),
       api('/api/draws', {auth:true})
     ]);
+    const up = v => (typeof v==='string') ? v.toUpperCase() : v;
+    entries.forEach(e=>{ e.name = up(e.name); e.ddName = up(e.ddName); e.customerName = up(e.customerName); });
+    draws.forEach(d=>{ d.winnerName = up(d.winnerName); d.winnerDdName = up(d.winnerDdName); d.winnerCustomerName = up(d.winnerCustomerName); });
     state.entries = entries; state.prizes = prizes; state.draws = draws;
+  }
+  function upperInput(e){
+    const el = e.target, a = el.selectionStart, b = el.selectionEnd, v = el.value.toUpperCase();
+    if(v !== el.value){ el.value = v; try{ el.setSelectionRange(a,b); }catch(_){} }
+    return el.value;
   }
   async function loadArchives(){
     try{ state.archives = await api('/api/archives', {auth:true}); }catch(e){ state.archives = []; }
@@ -1446,10 +1454,10 @@
     wireHelpIcon();
     if(state.eventConfig.liveDrawEnabled) connectLiveSocket();
     const liveEntryLink = document.getElementById('live-entry-link'); if(liveEntryLink) liveEntryLink.onclick = ()=>{ state.view='live'; render(); };
-    document.getElementById('f-name').oninput = e=>{ state.form.name = e.target.value; };
+    document.getElementById('f-name').oninput = e=>{ state.form.name = upperInput(e); };
     document.getElementById('f-contact').oninput = e=>{ state.form.contact = e.target.value; };
-    document.getElementById('f-ddname').oninput = e=>{ state.form.ddName = e.target.value; };
-    document.getElementById('f-customername').oninput = e=>{ state.form.customerName = e.target.value; };
+    document.getElementById('f-ddname').oninput = e=>{ state.form.ddName = upperInput(e); };
+    document.getElementById('f-customername').oninput = e=>{ state.form.customerName = upperInput(e); };
     document.getElementById('f-orderid').oninput = e=>{ state.form.orderId = e.target.value; state.form.ocrOverride = false; };
     document.getElementById('f-orderdate').oninput = e=>{ state.form.orderDate = e.target.value; state.form.ocrOverride = false; };
     document.getElementById('f-amount').oninput = e=>{ state.form.amount = e.target.value; state.form.ocrOverride = false; };
@@ -1716,10 +1724,10 @@
       if(state.showAddEntryForm){ state.newEntryForm = { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null }; state.newEntryFormErrors = {}; }
       renderAdminEntriesTab(container);
     };
-    const neName = container.querySelector('#ne-name'); if(neName) neName.oninput = e=>{ state.newEntryForm.name = e.target.value; };
+    const neName = container.querySelector('#ne-name'); if(neName) neName.oninput = e=>{ state.newEntryForm.name = upperInput(e); };
     const neContact = container.querySelector('#ne-contact'); if(neContact) neContact.oninput = e=>{ state.newEntryForm.contact = e.target.value; };
-    const neDdname = container.querySelector('#ne-ddname'); if(neDdname) neDdname.oninput = e=>{ state.newEntryForm.ddName = e.target.value; };
-    const neCustomername = container.querySelector('#ne-customername'); if(neCustomername) neCustomername.oninput = e=>{ state.newEntryForm.customerName = e.target.value; };
+    const neDdname = container.querySelector('#ne-ddname'); if(neDdname) neDdname.oninput = e=>{ state.newEntryForm.ddName = upperInput(e); };
+    const neCustomername = container.querySelector('#ne-customername'); if(neCustomername) neCustomername.oninput = e=>{ state.newEntryForm.customerName = upperInput(e); };
     const neOrderid = container.querySelector('#ne-orderid'); if(neOrderid) neOrderid.oninput = e=>{ state.newEntryForm.orderId = e.target.value; };
     const neOrderdate = container.querySelector('#ne-orderdate'); if(neOrderdate) neOrderdate.oninput = e=>{ state.newEntryForm.orderDate = e.target.value; };
     const neAmount = container.querySelector('#ne-amount'); if(neAmount) neAmount.oninput = e=>{ state.newEntryForm.amount = e.target.value; };
