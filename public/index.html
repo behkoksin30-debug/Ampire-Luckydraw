@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>幸运抽奖系统</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/6.0.1/tesseract.min.js" onerror="window.__ocrLoadFailed=true"></script>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" onerror="window.__confettiLoadFailed=true"></script>
 <style>
@@ -25,8 +25,8 @@
     --radius:14px;
   }
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--cream);color:var(--ink);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;}
-  h1,h2,h3,.display{font-family:'Fraunces',serif;}
+  body{margin:0;background:var(--cream);color:var(--ink);font-family:'Manrope','Noto Sans SC',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3,.display{font-family:'Manrope','Noto Sans SC',sans-serif;}
   button{font-family:inherit;cursor:pointer;}
   input,select{font-family:inherit;}
   #app{max-width:900px;margin:0 auto;padding:28px 18px 60px;min-height:100vh;}
@@ -65,7 +65,7 @@
   .admin-link a{color:var(--ink-soft);text-decoration:underline;cursor:pointer;}
   .success-wrap{text-align:center;padding:6px 0 0;}
   .stub{background:var(--paper);border:1.5px dashed var(--gold);border-radius:var(--radius);padding:26px 24px;margin-top:18px;}
-  .stub .code{font-family:'Fraunces',serif;font-size:34px;color:var(--plum);letter-spacing:.03em;margin:10px 0;}
+  .stub .code{font-family:'Manrope','Noto Sans SC',sans-serif;font-size:34px;color:var(--plum);letter-spacing:.03em;margin:10px 0;}
   .stub .label{font-size:13px;color:var(--ink-soft);}
   .again-btn{margin-top:20px;background:none;border:1.5px solid var(--plum);color:var(--plum);padding:10px 20px;border-radius:8px;font-weight:700;font-size:14px;}
   .admin-wrap{background:var(--paper);border-radius:var(--radius);border:1px solid var(--line);overflow:hidden;box-shadow:0 12px 32px rgba(62,22,56,.08);}
@@ -90,7 +90,7 @@
   .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap;}
   .stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
   .stat-card{background:linear-gradient(150deg,#fffaf0,#fdf1e0);border:1.5px solid var(--gold-light);border-radius:12px;padding:12px 18px;min-width:120px;flex:1;}
-  .stat-card .stat-num{font-family:'Fraunces',serif;font-size:26px;font-weight:700;color:var(--plum);line-height:1.15;}
+  .stat-card .stat-num{font-family:'Manrope','Noto Sans SC',sans-serif;font-size:26px;font-weight:800;color:var(--plum);line-height:1.15;}
   .stat-card .stat-num.gold{color:var(--gold);}
   .stat-card .stat-label{font-size:12px;color:var(--ink-soft);margin-top:2px;font-weight:600;}
   .stat-filter-note{font-size:12.5px;color:var(--ink-soft);margin:-8px 0 12px;}
@@ -111,7 +111,7 @@
   .wheel-pointer{position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:28px;color:var(--rose);z-index:5;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3));}
   .wheel-hub{position:absolute;top:50%;left:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:var(--gold);border:3px solid var(--paper);box-shadow:0 2px 6px rgba(0,0,0,.3);z-index:4;}
   .draw-prize-label{font-size:13px;color:var(--ink-soft);letter-spacing:.02em;margin-bottom:10px;}
-  .draw-name{font-family:'Fraunces',serif;font-size:32px;color:var(--plum);min-height:44px;font-weight:600;}
+  .draw-name{font-family:'Manrope','Noto Sans SC',sans-serif;font-size:32px;color:var(--plum);min-height:44px;font-weight:600;}
   .draw-name.rolling{color:var(--ink-soft);}
   .draw-sub{font-size:13px;color:var(--ink-soft);margin-top:8px;}
   .draw-actions{margin-top:22px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
@@ -1031,9 +1031,9 @@
           <div id="live-reveal" style="display:none;position:relative;z-index:2;">
             <img id="live-reveal-photo" style="display:none;width:200px;height:200px;object-fit:contain;background:#fff;border:3px solid var(--gold-light);border-radius:10px;margin:0 auto 14px;">
             <div id="live-reveal-sub" class="draw-prize-label" style="margin-bottom:6px;"></div>
-            <div id="live-reveal-lbl1" class="draw-sub" style="font-family:'Fraunces',serif;font-weight:600;font-size:40px;line-height:1.2;color:#d8c394;margin-top:8px;">顾客名：</div>
+            <div id="live-reveal-lbl1" class="draw-sub" style="font-family:'Manrope','Noto Sans SC',sans-serif;font-weight:600;font-size:40px;line-height:1.2;color:#d8c394;margin-top:8px;">顾客名：</div>
             <div id="live-reveal-title" class="draw-name" style="font-size:40px;word-break:break-word;"></div>
-            <div id="live-reveal-lbl2" class="draw-sub" style="font-family:'Fraunces',serif;font-weight:600;font-size:40px;line-height:1.2;color:#d8c394;margin-top:8px;">DD：</div>
+            <div id="live-reveal-lbl2" class="draw-sub" style="font-family:'Manrope','Noto Sans SC',sans-serif;font-weight:600;font-size:40px;line-height:1.2;color:#d8c394;margin-top:8px;">DD：</div>
             <div id="live-reveal-dd" class="draw-name" style="font-size:40px;word-break:break-word;margin-top:4px;"></div>
             <div id="live-reveal-detail" class="draw-sub" style="font-size:13px;margin-top:12px;line-height:1.6;"></div>
             <div id="live-reveal-confirmed" style="display:none;margin-top:16px;padding:9px 14px;border-radius:999px;background:var(--gold-light);color:var(--plum);font-weight:700;font-size:15px;display:none;">✅ 中奖结果已确认 / Result confirmed</div>
@@ -2110,8 +2110,8 @@
         ${state.revealedWinner?`<div class="rev-banner">${t('恭喜 / Congratulations','Congratulations')}</div>`:''}
         ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!(pz && pz.photo)) return ''; return `<div class="rev-photo"><img src="${pz.photo}"><i></i></div>`; })()}
         <div class="draw-prize-label">${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!pz) return t('请先选择奖品','Please select a prize first'); return t('奖品','Prize')+'：'+(pz.tier?`【${escapeHtml(tierLabel(pz.tier))}】`:'')+escapeHtml(pz.name)+(pz.value?` (RM${escapeHtml(pz.value)})`:''); })()}</div>
-        ${state.revealedWinner?`<div class="draw-sub" style="font-family:'Fraunces',serif;font-weight:600;font-size:46px;line-height:1.2;color:#d8c394;margin-top:8px;">${t('顾客名：','Customer:')}</div>`:''}<div class="draw-name ${state.drawing?'rolling':''}" id="draw-name-el">${state.revealedWinner ? escapeHtml(displayName(state.revealedWinner)) : (state.drawing ? escapeHtml(state.rollingName||'…') : '—')}</div>
-        ${state.revealedWinner?`<div class="draw-sub" style="font-family:'Fraunces',serif;font-weight:600;font-size:46px;line-height:1.2;color:#d8c394;margin-top:8px;">${t('DD：','DD:')}</div><div class="draw-name">${escapeHtml(state.revealedWinner.ddName||'—')}</div><div class="draw-sub">${t('联系方式','Contact')}：${escapeHtml(state.revealedWinner.contact)}</div>`:''}
+        ${state.revealedWinner?`<div class="draw-sub" style="font-family:'Manrope','Noto Sans SC',sans-serif;font-weight:600;font-size:46px;line-height:1.2;color:#d8c394;margin-top:8px;">${t('顾客名：','Customer:')}</div>`:''}<div class="draw-name ${state.drawing?'rolling':''}" id="draw-name-el">${state.revealedWinner ? escapeHtml(displayName(state.revealedWinner)) : (state.drawing ? escapeHtml(state.rollingName||'…') : '—')}</div>
+        ${state.revealedWinner?`<div class="draw-sub" style="font-family:'Manrope','Noto Sans SC',sans-serif;font-weight:600;font-size:46px;line-height:1.2;color:#d8c394;margin-top:8px;">${t('DD：','DD:')}</div><div class="draw-name">${escapeHtml(state.revealedWinner.ddName||'—')}</div><div class="draw-sub">${t('联系方式','Contact')}：${escapeHtml(state.revealedWinner.contact)}</div>`:''}
         <div class="draw-actions">
           ${!state.drawing && !state.revealedWinner? `<button class="small-btn go-btn" id="start-draw-btn" title="${t('也可以按 Enter / 空格 / 翻页笔','Or press Enter / Space / presenter remote')}">${t('开始抽奖','Start Draw')}</button>`:''}
           ${state.revealedWinner? `<button class="small-btn" id="confirm-winner-btn">${t('保存中奖结果','Save Result')}</button><button class="small-btn ghost" id="redraw-btn">${t('重新抽一次','Redraw')}</button><button class="small-btn ghost" id="cancel-draw-btn">${t('取消','Cancel')}</button>`:''}
