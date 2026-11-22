@@ -1774,8 +1774,11 @@
   }
   function renderAdminPrizesTab(container){
     const totalsBase = state.prizes.filter(p=> state.prizeFilter!=='outside' || p.outsideGift);
-    const totalQty = totalsBase.reduce((sum,p)=> sum + (p.qty||0) + (p.guaranteedQty||0), 0);
-    const totalValue = totalsBase.reduce((sum,p)=> sum + ((parseFloat(p.value)||0) * ((p.qty||0)+(p.guaranteedQty||0))), 0);
+    const drawnByPrize = {};
+    (state.draws||[]).forEach(d=>{ drawnByPrize[d.prizeId] = (drawnByPrize[d.prizeId]||0) + 1; });
+    const origQty = p => (p.qty||0) + (p.guaranteedQty||0) + (drawnByPrize[p.id]||0);
+    const totalQty = totalsBase.reduce((sum,p)=> sum + origQty(p), 0);
+    const totalValue = totalsBase.reduce((sum,p)=> sum + ((parseFloat(p.value)||0) * origQty(p)), 0);
     container.innerHTML = `
       <div class="stat-row">
         <div class="stat-card"><div class="stat-num">${totalQty}</div><div class="stat-label">${state.prizeFilter==='outside'?t('外买奖品数量','Outside-bought qty'):t('总奖品数量','Total prize qty')}</div></div>
