@@ -219,7 +219,7 @@
     adminPasswordSet: null,
     form: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false, pdpa:false },
     formErrors: {},
-    ocrBusy: false, ocrText: '',
+    ocrBusy: false, ocrText: '', ocrStatusText: '',
     search: '',
     historySearch: '',
     showTotalAmount: true,
@@ -502,7 +502,12 @@
       const { data } = await worker.recognize(ocrImage);
       const text = (data && data.text) ? data.text : '';
       state.ocrText = text.trim();
-      if(ocrIsCancelled(state.ocrText)){ state.formErrors = Object.assign({}, state.formErrors, {ocr: CANCELLED_MSG}); }
+      state.ocrStatusText = '';
+      if(!ocrStatusOk(text) && !ocrIsCancelled(text)){
+        try{ state.ocrStatusText = (await ocrStatusStrips(worker, state.form.photo)).trim(); }catch(stripErr){}
+      }
+      if(ocrIsCancelled(ocrStatusSource())){ state.formErrors = Object.assign({}, state.formErrors, {ocr: CANCELLED_MSG}); }
+      else if(state.ocrText && !ocrStatusOk(ocrStatusSource())){ state.formErrors = Object.assign({}, state.formErrors, {ocr: NOT_COMPLETED_MSG}); }
       const guess = guessOrderIdAndAmount(text);
       if(guess.orderId) state.form.orderId = guess.orderId;
       if(guess.amount) state.form.amount = guess.amount;
@@ -533,7 +538,30 @@
     return { orderIdMismatch, amountMismatch, dateMismatch, foundOrderIds, foundAmount, foundDates, typedDate, hasIssue: orderIdMismatch||amountMismatch||dateMismatch };
   }
   const CANCELLED_MSG = '此订单状态为 CANCELLED（已取消），不能参加抽奖，请上传有效订单的截图 / This order is CANCELLED and is not eligible for the lucky draw, please upload a valid order';
-  function ocrIsCancelled(text){ return /cancell?ed|已取消|已撤销/i.test(String(text||'')); }
+  const NOT_COMPLETED_MSG = '订单状态必须是 COMPLETED 或 PICKUP COMPLETED 才能参加抽奖，请上传清晰、看得到订单状态的订单详情截图 / Order status must be COMPLETED or PICKUP COMPLETED. Please upload a clear Order Details screenshot that shows the status';
+  function ocrStatusOk(text){ return /complet|已完成|已取货/i.test(String(text||'')); }
+  function ocrIsCancelled(text){ return /cance|已取消|已撤销/i.test(String(text||'')); }
+  function ocrStatusSource(){ return (state.ocrText||'') + ' ' + (state.ocrStatusText||''); }
+  // Second pass: the status label sits in a small bordered box that full-page OCR often misses,
+  // so scan the right side of the screenshot in enlarged horizontal strips until a status word shows up.
+  async function ocrStatusStrips(worker, src){
+    const img = await new Promise((res,rej)=>{ const i = new Image(); i.onload=()=>res(i); i.onerror=rej; i.src = src; });
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const x0 = Math.floor(w*0.35), sw = w - x0;
+    const sh = Math.max(110, Math.floor(h*0.12)), step = Math.max(50, Math.floor(sh/2));
+    let all = '';
+    for(let y=0, n=0; y<h && n<24; y+=step, n++){
+      const ch = Math.min(sh, h-y); if(ch<40) break;
+      const c = document.createElement('canvas'); const sc = 3;
+      c.width = sw*sc; c.height = ch*sc;
+      const ctx = c.getContext('2d'); ctx.imageSmoothingQuality = 'high'; ctx.filter = 'grayscale(1) contrast(1.4)';
+      ctx.drawImage(img, x0, y, sw, ch, 0, 0, c.width, c.height);
+      const r = await worker.recognize(c);
+      all += ' ' + ((r && r.data && r.data.text) || '');
+      if(ocrStatusOk(all) || ocrIsCancelled(all)) break;
+    }
+    return all;
+  }
   function validateForm(){
     const errs = {};
     if(!state.form.name.trim()) errs.name = '请输入姓名 / Please enter your name';
@@ -545,8 +573,10 @@
     if(!state.form.photo) errs.photo = '请上传订单截图 / Please upload the order screenshot';
     if(!state.form.orderId.trim()) errs.orderId = '请输入订单号 / Please enter the Order ID';
     if(!state.form.amount.toString().trim()) errs.amount = '请输入金额 / Please enter the amount';
-    if(state.form.photo && ocrIsCancelled(state.ocrText)){
+    if(state.form.photo && ocrIsCancelled(ocrStatusSource())){
       errs.ocr = CANCELLED_MSG;
+    } else if(state.form.photo && (state.ocrText||'').trim() && !ocrStatusOk(ocrStatusSource())){
+      errs.ocr = NOT_COMPLETED_MSG;
     } else if(state.form.photo && state.form.orderId.trim() && state.form.amount.toString().trim()){
       const ocrText = state.ocrText || '';
       if(!ocrText.trim()){
@@ -604,7 +634,7 @@
       }});
       state.lastTicket = { id: r.id, name: state.form.name.trim(), customerName: state.form.customerName.trim(), orderId: state.form.orderId.trim(), ticketCount: r.ticketCount||0, wheelEligible: !!r.wheelEligible };
       state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false, pdpa:false };
-      state.ocrText=''; state.view='success'; render();
+      state.ocrText=''; state.ocrStatusText=''; state.view='success'; render();
     }catch(e){ showToast(e.message||'提交失败，请重试 / Submission failed, please try again'); }
   }
 
@@ -1505,7 +1535,7 @@
       try{
         state.form.photo = await compressImage(file);
         state.form.originalFile = file;
-        state.ocrText=''; state.form.ocrOverride = false; render();
+        state.ocrText=''; state.ocrStatusText=''; state.form.ocrOverride = false; render();
       }
       catch(err){ showToast('照片处理失败，请重试 / Photo processing failed, please try again'); }
     };
@@ -1522,7 +1552,7 @@
       state.form.orderDate = '';
       state.form.amount = '';
       state.form.ocrOverride = false;
-      state.ocrText = '';
+      state.ocrText = ''; state.ocrStatusText = '';
       state.formErrors = {};
       render();
     };
