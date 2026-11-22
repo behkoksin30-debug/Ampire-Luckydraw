@@ -509,7 +509,7 @@
         try{ state.ocrStatusText = (await ocrStatusStrips(worker, state.form.photo)).trim(); }catch(stripErr){}
       }
       if(ocrIsCancelled(ocrStatusSource())){ state.formErrors = Object.assign({}, state.formErrors, {ocr: CANCELLED_MSG}); }
-      else if(state.ocrText && !ocrStatusOk(ocrStatusSource())){ state.formErrors = Object.assign({}, state.formErrors, {ocr: NOT_COMPLETED_MSG}); }
+      else if(statusUnconfirmed()){ state.formErrors = Object.assign({}, state.formErrors, {ocr: STATUS_UNCONFIRMED_MSG}); }
       const guess = guessOrderIdAndAmount(text);
       if(guess.orderId) state.form.orderId = guess.orderId;
       if(guess.amount) state.form.amount = guess.amount;
@@ -541,7 +541,9 @@
   }
   const CANCELLED_MSG = '此订单状态为 CANCELLED（已取消），不能参加抽奖，请上传有效订单的截图 / This order is CANCELLED and is not eligible for the lucky draw, please upload a valid order';
   const NOT_COMPLETED_MSG = '订单状态必须是 COMPLETED 或 PICKUP COMPLETED 才能参加抽奖，请上传清晰、看得到订单状态的订单详情截图 / Order status must be COMPLETED or PICKUP COMPLETED. Please upload a clear Order Details screenshot that shows the status';
-  function ocrStatusOk(text){ return /complet|已完成|已取货/i.test(String(text||'')); }
+  const STATUS_UNCONFIRMED_MSG = '无法确认订单状态是 COMPLETED / PICKUP COMPLETED / ORDER SHIPPED，请核对截图；如果截图没有问题，请勾选下方确认框 / Could not confirm the order status is COMPLETED / PICKUP COMPLETED / ORDER SHIPPED. Please check your screenshot; if it is correct, tick the confirmation box below';
+  function ocrStatusOk(text){ return /complet|shipped|shippe|已完成|已取货|已发货/i.test(String(text||'')); }
+  function statusUnconfirmed(){ return !!(state.form.photo && (state.ocrText||'').trim() && !ocrIsCancelled(ocrStatusSource()) && !ocrStatusOk(ocrStatusSource())); }
   function ocrIsCancelled(text){ return /cance|已取消|已撤销/i.test(String(text||'')); }
   function ocrStatusSource(){ return (state.ocrText||'') + ' ' + (state.ocrStatusText||''); }
   // Second pass: the status label sits in a small bordered box that full-page OCR often misses,
@@ -577,9 +579,13 @@
     if(!state.form.amount.toString().trim()) errs.amount = '请输入金额 / Please enter the amount';
     if(state.form.photo && ocrIsCancelled(ocrStatusSource())){
       errs.ocr = CANCELLED_MSG;
-    } else if(state.form.photo && (state.ocrText||'').trim() && !ocrStatusOk(ocrStatusSource())){
-      errs.ocr = NOT_COMPLETED_MSG;
-    } else if(state.form.photo && state.form.orderId.trim() && state.form.amount.toString().trim()){
+    } else if(statusUnconfirmed()){
+      if(!state.form.ocrOverride){
+        errs.ocr = STATUS_UNCONFIRMED_MSG;
+        errs.ocrOverride = '请勾选确认框以继续提交 / Please check the confirmation box to continue';
+      }
+    }
+    if(!(state.form.photo && ocrIsCancelled(ocrStatusSource())) && state.form.photo && state.form.orderId.trim() && state.form.amount.toString().trim()){
       const ocrText = state.ocrText || '';
       if(!ocrText.trim()){
         errs.ocr = '请先点击「OCR自动识别」核对照片内容，再提交 / Please click "OCR Auto-Detect" to verify the photo before submitting';
@@ -632,7 +638,7 @@
         ddName: state.form.ddName.trim(), customerName: state.form.customerName.trim(),
         orderId: state.form.orderId.trim(), amount: state.form.amount.toString().trim(),
         photo: state.form.photo, ocrOverride: !!state.form.ocrOverride, orderDate: (state.form.orderDate||'').trim(),
-        pdpaConsent: !!state.form.pdpa
+        pdpaConsent: !!state.form.pdpa, statusUnconfirmed: statusUnconfirmed()
       }});
       state.lastTicket = { id: r.id, name: state.form.name.trim(), customerName: state.form.customerName.trim(), orderId: state.form.orderId.trim(), ticketCount: r.ticketCount||0, wheelEligible: !!r.wheelEligible };
       state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false, pdpa:false };
@@ -1537,7 +1543,7 @@
               ${errs.amount?`<div class="error-text">${errs.amount}</div>`:''}
             </div>
           </div>
-          ${(()=>{ const issue = state.ocrText ? computeOcrIssue() : null; return (issue && issue.hasIssue) ? `
+          ${(()=>{ const issue = state.ocrText ? computeOcrIssue() : null; return ((issue && issue.hasIssue) || statusUnconfirmed()) ? `
           <div class="field" style="background:#fdf1e0;border:1px solid var(--gold);border-radius:8px;padding:12px 14px;">
             <label style="display:flex;align-items:flex-start;gap:8px;font-weight:400;font-size:13px;cursor:pointer;">
               <input type="checkbox" id="f-ocroverride" ${f.ocrOverride?'checked':''} style="margin-top:2px;">
@@ -1788,7 +1794,7 @@
               <td>${escapeHtml(en.contact)}</td>
               <td>${escapeHtml(en.ddName||'—')}</td>
               <td>${escapeHtml(en.customerName||'—')}</td>
-              <td>${isEditing?`<input type="text" class="edit-orderid" value="${escapeAttr(en.orderId)}" style="width:140px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:`${escapeHtml(en.orderId)}${en.ocrOverride?` <span title="${t('此资料未通过OCR自动核实，订单号或金额为参与者手动确认','This entry was not auto-verified by OCR — Order ID or Amount was manually confirmed by the participant')}" style="color:var(--rose);font-weight:700;cursor:help;">⚠</span>`:''}${en.manuallyAdded?` <span title="${t('这笔资料是管理员手动添加的','This entry was manually added by an admin')}" style="color:var(--gold);font-weight:700;cursor:help;">✎</span>`:''}`}</td>
+              <td>${isEditing?`<input type="text" class="edit-orderid" value="${escapeAttr(en.orderId)}" style="width:140px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:`${escapeHtml(en.orderId)}${en.statusUnconfirmed?` <span class="pill" title="${t('OCR 没有读到 COMPLETED / PICKUP COMPLETED / ORDER SHIPPED，参与者手动确认，请检查截图的订单状态','OCR could not confirm the order status — manually confirmed by the participant, please check the screenshot')}" style="background:#fdecea;color:var(--rose);cursor:help;">${t('状态未确认','Status?')}</span>`:''}${en.ocrOverride?` <span title="${t('此资料未通过OCR自动核实，订单号或金额为参与者手动确认','This entry was not auto-verified by OCR — Order ID or Amount was manually confirmed by the participant')}" style="color:var(--rose);font-weight:700;cursor:help;">⚠</span>`:''}${en.manuallyAdded?` <span title="${t('这笔资料是管理员手动添加的','This entry was manually added by an admin')}" style="color:var(--gold);font-weight:700;cursor:help;">✎</span>`:''}`}</td>
               <td>${isEditing?`<input type="date" class="edit-orderdate" value="${escapeAttr(en.orderDate||'')}" style="width:140px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:escapeHtml(en.orderDate||'—')}</td>
               <td>${isEditing?`<input type="text" class="edit-amount" value="${escapeAttr(en.amount)}" style="width:90px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:escapeHtml(String(en.amount))}</td>
               <td>${(en.ticketCount>0) ? `${en.ticketCount} ${t('次','')}` : `<span style="color:var(--ink-soft);">${t('0次','0')}</span>`}</td>
