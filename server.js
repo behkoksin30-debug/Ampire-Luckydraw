@@ -391,7 +391,7 @@ app.post('/api/entries', (req, res) => {
     }
     return res.status(400).json({ error: '报名已结束 / Registration is closed' });
   }
-  const { name, contact, ddName, customerName, orderId, amount, photo, ocrOverride, orderDate, pdpaConsent } = req.body || {};
+  const { name, contact, ddName, customerName, orderId, amount, photo, ocrOverride, orderDate, pdpaConsent, statusUnconfirmed } = req.body || {};
   if (cfg.pdpaEnabled && !pdpaConsent) {
     return res.status(400).json({ error: '请先勾选同意个人资料使用 / Please tick the personal data consent box' });
   }
@@ -417,6 +417,7 @@ app.post('/api/entries', (req, res) => {
     orderDate: isDateStr(orderDate) ? orderDate : '',
     photo,
     ocrOverride: !!ocrOverride,
+    statusUnconfirmed: !!statusUnconfirmed,
     pdpaConsent: cfg.pdpaEnabled ? true : false,
     pdpaConsentAt: cfg.pdpaEnabled ? Date.now() : null,
     submittedAt: Date.now(),
