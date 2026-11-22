@@ -1756,6 +1756,7 @@
     };
   }
 
+  function drawnOf(prizeId, guaranteed){ return (state.draws||[]).filter(d=> d.prizeId===prizeId && !!d.guaranteed===guaranteed).length; }
   function shownPrizes(){ return sortPrizesByMode(state.prizes.filter(p=> state.prizeFilter!=='outside' || p.outsideGift), state.prizeSortMode); }
   function sortPrizesByValue(prizes){
     return [...prizes].sort((a,b)=> (parseFloat(a.value)||0) - (parseFloat(b.value)||0));
@@ -1856,7 +1857,7 @@
           <div class="prize-card">
             <div style="display:flex;align-items:center;gap:12px;">
               ${p.photo?`<img class="thumb prize-zoom" style="cursor:zoom-in;" data-src="${p.photo}" src="${p.photo}">`:''}
-              <div><div class="pname">${p.tier?`<span class="pill" style="background:var(--gold);color:var(--plum);">${escapeHtml(tierLabel(p.tier))}</span> `:''}${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}${p.guaranteedEligible?` <span class="pill win">${t('幸运轮盘','Lucky Wheel')}</span>`:''}${p.outsideGift?` <span class="pill" style="background:#e9e2f3;color:var(--plum);">${t('外买奖品','Outside-bought')}</span>`:''}</div><div class="pqty">${t('大抽奖剩余','Main Draw left')}：${p.qty}${p.guaranteedEligible?` · ${t('幸运轮盘预留剩余','Lucky Wheel reserved left')}：${p.guaranteedQty||0}`:''}</div></div>
+              <div><div class="pname">${p.tier?`<span class="pill" style="background:var(--gold);color:var(--plum);">${escapeHtml(tierLabel(p.tier))}</span> `:''}${escapeHtml(p.name)}${p.value?` <span style="color:var(--gold);font-weight:700;">· RM${escapeHtml(p.value)}</span>`:''}${p.guaranteedEligible?` <span class="pill win">${t('幸运轮盘','Lucky Wheel')}</span>`:''}${p.outsideGift?` <span class="pill" style="background:#e9e2f3;color:var(--plum);">${t('外买奖品','Outside-bought')}</span>`:''}</div><div class="pqty">${t('大抽奖剩余','Main Draw left')}：${p.qty+drawnOf(p.id,false)} / ${p.qty}${p.guaranteedEligible?` · ${t('幸运轮盘预留剩余','Lucky Wheel reserved left')}：${(p.guaranteedQty||0)+drawnOf(p.id,true)} / ${p.guaranteedQty||0}`:''}</div></div>
             </div>
             <div style="display:flex;gap:14px;align-items:center;">
               <button class="del-btn" data-edit-prize="${p.id}" style="color:var(--plum);">${t('编辑','Edit')}</button>
