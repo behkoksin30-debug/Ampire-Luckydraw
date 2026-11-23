@@ -322,7 +322,7 @@
     formErrors: {},
     ocrBusy: false, ocrText: '', ocrStatusText: '',
     search: '',
-    historySearch: '',
+    historySearch: '', historyDd: '',
     showTotalAmount: true,
     prizeSortMode: 'value_asc', prizeFilter: 'all',
     editingEntryId: null,
@@ -807,9 +807,20 @@
     const a = document.createElement('a'); a.href=url; a.download=t('抽奖名单.csv','entries.csv'); a.click();
     URL.revokeObjectURL(url);
   }
+  function filteredDraws(){
+    const q = (state.historySearch||'').trim().toLowerCase();
+    const dd = state.historyDd || '';
+    return state.draws.filter(d=>{
+      if(dd && (d.winnerDdName||'').trim().toLowerCase() !== dd.toLowerCase()) return false;
+      if(!q) return true;
+      return d.winnerName.toLowerCase().includes(q) || d.prizeName.toLowerCase().includes(q)
+        || d.winnerOrderId.toLowerCase().includes(q) || d.winnerContact.toLowerCase().includes(q)
+        || (d.winnerCustomerName||'').toLowerCase().includes(q) || (d.winnerDdName||'').toLowerCase().includes(q);
+    });
+  }
   function exportDrawsCsv(){
     const rows = [[t('方式','Method'),t('奖品','Prize'),t('价值','Value'),t('姓名','Name'),t('DD名字','DD Name'),t('顾客名字','Customer Name'),t('联系方式','Contact'),t('订单号','Order ID'),t('时间','Time')]];
-    state.draws.forEach(d=> rows.push([
+    filteredDraws().forEach(d=> rows.push([
       d.guaranteed?t('幸运轮盘','Lucky Wheel'):t('大抽奖','Main Draw'),
       d.prizeName, d.prizeValue||'', d.winnerName, d.winnerDdName||'', d.winnerCustomerName||'',
       d.winnerContact, d.winnerOrderId, new Date(d.timestamp).toLocaleString()
@@ -2843,15 +2854,16 @@
   }
   function renderAdminHistoryTab(container){
     const q = (state.historySearch||'').trim().toLowerCase();
-    const filtered = state.draws.filter(d=>{
-      if(!q) return true;
-      return d.winnerName.toLowerCase().includes(q) || d.prizeName.toLowerCase().includes(q)
-        || d.winnerOrderId.toLowerCase().includes(q) || d.winnerContact.toLowerCase().includes(q)
-        || (d.winnerCustomerName||'').toLowerCase().includes(q) || (d.winnerDdName||'').toLowerCase().includes(q);
-    });
+    const ddMap = new Map();
+    state.draws.forEach(d=>{ const n=(d.winnerDdName||'').trim(); if(n && !ddMap.has(n.toLowerCase())) ddMap.set(n.toLowerCase(), n); });
+    const ddList = [...ddMap.values()].sort((a,b)=>a.localeCompare(b));
+    if(state.historyDd && !ddMap.has(state.historyDd.toLowerCase())) state.historyDd = '';
+    const filtered = filteredDraws();
+    const isFiltered = !!(q || state.historyDd);
     container.innerHTML = state.draws.length===0? `<div class="empty-state">${t('暂无中奖记录','No draw records yet')}</div>` : `
       <div class="toolbar" style="gap:12px;">
-        <div style="font-size:13.5px;color:var(--ink-soft);white-space:nowrap;">${t('共','Total:')} ${state.draws.length} ${t('笔中奖记录','draw records')} ${q?`· ${t('筛选出','Filtered:')} ${filtered.length}`:''}</div>
+        <div style="font-size:13.5px;color:var(--ink-soft);white-space:nowrap;">${t('共','Total:')} ${state.draws.length} ${t('笔中奖记录','draw records')} ${isFiltered?`· ${t('筛选出','Filtered:')} ${filtered.length}`:''}</div>
+        <select id="history-dd-select" class="searchbar" style="width:auto;min-width:150px;margin-bottom:0;"><option value="">${t('全部 DD','All DD')}</option>${ddList.map(n=>`<option value="${escapeAttr(n)}" ${state.historyDd && state.historyDd.toLowerCase()===n.toLowerCase()?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select>
         <input class="searchbar" id="history-search-input" placeholder="${t('按姓名 / 奖品 / 订单号 / 联系方式搜索','Search by name / prize / order ID / contact')}" value="${escapeAttr(state.historySearch||'')}" style="flex:1;min-width:180px;margin-bottom:0;">
         <div style="display:flex;gap:10px;flex-shrink:0;">
           <button class="small-btn ghost" id="export-draws-btn">${t('导出 CSV','Export CSV')}</button>
@@ -2886,6 +2898,8 @@
     if(resetBtn) resetBtn.onclick = resetAllDraws;
     const exportBtn = container.querySelector('#export-draws-btn');
     if(exportBtn) exportBtn.onclick = exportDrawsCsv;
+    const ddSel = container.querySelector('#history-dd-select');
+    if(ddSel) ddSel.onchange = e=>{ state.historyDd = e.target.value; renderAdminHistoryTab(container); };
     const searchInput = container.querySelector('#history-search-input');
     if(searchInput) searchInput.oninput = e=>{
       state.historySearch = e.target.value;
