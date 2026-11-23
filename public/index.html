@@ -103,6 +103,24 @@
   .small-btn.ghost{background:none;border:1.5px solid var(--plum);color:var(--plum);}
   .small-btn.danger{background:var(--danger);}
   .empty-state{padding:30px 10px;text-align:center;color:var(--ink-soft);font-size:14px;}
+  .vw-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+  .vw-ttl{font-size:22px;font-weight:800;color:var(--plum);letter-spacing:3px;display:flex;align-items:baseline;gap:10px;}
+  .vw-cr{color:var(--gold);font-size:24px;} .vw-ttl small{font-size:11px;font-weight:700;color:var(--gold);letter-spacing:3px;}
+  .vw-ctrl{display:flex;align-items:center;gap:8px;background:#fbf3e3;border:1px solid var(--gold);border-radius:999px;padding:5px 8px 5px 16px;font-size:13px;font-weight:700;color:var(--plum);}
+  .vw-ctrl input{width:58px;border:1px solid var(--gold-light);border-radius:999px;text-align:center;padding:5px 0;background:var(--paper);color:var(--plum);font-weight:700;font-family:inherit;}
+  .vw-ctrl em{font-style:normal;font-weight:500;font-size:12px;color:var(--ink-soft);margin-right:8px;}
+  .vw-line{height:2px;margin:12px 0 14px;background:linear-gradient(90deg,var(--gold),var(--gold-light) 60%,transparent);}
+  .vw-info{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .vw-chip{font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;background:linear-gradient(180deg,#f3dea4,#e0b866);color:var(--plum);}
+  .vw-chip.dark{background:var(--plum);color:var(--gold-light);}
+  .vw-pool{margin:2px 0 18px;} .vw-pool label{display:block;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--gold);margin-bottom:4px;}
+  .vw-pill{display:inline-block;background:#fbf3e3;border:1px solid var(--gold-light);color:#6b4a2a;border-radius:999px;font-size:11.5px;padding:4px 11px;margin:3px 5px 3px 0;}
+  .prize-card.vip-card{display:flex;align-items:center;gap:14px;padding:16px 18px;margin-bottom:12px;border:0;border-radius:12px;background:linear-gradient(135deg,#f6e3b0 0%,#e3bd6a 55%,#d4a54a 100%);box-shadow:0 5px 14px rgba(198,150,60,.35),inset 0 1px 0 rgba(255,255,255,.6);}
+  .vip-card .vc-crown{font-size:26px;color:var(--plum);width:40px;text-align:center;flex:none;}
+  .vip-card .vc-mid{flex:1;min-width:0;} .vip-card .vc-nm{font-weight:700;font-size:16px;color:var(--plum);letter-spacing:.5px;} .vip-card .vc-sub{font-size:12.5px;color:#6b4a2a;margin-top:3px;}
+  .vip-card .vc-amt{color:var(--plum);font-weight:800;font-size:18px;text-align:right;margin-right:10px;white-space:nowrap;} .vip-card .vc-amt small{display:block;font-size:10.5px;font-weight:600;color:#6b4a2a;letter-spacing:1px;}
+  .vip-card .vc-btn{background:var(--plum);color:var(--gold-light);font-weight:700;font-size:13px;padding:10px 20px;border:0;border-radius:8px;letter-spacing:1px;box-shadow:0 3px 8px rgba(62,22,56,.3);cursor:pointer;flex:none;}
+  @media(max-width:560px){.prize-card.vip-card{flex-wrap:wrap;}.vip-card .vc-crown{display:none;}.vip-card .vc-amt{margin-right:0;}}
   .prize-card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;background:#fffdf8;}
   .prize-card .pname{font-weight:700;color:var(--plum);}
   .prize-card .pqty{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
@@ -2393,31 +2411,36 @@
         </div>
       </div>
       <div style="margin-top:30px;border-top:1px solid var(--line);padding-top:20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:4px;">
-          <label style="font-size:13.5px;font-weight:700;color:var(--plum);">${t('幸运轮盘','Lucky Wheel')}</label>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:13px;font-weight:700;color:var(--plum);">${t('轮盘秒数','Wheel Seconds')}</span>
-            <input type="number" id="wheel-duration-input" min="1" max="10" step="0.5" value="${escapeAttr(state.eventConfig.wheelDurationSeconds||state.eventConfig.drawDurationSeconds||5)}" style="width:72px;padding:7px 8px;border:1.5px solid var(--line);border-radius:8px;text-align:center;">
-            <span style="font-size:12.5px;color:var(--ink-soft);">${t('秒（1~10）','sec (1–10)')}</span>
-          </div>
+        <div class="vw-head">
+          <div class="vw-ttl"><span class="vw-cr">♛</span>${t('幸运轮盘','Lucky Wheel')}<small>LUCKY WHEEL</small></div>
+          <div class="vw-ctrl"><span>${t('轮盘秒数','Wheel Seconds')}</span>
+            <input type="number" id="wheel-duration-input" min="1" max="10" step="0.5" value="${escapeAttr(state.eventConfig.wheelDurationSeconds||state.eventConfig.drawDurationSeconds||5)}">
+            <em>${t('秒（1~10）','sec (1–10)')}</em></div>
         </div>
+        <div class="vw-line"></div>
         ${guaranteedThreshold<=0?`<div style="font-size:12.5px;color:var(--ink-soft);">${t('还没有设置门槛，去「活动设置」填「幸运轮盘门槛」后才会显示名单','No threshold set yet — go to Event Settings and fill in the "Lucky Wheel Threshold" to see the list here')}</div>`:
           guaranteedPool.length===0?`<div style="font-size:12.5px;color:var(--ink-soft);">${t('还没有奖品被勾选「可用于幸运轮盘」，请先到「奖品管理」设置','No prizes are checked as "usable for Lucky Wheel" yet — please set this up in Prize Management first')}</div>`:`
-          <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;">${t('金额达到','Amount reached')} RM${guaranteedThreshold} ${t('以上、且未达最多中奖次数的顾客：共','and under the max win limit: ')} ${guaranteedList.length} ${t('人 · 礼物池：','· Gift pool: ')}${guaranteedPool.map(p=>escapeHtml(p.name)).join('、')}</div>
+          <div class="vw-info"><span class="vw-chip">${t('金额达 RM','Amount over RM')}${Number(guaranteedThreshold).toLocaleString('en-US')}${t(' 以上','')}</span><span class="vw-chip dark">${t('共 ','')}${guaranteedList.length}${t(' 位贵宾',' VIP guests')}</span></div>
+          <div class="vw-pool"><label>${t('礼物池','GIFT POOL')}</label>${guaranteedPool.map(p=>`<span class="vw-pill">${escapeHtml(p.name)}</span>`).join('')}</div>
           ${guaranteedList.length===0?`<div class="empty-state">${t('暂时没有符合条件的顾客','No eligible customers yet')}</div>`:
             guaranteedList.map(en=>{
               const isActive = state.guaranteedDrawEntryId === en.id;
               return `
-              <div class="prize-card" style="${isActive?'flex-direction:column;align-items:stretch;':''}">
+              ${!isActive?`
+              <div class="prize-card vip-card">
+                <div class="vc-crown">♛</div>
+                <div class="vc-mid">
+                  <div class="vc-nm">${escapeHtml(en.name)}</div>
+                  <div class="vc-sub">${t('顾客','Customer')} ${escapeHtml(en.customerName||'—')} · ${t('已中','Won')} ${winsOf(en)} ${t('次','x')} · ${t('编号','ID')} ${en.id}</div>
+                </div>
+                <div class="vc-amt"><small>${t('消费金额','AMOUNT')}</small>RM${(isNaN(parseFloat(en.amount))?escapeHtml(String(en.amount)):parseFloat(en.amount).toLocaleString('en-US'))}</div>
+                <button class="vc-btn" data-open-guaranteed="${en.id}" type="button">${t('抽礼物','Spin Wheel')}</button>
+              </div>`:`
+              <div class="prize-card" style="flex-direction:column;align-items:stretch;">
                 <div>
                   <div class="pname">${escapeHtml(en.name)} <span style="font-weight:400;color:var(--ink-soft);">· ${t('顾客','Customer')} ${escapeHtml(en.customerName||'—')}</span></div>
                   <div class="pqty">${t('金额','Amount')} RM${escapeHtml(String(en.amount))} · ${t('已中','Won')} ${winsOf(en)} ${t('次','x')} · ${t('编号','ID')} ${en.id}</div>
                 </div>
-                ${!isActive?`
-                <div style="display:flex;gap:8px;flex-shrink:0;">
-                  <button class="small-btn" data-open-guaranteed="${en.id}" type="button">${t('抽礼物','Spin Wheel')}</button>
-                </div>
-                `:`
                 <div class="draw-stage staged ${state.guaranteedRevealedPrize?'revealed':''}" style="margin-top:10px;">
                   <div class="rev-rays"></div>
                   ${state.guaranteedRevealedPrize?`<div class="rev-banner">${t('恭喜 / Congratulations','Congratulations')}</div>`:''}
@@ -2442,8 +2465,7 @@
                     ${!state.guaranteedSpinning?`<button class="small-btn ghost" data-cancel-guaranteed="${en.id}">${t('取消','Cancel')}</button>`:''}
                   </div>
                 </div>
-                `}
-              </div>
+              </div>`}
             `;}).join('')}
         `}
       </div>
