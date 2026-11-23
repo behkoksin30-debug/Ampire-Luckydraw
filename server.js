@@ -572,6 +572,14 @@ app.delete('/api/entries', requireAdmin, (req, res) => {
 });
 
 /* ---------------- prizes ---------------- */
+app.get('/api/prize-photo/:id', (req, res) => {
+  const prize = readJson(PRIZES_FILE, []).find(p => p.id === req.params.id);
+  const m = prize && prize.photo ? /^data:([\w\/+.-]+);base64,(.*)$/s.exec(prize.photo) : null;
+  if (!m) return res.status(404).end();
+  res.set('Content-Type', m[1]);
+  res.set('Cache-Control', 'public, max-age=600');
+  res.send(Buffer.from(m[2], 'base64'));
+});
 app.get('/api/prizes', requireAdmin, (req, res) => {
   res.json(readJson(PRIZES_FILE, []));
 });
