@@ -108,6 +108,9 @@
   .vw-cr{color:var(--gold);font-size:24px;} .vw-ttl small{font-size:11px;font-weight:700;color:var(--gold);letter-spacing:3px;}
   .vw-ctrl{display:flex;align-items:center;gap:8px;background:#fbf3e3;border:1px solid var(--gold);border-radius:999px;padding:5px 8px 5px 16px;font-size:13px;font-weight:700;color:var(--plum);}
   .vw-ctrl input{width:58px;border:1px solid var(--gold-light);border-radius:999px;text-align:center;padding:5px 0;background:var(--paper);color:var(--plum);font-weight:700;font-family:inherit;}
+  .vw-ctrl select{border:1px solid var(--gold-light);border-radius:999px;background:var(--paper);color:var(--plum);font-weight:700;font-family:inherit;font-size:12.5px;padding:5px 8px;}
+  .vw-prev{border:1px solid var(--plum);background:transparent;color:var(--plum);border-radius:999px;font-weight:700;font-size:12px;padding:5px 12px;cursor:pointer;margin-right:2px;}
+  .vw-head{row-gap:10px;} .vw-head .vw-ctrl{margin-left:auto;}
   .vw-ctrl em{font-style:normal;font-weight:500;font-size:12px;color:var(--ink-soft);margin-right:8px;}
   .vw-line{height:2px;margin:12px 0 14px;background:linear-gradient(90deg,var(--gold),var(--gold-light) 60%,transparent);}
   .vw-info{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
@@ -815,11 +818,34 @@
     }catch(e){}
   }
   ['touchend','click'].forEach(ev=> document.addEventListener(ev, ()=>{ if(!audioUnlocked && state.view==='live') unlockAudio(); }, {passive:true}));
-  function playTick(pitch){
-    const theme = state.eventConfig.soundTheme || 'classic';
+  const SOUND_THEMES = ['classic','marimba','bit8'];
+  function normTheme(v){ return SOUND_THEMES.includes(v) ? v : 'classic'; }
+  function themeFor(mode){
+    const w = state.eventConfig.wheelSoundTheme;
+    return normTheme(mode==='wheel' && w ? w : state.eventConfig.soundTheme);
+  }
+  function playTick(pitch, mode){
+    const theme = themeFor(mode);
     try{
       const ctx = getAudioCtx();
-      if(theme==='drum'){
+      if(theme==='marimba'){
+        const f = pitch || 850, now = ctx.currentTime;
+        [[1,0.30],[4,0.10]].forEach(([m,a])=>{
+          const osc = ctx.createOscillator(), gain = ctx.createGain();
+          osc.type = 'sine'; osc.frequency.value = f*m;
+          gain.gain.setValueAtTime(a, now);
+          gain.gain.exponentialRampToValueAtTime(0.0008, now+(m===1?0.14:0.05));
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.start(now); osc.stop(now+0.16);
+        });
+      } else if(theme==='bit8'){
+        const osc = ctx.createOscillator(), gain = ctx.createGain(), now = ctx.currentTime;
+        osc.type = 'square'; osc.frequency.value = (pitch||850)*0.65;
+        gain.gain.setValueAtTime(0.11, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now+0.05);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(now); osc.stop(now+0.06);
+      } else if(theme==='drum'){
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sine';
@@ -850,11 +876,45 @@
       }
     }catch(e){}
   }
-  function playWinChime(previewTheme){
-    const theme = previewTheme || state.eventConfig.soundTheme || 'classic';
+  function playWinChime(previewTheme, mode){
+    const theme = previewTheme ? normTheme(previewTheme) : themeFor(mode);
     try{
       const ctx = getAudioCtx();
-      if(theme==='drum'){
+      if(theme==='marimba'){
+        const mk = (f, start, a, dur)=>{
+          [[1,a],[4,a*0.3]].forEach(([m,g])=>{
+            const osc = ctx.createOscillator(), gain = ctx.createGain();
+            osc.type = 'sine'; osc.frequency.value = f*m;
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(g, start+0.004);
+            gain.gain.exponentialRampToValueAtTime(0.0008, start+(m===1?dur:dur*0.3));
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.start(start); osc.stop(start+dur+0.05);
+          });
+        };
+        const t0 = ctx.currentTime;
+        [523.25,659.25,783.99,1046.5,1318.5].forEach((f,i)=> mk(f, t0+i*0.11, 0.26, 0.8));
+        mk(1046.5, t0+0.55, 0.22, 1.4);
+        mk(523.25, t0+0.55, 0.2, 1.4);
+      } else if(theme==='bit8'){
+        const t0 = ctx.currentTime;
+        [523.25,659.25,783.99,1046.5,783.99,1046.5,1318.5].forEach((f,i)=>{
+          const osc = ctx.createOscillator(), gain = ctx.createGain(), st = t0+i*0.09;
+          osc.type = 'square'; osc.frequency.value = f;
+          gain.gain.setValueAtTime(0.0001, st);
+          gain.gain.exponentialRampToValueAtTime(0.1, st+0.005);
+          gain.gain.exponentialRampToValueAtTime(0.0008, st+0.16);
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.start(st); osc.stop(st+0.18);
+        });
+        const osc = ctx.createOscillator(), gain = ctx.createGain(), st = t0+0.7;
+        osc.type = 'square'; osc.frequency.value = 1568;
+        gain.gain.setValueAtTime(0.0001, st);
+        gain.gain.exponentialRampToValueAtTime(0.1, st+0.005);
+        gain.gain.exponentialRampToValueAtTime(0.0008, st+0.7);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(st); osc.stop(st+0.72);
+      } else if(theme==='drum'){
         for(let i=0;i<6;i++){
           const t = i*0.06;
           const osc = ctx.createOscillator();
@@ -1154,8 +1214,8 @@
       if(rdd){ rdd.textContent = (msg.customerName!==undefined) ? (msg.ddName||'—') : ''; rdd.style.display = (msg.customerName!==undefined) ? 'block' : 'none'; }
       revealEl.style.display = 'block';
       const cf = document.getElementById('live-reveal-confirmed'); if(cf) cf.style.display = msg.confirmed ? 'block' : 'none';
-      if(msg.confirmed){ try{ playTick(1000); setTimeout(()=>playTick(1400),120); }catch(e){} return; }
-      playWinChime();
+      if(msg.confirmed){ try{ playTick(1000, msg.mode); setTimeout(()=>playTick(1400, msg.mode),120); }catch(e){} return; }
+      playWinChime(null, msg.mode);
       if(msg.mode==='wheel'){ fireworksConfetti(); }
       else { (msg.prizeTier==='大奖'||msg.prizeTier==='二奖'||msg.prizeTier==='三奖') ? fireworksConfetti() : burstConfetti(); }
     }
@@ -1218,7 +1278,7 @@
       const delay = base + growth*i;
       setTimeout(()=>{
         if(myGeneration !== wheelTickGeneration) return;
-        playTick(850);
+        playTick(850, 'wheel');
         i++;
         next();
       }, delay);
@@ -1401,7 +1461,8 @@
         drawDurationSeconds: parseFloat(drawDurationSeconds)||state.eventConfig.drawDurationSeconds||5,
         wheelDurationSeconds: state.eventConfig.wheelDurationSeconds||0,
         registrationDeadline: registrationDeadline||'',
-        soundTheme: soundTheme||'classic'
+        soundTheme: normTheme(soundTheme),
+        wheelSoundTheme: state.eventConfig.wheelSoundTheme||''
       };
       deadlineExpiredHandled = false;
       state.draftTiers = null;
@@ -2359,7 +2420,7 @@
     wheelSpinTimeout = setTimeout(()=>{
       state.guaranteedRevealedPrize = winner;
       state.guaranteedSpinning = false;
-      playWinChime();
+      playWinChime(null, 'wheel');
       celebrateGuaranteedWin();
       lastRevealPayload = Object.assign({type:'draw_reveal', mode:'wheel', resultTitle: displayName(spinningEntry), resultSub: winner.name, prizePhoto: winner.photo||'', prizeLabel: winner.name+(winner.value?` (RM${winner.value})`:'')}, liveWinnerExtra(spinningEntry));
       sendLiveMessage(lastRevealPayload);
@@ -2456,6 +2517,14 @@
           <div class="vw-ctrl"><span>${t('轮盘秒数','Wheel Seconds')}</span>
             <input type="number" id="wheel-duration-input" min="1" max="10" step="0.5" value="${escapeAttr(state.eventConfig.wheelDurationSeconds||state.eventConfig.drawDurationSeconds||5)}">
             <em>${t('秒（1~10）','sec (1–10)')}</em></div>
+          <div class="vw-ctrl"><span>${t('轮盘音效','Wheel Sound')}</span>
+            <select id="wheel-sound-input">
+              <option value="" ${!state.eventConfig.wheelSoundTheme?'selected':''}>${t('跟随大抽奖','Same as Main Draw')}</option>
+              <option value="classic" ${state.eventConfig.wheelSoundTheme==='classic'?'selected':''}>${t('经典滋答声','Classic Tick')}</option>
+              <option value="marimba" ${state.eventConfig.wheelSoundTheme==='marimba'?'selected':''}>${t('木琴','Marimba')}</option>
+              <option value="bit8" ${state.eventConfig.wheelSoundTheme==='bit8'?'selected':''}>${t('复古游戏','Retro Game')}</option>
+            </select>
+            <button type="button" id="wheel-sound-preview" class="vw-prev">${t('试听','Preview')}</button></div>
         </div>
         <div class="vw-line"></div>
         ${guaranteedThreshold<=0?`<div style="font-size:12.5px;color:var(--ink-soft);">${t('还没有设置门槛，去「活动设置」填「幸运轮盘门槛」后才会显示名单','No threshold set yet — go to Event Settings and fill in the "Lucky Wheel Threshold" to see the list here')}</div>`:
@@ -2537,6 +2606,16 @@
         showToast(t('抽奖秒数已保存','Draw seconds saved'));
       }catch(err){ e.target.value = state.eventConfig.drawDurationSeconds||5; showToast(err.message); }
     };
+    container.querySelector('#wheel-sound-input').onchange = async (e)=>{
+      const v = e.target.value;
+      try{
+        await api('/api/config', {method:'PUT', auth:true, body:{wheelSoundTheme: v}});
+        state.eventConfig.wheelSoundTheme = v;
+        playWinChime(null, 'wheel');
+        showToast(t('轮盘音效已保存','Wheel sound saved'));
+      }catch(err){ e.target.value = state.eventConfig.wheelSoundTheme||''; showToast(err.message); }
+    };
+    container.querySelector('#wheel-sound-preview').onclick = ()=>{ playWinChime(null, 'wheel'); };
     container.querySelector('#wheel-duration-input').onchange = async (e)=>{
       const v = parseFloat(e.target.value);
       const cur = state.eventConfig.wheelDurationSeconds||state.eventConfig.drawDurationSeconds||5;
@@ -2839,9 +2918,9 @@
         <div class="field"><label>${t('抽奖音效主题','Draw Sound Theme')} ${hintIcon(t('大抽奖和转盘共用同一个主题','Shared by Main Draw and the wheel'))}</label>
           <div style="display:flex;gap:8px;">
             <select id="ev-soundtheme" style="flex:1;">
-              <option value="classic" ${(!state.eventConfig.soundTheme||state.eventConfig.soundTheme==='classic')?'selected':''}>${t('经典滋答声','Classic Tick')}</option>
-              <option value="electronic" ${state.eventConfig.soundTheme==='electronic'?'selected':''}>${t('电子音效','Electronic')}</option>
-              <option value="drum" ${state.eventConfig.soundTheme==='drum'?'selected':''}>${t('鼓声风','Drum')}</option>
+              <option value="classic" ${themeFor('main')==='classic'?'selected':''}>${t('经典滋答声','Classic Tick')}</option>
+              <option value="marimba" ${themeFor('main')==='marimba'?'selected':''}>${t('木琴','Marimba')}</option>
+              <option value="bit8" ${themeFor('main')==='bit8'?'selected':''}>${t('复古游戏','Retro Game')}</option>
             </select>
             <button class="small-btn ghost" id="preview-soundtheme-btn" type="button" style="flex-shrink:0;">${t('试听','Preview')}</button>
           </div>
