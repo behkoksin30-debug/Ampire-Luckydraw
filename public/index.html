@@ -643,7 +643,18 @@
       state.lastTicket = { id: r.id, name: state.form.name.trim(), customerName: state.form.customerName.trim(), orderId: state.form.orderId.trim(), ticketCount: r.ticketCount||0, wheelEligible: !!r.wheelEligible };
       state.form = { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, originalFile:null, ocrOverride:false, pdpa:false };
       state.ocrText=''; state.ocrStatusText=''; state.view='success'; render();
-    }catch(e){ showToast(e.message||'提交失败，请重试 / Submission failed, please try again'); }
+    }catch(e){
+      const msg = e.message || '';
+      if(/已经登记过|already been registered/i.test(msg)){
+        state.formErrors = {orderId: '该订单号已经登记过 / This Order ID has already been registered'};
+        render();
+        setTimeout(()=>{
+          const first = document.querySelector('.error-text');
+          const target = first ? (first.closest('.field') || first) : null;
+          if(target) target.scrollIntoView({behavior:'smooth', block:'center'});
+        }, 50);
+      } else showToast(msg||'提交失败，请重试 / Submission failed, please try again');
+    }
   }
 
   /* ---------------- admin: entries ---------------- */
@@ -1560,7 +1571,7 @@
             </label>
             ${errs.pdpa?`<div class="error-text">${errs.pdpa}</div>`:''}
           </div>`:''}
-          ${Object.keys(errs).length?`<div class="error-summary" id="error-summary">⚠ 还有 ${Object.keys(errs).length} 项没填完，请检查红色的栏位<span>${Object.keys(errs).length} ${Object.keys(errs).length>1?'fields':'field'} still need your attention</span></div>`:''}
+          ${Object.keys(errs).length?`<div class="error-summary" id="error-summary">⚠ 还有 ${Object.keys(errs).length} 项需要检查，请看红色的栏位<span>${Object.keys(errs).length} ${Object.keys(errs).length>1?'fields need':'field needs'} your attention</span></div>`:''}
           <button class="submit-btn" id="submit-btn">提交登记 / Submit</button>
         </div>
       </div>
@@ -1574,7 +1585,15 @@
     document.getElementById('f-contact').oninput = e=>{ state.form.contact = e.target.value; };
     document.getElementById('f-ddname').oninput = e=>{ state.form.ddName = upperInput(e); };
     document.getElementById('f-customername').oninput = e=>{ state.form.customerName = upperInput(e); };
-    document.getElementById('f-orderid').oninput = e=>{ state.form.orderId = e.target.value; state.form.ocrOverride = false; };
+    document.getElementById('f-orderid').oninput = e=>{
+      state.form.orderId = e.target.value; state.form.ocrOverride = false;
+      if(state.formErrors && state.formErrors.orderId){
+        delete state.formErrors.orderId; e.target.classList.remove('input-error');
+        const et = e.target.parentElement.querySelector('.error-text'); if(et) et.remove();
+        const sm = document.getElementById('error-summary');
+        if(sm){ if(Object.keys(state.formErrors).length===0) sm.remove(); else { const n=Object.keys(state.formErrors).length; sm.innerHTML = `⚠ 还有 ${n} 项需要检查，请看红色的栏位<span>${n} ${n>1?'fields':'field'} need${n>1?'':'s'} your attention</span>`; } }
+      }
+    };
     document.getElementById('f-orderdate').oninput = e=>{ state.form.orderDate = e.target.value; state.form.ocrOverride = false; };
     document.getElementById('f-amount').oninput = e=>{ state.form.amount = e.target.value; state.form.ocrOverride = false; };
     document.getElementById('f-photo').onchange = async (e)=>{
