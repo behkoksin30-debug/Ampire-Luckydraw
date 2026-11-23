@@ -435,7 +435,7 @@ app.post('/api/entries', (req, res) => {
 });
 app.post('/api/admin/entries', requireAdmin, (req, res) => {
   const cfg = readConfig();
-  const { name, contact, ddName, customerName, orderId, amount, photo, orderDate } = req.body || {};
+  const { name, contact, ddName, customerName, orderId, amount, photo, orderDate, pdpaConsent } = req.body || {};
   if (!name || !contact || !ddName || !customerName || !orderId || !amount) {
     return res.status(400).json({ error: '资料不完整，请填写全部必填字段 / Missing information, please fill in all required fields' });
   }
@@ -455,6 +455,8 @@ app.post('/api/admin/entries', requireAdmin, (req, res) => {
     orderDate: isDateStr(orderDate) ? orderDate : '',
     photo: photo || null,
     ocrOverride: false,
+    pdpaConsent: !!(cfg.pdpaEnabled && pdpaConsent),
+    pdpaConsentAt: (cfg.pdpaEnabled && pdpaConsent) ? Date.now() : null,
     manuallyAdded: true,
     submittedAt: Date.now(),
     wonPrizes: []
