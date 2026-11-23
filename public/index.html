@@ -569,6 +569,7 @@
       const { data } = await worker.recognize(ocrImage);
       const text = (data && data.text) ? data.text : '';
       state.ocrText = text.trim();
+      state.ocrFailed = false;
       state.ocrStatusText = '';
       if(!ocrStatusOk(text) && !ocrIsCancelled(text)){
         try{ state.ocrStatusText = (await ocrStatusStrips(worker, state.form.photo)).trim(); }catch(stripErr){}
@@ -582,7 +583,7 @@
       if(guessedDate) state.form.orderDate = guessedDate;
       state.form.ocrOverride = false;
       showToast((guess.orderId||guess.amount||guessedDate) ? '已自动填入，请核对是否正确 / Auto-filled, please verify' : '未能自动识别，请手动填写并核对 / Could not auto-detect, please fill in and check manually');
-    }catch(e){ showToast('OCR识别失败，请手动填写 / OCR failed, please fill in manually'); }
+    }catch(e){ state.ocrFailed = true; showToast('OCR识别失败，请手动填写，并勾选确认框 / OCR failed, please fill in manually and tick the confirmation box'); }
     state.ocrBusy = false; render();
   }
 
@@ -608,7 +609,14 @@
   const NOT_COMPLETED_MSG = '订单状态必须是 COMPLETED 或 PICKUP COMPLETED 才能参加抽奖，请上传清晰、看得到订单状态的订单详情截图 / Order status must be COMPLETED or PICKUP COMPLETED. Please upload a clear Order Details screenshot that shows the status';
   const STATUS_UNCONFIRMED_MSG = '无法确认订单状态是 COMPLETED / PICKUP COMPLETED / ORDER SHIPPED，请核对截图；如果截图没有问题，请勾选下方确认框 / Could not confirm the order status is COMPLETED / PICKUP COMPLETED / ORDER SHIPPED. Please check your screenshot; if it is correct, tick the confirmation box below';
   function ocrStatusOk(text){ return /complet|shipped|shippe|已完成|已取货|已发货/i.test(String(text||'')); }
-  function statusUnconfirmed(){ return !!(state.form.photo && (state.ocrText||'').trim() && !ocrIsCancelled(ocrStatusSource()) && !ocrStatusOk(ocrStatusSource())); }
+  // If OCR cannot run at all (library blocked by venue wifi, phone out of memory…), nobody should be locked out of registering:
+  // they fall back to the tick-box flow and the entry is flagged "状态未确认" for the admin to check by hand.
+  function ocrUnavailable(){ return !!(window.__ocrLoadFailed || typeof Tesseract === 'undefined' || typeof Tesseract.createWorker !== 'function' || state.ocrFailed); }
+  function statusUnconfirmed(){
+    if(!state.form.photo) return false;
+    if(!(state.ocrText||'').trim()) return ocrUnavailable();
+    return !ocrIsCancelled(ocrStatusSource()) && !ocrStatusOk(ocrStatusSource());
+  }
   function ocrIsCancelled(text){ return /cance|已取消|已撤销/i.test(String(text||'')); }
   function ocrStatusSource(){ return (state.ocrText||'') + ' ' + (state.ocrStatusText||''); }
   // Second pass: the status label sits in a small bordered box that full-page OCR often misses,
@@ -652,7 +660,9 @@
     }
     if(!(state.form.photo && ocrIsCancelled(ocrStatusSource())) && state.form.photo && state.form.orderId.trim() && state.form.amount.toString().trim()){
       const ocrText = state.ocrText || '';
-      if(!ocrText.trim()){
+      if(!ocrText.trim() && ocrUnavailable()){
+        /* handled by the status tick-box above */
+      } else if(!ocrText.trim()){
         errs.ocr = '请先点击「OCR自动识别」核对照片内容，再提交 / Please click "OCR Auto-Detect" to verify the photo before submitting';
       } else {
         const issue = computeOcrIssue();
@@ -1071,6 +1081,9 @@
   /* ---------------- live draw sync (WebSocket) ---------------- */
   let liveSocket = null;
   let liveRollInterval = null;
+  let liveRetry = 0, liveRetryTimer = null;
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && (state.view==='live') && (!liveSocket || liveSocket.readyState>1)) connectLiveSocket(); });
+  window.addEventListener('online', ()=>{ if(state.view==='live' && (!liveSocket || liveSocket.readyState>1)) connectLiveSocket(); });
   function connectLiveSocket(){
     if(liveSocket && (liveSocket.readyState===0 || liveSocket.readyState===1)) return liveSocket;
     try{
@@ -1078,6 +1091,15 @@
       liveSocket = new WebSocket(proto+'//'+location.host);
       liveSocket.onmessage = (ev)=>{
         try{ handleLiveMessage(JSON.parse(ev.data)); }catch(e){}
+      };
+      const mine = liveSocket;
+      liveSocket.onopen = ()=>{ liveRetry = 0; };
+      liveSocket.onclose = ()=>{
+        if(liveSocket===mine) liveSocket = null;
+        if(state.view==='live' || state.view==='admin'){
+          clearTimeout(liveRetryTimer);
+          liveRetryTimer = setTimeout(()=>{ if(state.view==='live' || state.view==='admin') connectLiveSocket(); }, Math.min(10000, 800*Math.pow(1.6, liveRetry++)));
+        }
       };
     }catch(e){ liveSocket = null; }
     return liveSocket;
@@ -1131,6 +1153,7 @@
     const photoEl = document.getElementById('live-focus-photo');
     const wheelEl = document.getElementById('live-focus-wheel');
     if(!statusEl) return;
+    if(msg.replay && msg.type==='draw_start') return; // re-sent after a reconnect: don't restart a spin that already finished
     const liveStageEl = document.getElementById('live-stage');
     if(liveStageEl && (msg.type==='focus'||msg.type==='draw_start'||msg.type==='draw_reveal'||msg.type==='prize_selected')) liveStageEl.classList.toggle('lw', msg.mode==='wheel');
     const bannerEl = document.getElementById('live-banner'); if(bannerEl) bannerEl.style.display = msg.type==='draw_reveal' ? 'block' : 'none';
@@ -1214,6 +1237,7 @@
       if(rdd){ rdd.textContent = (msg.customerName!==undefined) ? (msg.ddName||'—') : ''; rdd.style.display = (msg.customerName!==undefined) ? 'block' : 'none'; }
       revealEl.style.display = 'block';
       const cf = document.getElementById('live-reveal-confirmed'); if(cf) cf.style.display = msg.confirmed ? 'block' : 'none';
+      if(msg.replay) return; // reconnect replay: show the result quietly
       if(msg.confirmed){ try{ playTick(1000, msg.mode); setTimeout(()=>playTick(1400, msg.mode),120); }catch(e){} return; }
       playWinChime(null, msg.mode);
       if(msg.mode==='wheel'){ fireworksConfetti(); }
@@ -1997,7 +2021,7 @@
             const isEditing = state.editingEntryId === en.id;
             return `
             <tr>
-              <td><img class="mini-thumb" data-src="${en.photo}" src="${en.photo}"></td>
+              <td>${en.hasPhoto?`<img class="mini-thumb" loading="lazy" data-src="/api/entries/${en.id}/photo?token=${encodeURIComponent(state.token||'')}" src="/api/entries/${en.id}/photo?token=${encodeURIComponent(state.token||'')}">`:''}</td>
               <td>${escapeHtml(en.name)}</td>
               <td>${waLink(en.contact)}</td>
               <td>${escapeHtml(en.ddName||'—')}</td>
