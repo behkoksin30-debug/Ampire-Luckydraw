@@ -1256,6 +1256,7 @@
       const hasCards = (msg.customerName!==undefined);
       if(rcards){ rcards.innerHTML = hasCards ? nameCardsHtml(msg.name||msg.resultTitle, msg.customerName, msg.ddName) : ''; rcards.style.display = hasCards ? 'block' : 'none'; }
       document.getElementById('live-reveal-title').style.display = hasCards ? 'none' : 'block';
+      if(hasCards){ try{ revealEl.style.display='block'; fitNameCards(); if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>{ try{ fitNameCards(); }catch(e){} }); }catch(e){} }
       revealEl.style.display = 'block';
       const cf = document.getElementById('live-reveal-confirmed'); if(cf) cf.style.display = msg.confirmed ? 'block' : 'none';
       if(msg.replay) return; // reconnect replay: show the result quietly
@@ -1369,6 +1370,17 @@
     frame.addEventListener('dblclick', ()=>{ scale = 1; tx = 0; ty = 0; apply(); });
   }
   function isVideoSrc(s){ return typeof s==='string' && /^\/media\/help-/.test(s); }
+  function fitNameCards(){
+    document.querySelectorAll('.nm3 .v').forEach(el=>{
+      el.style.fontSize=''; el.style.whiteSpace='nowrap'; el.style.wordBreak='normal'; el.style.overflowWrap='normal';
+      const base = parseFloat(getComputedStyle(el).fontSize) || 40;
+      const min = Math.max(14, base*0.4);
+      let size = base;
+      while(el.scrollWidth > el.clientWidth + 1 && size > min){ size = Math.max(min, size*0.93); el.style.fontSize = size+'px'; }
+      if(el.scrollWidth > el.clientWidth + 1){ el.style.whiteSpace='normal'; el.style.overflowWrap='anywhere'; }
+    });
+  }
+  window.addEventListener('resize', ()=>{ try{ fitNameCards(); }catch(e){} });
   function nameCardsHtml(name, cust, dd){
     const n = String(name||'').trim(), c0 = String(cust||'').trim();
     const c = (c0 && c0!=='—' && c0!=='-') ? c0 : '';
@@ -2723,6 +2735,7 @@
     const confirmBtn = container.querySelector('#confirm-winner-btn'); if(confirmBtn) confirmBtn.onclick = confirmWinner;
     const redrawBtn = container.querySelector('#redraw-btn'); if(redrawBtn) redrawBtn.onclick = ()=>{ discardDraw(); startDraw(); };
     const cancelBtn = container.querySelector('#cancel-draw-btn'); if(cancelBtn) cancelBtn.onclick = discardDraw;
+    try{ fitNameCards(); if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>{ try{ fitNameCards(); }catch(e){} }); }catch(e){}
     container.querySelectorAll('[data-open-guaranteed]').forEach(btn=>{
       btn.onclick = ()=> openGuaranteedStage(btn.getAttribute('data-open-guaranteed'));
     });
