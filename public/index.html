@@ -1076,6 +1076,7 @@
     const bannerEl = document.getElementById('live-banner'); if(bannerEl) bannerEl.style.display = msg.type==='draw_reveal' ? 'block' : 'none';
     const idleEl = document.getElementById('live-idle-name'); if(idleEl) idleEl.style.display = (msg.type==='focus'||msg.type==='prize_selected') ? 'block' : 'none';
     if(msg.type==='focus'){
+      wheelTickGeneration++;
       revealEl.style.display = 'none';
       rollEl.style.display = 'none';
       photoEl.style.display = 'none';
@@ -1120,6 +1121,7 @@
         wheelEl.style.display = 'block';
         rollEl.style.display = 'none';
         spinLiveWheel(msg.finalRotation || 0, msg.durationSeconds || 5);
+        scheduleWheelTicks(msg.durationSeconds || 5);
         return;
       }
       const items = (msg.rollingItems && msg.rollingItems.length) ? msg.rollingItems : ['—'];
@@ -1135,6 +1137,7 @@
       }, 90);
     } else if(msg.type==='draw_reveal'){
       clearInterval(liveRollInterval);
+      wheelTickGeneration++;
       rollEl.style.display = 'none';
       photoEl.style.display = 'none';
       wheelEl.style.display = 'none';
