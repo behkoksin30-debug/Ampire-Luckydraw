@@ -211,6 +211,8 @@
   .nm3 .blk.main .v{font-size:clamp(32px,8.6vh,88px)}
   .nm3.two .blk.main .v{font-size:clamp(34px,9.6vh,100px)}
   .draw-confirmed{position:relative;z-index:3;margin-top:2vh;padding:9px 18px;border-radius:999px;background:linear-gradient(180deg,#f3d98f,#d4a54a);color:#3E1638;font-weight:700;font-size:clamp(15px,2.4vh,22px);animation:revDrop .5s ease-out both}
+  @keyframes sndPulse{0%,100%{opacity:1}50%{opacity:.45}}
+  .snd-pulse{animation:sndPulse 1.2s ease-in-out infinite}
   .draw-remain{display:none;position:relative;z-index:3;color:#F0D9A0;font-weight:700;letter-spacing:.08em}
   .draw-remain b{color:#FFF3D1;font-size:1.5em;margin:0 .15em}
   .draw-stage.fs .draw-remain{display:block;font-size:clamp(16px,2.8vh,28px);margin:.6vh 0 .8vh}
@@ -836,7 +838,8 @@
   let audioUnlocked = false;
   function updateSoundBtn(){
     const b = document.getElementById('live-sound-btn'); if(!b) return;
-    if(audioUnlocked){ b.textContent = t('🔊 声音已开启','🔊 Sound on'); b.style.opacity = '.7'; setTimeout(()=>{ const x=document.getElementById('live-sound-btn'); if(x && audioUnlocked) x.style.display='none'; }, 1800); }
+    if(audioUnlocked){ b.textContent = t('🔊 声音已开启','🔊 Sound on'); b.classList.remove('snd-pulse'); b.style.opacity = '.85'; }
+    else { b.textContent = t('🔇 点一下开启声音','🔇 Tap to enable sound'); b.classList.add('snd-pulse'); b.style.opacity = '1'; }
   }
   function unlockAudio(){
     try{ if(navigator.audioSession) navigator.audioSession.type = 'playback'; }catch(e){}
@@ -847,7 +850,7 @@
       audioUnlocked = true; updateSoundBtn();
     }catch(e){}
   }
-  ['touchend','click'].forEach(ev=> document.addEventListener(ev, ()=>{ if(!audioUnlocked && state.view==='live') unlockAudio(); }, {passive:true}));
+  ['touchend','click'].forEach(ev=> document.addEventListener(ev, ()=>{ if(state.view==='live' && (!audioUnlocked || (audioCtx && audioCtx.state!=='running'))) unlockAudio(); }, {passive:true}));
   const SOUND_THEMES = ['classic','marimba','bit8'];
   function normTheme(v){ return SOUND_THEMES.includes(v) ? v : 'classic'; }
   function themeFor(mode){
@@ -1276,7 +1279,7 @@
           <p>${t('抽奖进行时会自动同步画面','The screen updates automatically while a draw is happening')}</p>
         </div>
         <div class="perforation"></div>
-        <div style="text-align:center;padding:10px 0 0;background:var(--plum);"><button id="live-sound-btn" type="button" class="small-btn ghost" style="border-color:var(--gold-light);color:var(--gold-light);background:transparent;">${t('🔊 点一下开启声音','🔊 Tap to enable sound')}</button></div>
+        <div style="text-align:center;padding:10px 0 0;background:var(--plum);"><button id="live-sound-btn" type="button" class="small-btn ghost ${audioUnlocked?'':'snd-pulse'}" style="border-color:var(--gold-light);color:var(--gold-light);background:transparent;">${audioUnlocked?t('🔊 声音已开启','🔊 Sound on'):t('🔇 点一下开启声音','🔇 Tap to enable sound')}</button></div>
         <div class="draw-stage staged" id="live-stage" style="border-radius:0;border-left:0;border-right:0;padding:0 20px 34px;min-height:260px;">
           <div class="rev-rays"></div>
           <div id="live-banner" class="rev-banner" style="display:none;">♛ ${t('恭喜 / Congratulations','Congratulations')} ♛</div>
@@ -1299,7 +1302,7 @@
         <div class="admin-link"><a id="back-to-entry-link">${t('← 返回报名','← Back to entry')}</a></div>
       </div>
     `;
-    const soundBtn = document.getElementById('live-sound-btn'); if(soundBtn){ if(audioUnlocked) soundBtn.style.display='none'; soundBtn.onclick = ()=>{ unlockAudio(); }; }
+    const soundBtn = document.getElementById('live-sound-btn'); if(soundBtn){ updateSoundBtn(); soundBtn.onclick = ()=>{ unlockAudio(); }; }
     document.getElementById('back-to-entry-link').onclick = ()=>{ clearInterval(liveRollInterval); state.view='entry'; render(); };
     connectLiveSocket();
   }
