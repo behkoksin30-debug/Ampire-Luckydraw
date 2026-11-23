@@ -1422,7 +1422,7 @@
     }
     const pool = eligibleTicketPool();
     if(pool.length===0){ showToast(t('没有符合条件的参与者','No eligible participants')); return; }
-    state.drawing = true; state.revealedWinner = null; render();
+    state.drawFs = true; state.drawing = true; state.revealedWinner = null; render();
     sendLiveMessage({type:'draw_start', mode:'main', rollingItems: Array.from(new Set(pool.map(p=>displayName(p)))), context: selectedPrize.name, prizeTier: selectedPrize.tier, prizeValue: selectedPrize.value, prizePhoto: selectedPrize.photo, durationSeconds: state.eventConfig.drawDurationSeconds || 5});
     let count = 0; const totalTicks = drawTickCount();
     clearInterval(rollInterval);
