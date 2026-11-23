@@ -66,6 +66,7 @@
   .error-summary{background:var(--danger);color:#fff;border-radius:10px;padding:10px 14px;font-weight:700;font-size:14px;margin:6px 0 10px;line-height:1.5;}
   .error-summary span{display:block;font-weight:400;}
   .admin-link{text-align:center;margin-top:22px;font-size:12.5px;color:var(--ink-soft);}
+  .wa-link{color:#1a8f4c;font-weight:600;text-decoration:underline;cursor:pointer;white-space:nowrap;}
   .admin-link a{color:var(--ink-soft);text-decoration:underline;cursor:pointer;}
   .success-wrap{text-align:center;padding:6px 0 0;}
   .stub{background:var(--paper);border:1.5px dashed var(--gold);border-radius:var(--radius);padding:26px 24px;margin-top:18px;}
@@ -250,6 +251,14 @@
     guaranteedDrawEntryId: null, guaranteedRevealedPrize: null, guaranteedSending: false, guaranteedSpinning: false, guaranteedWheelPool: null
   };
 
+  function waLink(raw){
+    const txt = String(raw||'');
+    let d = txt.replace(/\D/g,'');
+    if(d.length<8) return escapeHtml(txt);
+    if(d.startsWith('00')) d = d.slice(2);
+    else if(d.startsWith('0')) d = '60'+d.slice(1);
+    return `<a class="wa-link" href="https://wa.me/${d}" target="_blank" rel="noopener" title="WhatsApp">${escapeHtml(txt)}</a>`;
+  }
   function showToast(msg){
     let el = document.getElementById('toast');
     if(!el){ el = document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
@@ -1867,7 +1876,7 @@
             <tr>
               <td><img class="mini-thumb" data-src="${en.photo}" src="${en.photo}"></td>
               <td>${escapeHtml(en.name)}</td>
-              <td>${escapeHtml(en.contact)}</td>
+              <td>${waLink(en.contact)}</td>
               <td>${escapeHtml(en.ddName||'—')}</td>
               <td>${escapeHtml(en.customerName||'—')}</td>
               <td>${isEditing?`<input type="text" class="edit-orderid" value="${escapeAttr(en.orderId)}" style="width:140px;padding:6px 8px;border:1.5px solid var(--gold);border-radius:6px;">`:`${escapeHtml(en.orderId)}${en.statusUnconfirmed?` <span class="pill" title="${t('OCR 没有读到 COMPLETED / PICKUP COMPLETED / ORDER SHIPPED，参与者手动确认，请检查截图的订单状态','OCR could not confirm the order status — manually confirmed by the participant, please check the screenshot')}" style="background:#fdecea;color:var(--rose);cursor:help;">${t('状态未确认','Status?')}</span>`:''}${en.ocrOverride?` <span title="${t('此资料未通过OCR自动核实，订单号或金额为参与者手动确认','This entry was not auto-verified by OCR — Order ID or Amount was manually confirmed by the participant')}" style="color:var(--rose);font-weight:700;cursor:help;">⚠</span>`:''}${en.manuallyAdded?` <span title="${t('这笔资料是管理员手动添加的','This entry was manually added by an admin')}" style="color:var(--gold);font-weight:700;cursor:help;">✎</span>`:''}`}</td>
@@ -2563,7 +2572,7 @@
             ${d.entries.map(en=>`
               <tr>
                 <td>${escapeHtml(en.name)}</td>
-                <td>${escapeHtml(en.contact)}</td>
+                <td>${waLink(en.contact)}</td>
                 <td>${escapeHtml(en.ddName||'—')}</td>
                 <td>${escapeHtml(en.customerName||'—')}</td>
                 <td>${escapeHtml(en.orderId)}</td>
