@@ -208,6 +208,19 @@
   .fs-wheel .fs-foot{position:absolute;bottom:2vh;left:0;right:0;text-align:center;font-size:clamp(12px,1.7vh,16px);letter-spacing:.3em;color:rgba(245,232,200,.55);z-index:3;text-transform:uppercase;}
   .fs-wheel .rev-banner{background:#E3BD6A;color:#3E1638;font-weight:800;}
   .fs-wheel .rev-photo{border-color:#E3BD6A;box-shadow:0 10px 30px rgba(0,0,0,.35);position:relative;z-index:2;}
+  /* Live view: Lucky Wheel bronze-gold theme (matches admin full-screen) */
+  .draw-stage.lw{background:radial-gradient(circle at 50% 40%,#7a561a 0%,#4a3210 55%,#2b1c08 100%)!important;}
+  .draw-stage.lw .rev-rays{background:repeating-conic-gradient(from 0deg,rgba(240,217,160,.10) 0 6deg,transparent 6deg 12deg)!important;}
+  .draw-stage.lw .draw-prize-label{color:#E8C777;font-weight:800;letter-spacing:.12em;}
+  .draw-stage.lw #live-context{color:#FFF3D1;font-weight:800;font-size:19px;letter-spacing:.04em;line-height:1.35;}
+  .draw-stage.lw .draw-name{color:#FFF3D1;text-shadow:none;font-weight:800;}
+  .draw-stage.lw .draw-sub{color:#E8C777;}
+  .draw-stage.lw .wheel{border:8px solid #E3BD6A;box-shadow:0 0 0 3px rgba(255,243,209,.5),0 0 40px rgba(232,199,119,.35),0 10px 28px rgba(0,0,0,.4);}
+  .draw-stage.lw .wheel-pointer{color:#FFF3D1;}
+  .draw-stage.lw .wheel-hub{background:#E3BD6A;border-color:#3a2a10;}
+  .draw-stage.lw .rev-banner{background:#E3BD6A;color:#3E1638;font-weight:800;}
+  .draw-stage.lw #live-reveal-photo{border-color:#E3BD6A;box-shadow:0 10px 30px rgba(0,0,0,.35);}
+  .draw-stage.lw #live-reveal-confirmed{background:linear-gradient(180deg,#f3d98f,#d4a54a);color:#3E1638;}
   .select-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;}
   select{padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;}
   .checkline{font-size:13.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px;}
@@ -1058,6 +1071,8 @@
     const photoEl = document.getElementById('live-focus-photo');
     const wheelEl = document.getElementById('live-focus-wheel');
     if(!statusEl) return;
+    const liveStageEl = document.getElementById('live-stage');
+    if(liveStageEl && (msg.type==='focus'||msg.type==='draw_start'||msg.type==='draw_reveal'||msg.type==='prize_selected')) liveStageEl.classList.toggle('lw', msg.mode==='wheel');
     const bannerEl = document.getElementById('live-banner'); if(bannerEl) bannerEl.style.display = msg.type==='draw_reveal' ? 'block' : 'none';
     const idleEl = document.getElementById('live-idle-name'); if(idleEl) idleEl.style.display = (msg.type==='focus'||msg.type==='prize_selected') ? 'block' : 'none';
     if(msg.type==='focus'){
@@ -1155,7 +1170,7 @@
         <div style="text-align:center;padding:10px 0 0;background:var(--plum);"><button id="live-sound-btn" type="button" class="small-btn ghost" style="border-color:var(--gold-light);color:var(--gold-light);background:transparent;">${t('🔊 点一下开启声音','🔊 Tap to enable sound')}</button></div>
         <div class="draw-stage staged" id="live-stage" style="border-radius:0;border-left:0;border-right:0;padding:0 20px 34px;min-height:260px;">
           <div class="rev-rays"></div>
-          <div id="live-banner" class="rev-banner" style="display:none;">${t('恭喜 / Congratulations','Congratulations')}</div>
+          <div id="live-banner" class="rev-banner" style="display:none;">♛ ${t('恭喜 / Congratulations','Congratulations')} ♛</div>
           <div style="height:22px;position:relative;z-index:2;"></div>
           <div id="live-status" class="draw-prize-label" style="font-size:14px;margin-bottom:10px;position:relative;z-index:2;">${t('等待管理员开始抽奖…','Waiting for the draw to start…')}</div>
           <div style="position:relative;z-index:2;"><img id="live-focus-photo" style="width:180px;height:180px;border:3px solid var(--gold-light);border-radius:10px;object-fit:contain;background:#fff;margin:0 auto 12px;display:none;"></div>
