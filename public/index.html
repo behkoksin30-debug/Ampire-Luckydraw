@@ -1174,11 +1174,11 @@
     return en ? {name: en.name||'', customerName: en.customerName||'', ddName: en.ddName||'', contactMasked: maskPhone(en.contact)} : {};
   }
   let liveWheelKey = '';
-  function setupLiveWheel(items){
+  function setupLiveWheel(items, photos){
     const rot = document.getElementById('live-wheel-rot');
     if(!rot || !items || !items.length) return;
-    const key = JSON.stringify(items);
-    if(key !== liveWheelKey){ liveWheelKey = key; rot.innerHTML = buildWheelSvg(items.map(n=>({name:n}))); }
+    const key = JSON.stringify([items, photos||null]);
+    if(key !== liveWheelKey){ liveWheelKey = key; rot.innerHTML = buildWheelSvg(items.map((n,i)=>({name:n, photoUrl:(photos&&photos[i])||''}))); }
     rot.style.transition = 'none'; rot.style.transform = 'rotate(0deg)';
   }
   function spinLiveWheel(deg, dur){
@@ -1220,7 +1220,7 @@
       } else if(msg.mode==='wheel'){
         statusEl.textContent = t('幸运轮盘 · 即将抽出','Lucky Wheel · Coming up');
         contextEl.textContent = msg.context || '';
-        if(msg.wheelItems) setupLiveWheel(msg.wheelItems);
+        if(msg.wheelItems) setupLiveWheel(msg.wheelItems, msg.wheelPhotos);
         wheelEl.style.display = 'block';
       } else {
         statusEl.textContent = t('等待管理员开始抽奖…','Waiting for the draw to start…');
@@ -1249,7 +1249,7 @@
       if(msg.mode==='main' && msg.prizePhoto){ photoEl.src = msg.prizePhoto; photoEl.style.display = 'inline-block'; }
       else { photoEl.style.display = 'none'; }
       if(msg.mode==='wheel' && msg.wheelItems && msg.wheelItems.length){
-        setupLiveWheel(msg.wheelItems);
+        setupLiveWheel(msg.wheelItems, msg.wheelPhotos);
         wheelEl.style.display = 'block';
         rollEl.style.display = 'none';
         spinLiveWheel(msg.finalRotation || 0, msg.durationSeconds || 5);
@@ -2442,9 +2442,12 @@
     if(!name) return '';
     return name.length>maxLen ? name.slice(0,maxLen-1)+'…' : name;
   }
+  let wheelUidCounter = 0;
+  function wheelPhotoUrl(p){ return (p && p.photo && p.id) ? `/api/prize-photo/${encodeURIComponent(p.id)}?v=${p.photo.length}` : ''; }
   function buildWheelSvg(pool){
-    const seg = 360/pool.length;
+    const N = pool.length, seg = 360/N;
     const cx = 100, cy = 100, r = 97;
+    const defs = []; const uid = 'w'+(++wheelUidCounter)+'_';
     const parts = pool.map((p,i)=>{
       const startAngle = i*seg - 90;
       const endAngle = (i+1)*seg - 90;
@@ -2454,12 +2457,33 @@
       const x2 = cx + r*Math.cos(endAngle*Math.PI/180);
       const y2 = cy + r*Math.sin(endAngle*Math.PI/180);
       const midAngle = startAngle + seg/2;
+      const textRotate = midAngle + 90;
+      const url = p.photoUrl || wheelPhotoUrl(p);
+      const path = `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${wheelColor(i)}" stroke="#fffdf9" stroke-width="1.5"/>`;
+      const words = String(p.name||'').split(/\s+/).filter(Boolean);
+      if(url){
+        const rhoImg = r*(N<=6?0.66:0.70);
+        const ri = Math.min(2*Math.PI*rhoImg/N/2.3, N<=6?21:15);
+        const ix = cx + rhoImg*Math.cos(midAngle*Math.PI/180), iy = cy + rhoImg*Math.sin(midAngle*Math.PI/180);
+        const rhoT = r*(N<=6?0.33:0.40);
+        const tx = cx + rhoT*Math.cos(midAngle*Math.PI/180), ty = cy + rhoT*Math.sin(midAngle*Math.PI/180);
+        const maxChars = N<=6 ? 11 : 9, fs = N<=6 ? 4.6 : 3.8;
+        let lines = []; let cur = '';
+        words.forEach(w=>{ if(cur && (cur+' '+w).length>maxChars){ lines.push(cur); cur = w; } else cur = cur ? cur+' '+w : w; });
+        if(cur) lines.push(cur);
+        if(lines.length>2) lines = [lines[0], lines[1].slice(0,maxChars-1)+'…'];
+        lines = lines.map(l=>l.length>maxChars+2 ? l.slice(0,maxChars+1)+'…' : l);
+        const lh = fs*1.2;
+        const tspans = lines.map((l,k)=>`<tspan x="${tx.toFixed(2)}" dy="${k===0 ? (-(lines.length-1)/2*lh).toFixed(2) : lh.toFixed(2)}">${escapeHtml(l)}</tspan>`).join('');
+        defs.push(`<clipPath id="${uid}${i}"><circle cx="${ix.toFixed(2)}" cy="${iy.toFixed(2)}" r="${ri.toFixed(2)}"/></clipPath>`);
+        return path
+          + `<g transform="rotate(${textRotate.toFixed(2)} ${ix.toFixed(2)} ${iy.toFixed(2)})"><circle cx="${ix.toFixed(2)}" cy="${iy.toFixed(2)}" r="${(ri+1.6).toFixed(2)}" fill="#fff8e6"/><image href="${escapeAttr(url)}" x="${(ix-ri).toFixed(2)}" y="${(iy-ri).toFixed(2)}" width="${(2*ri).toFixed(2)}" height="${(2*ri).toFixed(2)}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${uid}${i})"/></g>`
+          + `<text x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" fill="#fff" font-size="${fs}" font-weight="700" text-anchor="middle" dominant-baseline="middle" transform="rotate(${textRotate.toFixed(2)}, ${tx.toFixed(2)}, ${ty.toFixed(2)})" style="paint-order:stroke;stroke:#00000088;stroke-width:1.2px;">${tspans}</text>`;
+      }
       const tx = cx + (r*0.6)*Math.cos(midAngle*Math.PI/180);
       const ty = cy + (r*0.6)*Math.sin(midAngle*Math.PI/180);
-      const textRotate = midAngle + 90;
-      const arcW = 2*Math.PI*(r*0.6)/pool.length;
-      const words = String(p.name||'').split(/\s+/).filter(Boolean);
-      const maxChars = pool.length<=3 ? 16 : 12;
+      const arcW = 2*Math.PI*(r*0.6)/N;
+      const maxChars = N<=3 ? 16 : 12;
       const lines = []; let cur = '';
       words.forEach(w=>{ if(cur && (cur+' '+w).length>maxChars){ lines.push(cur); cur = w; } else cur = cur ? cur+' '+w : w; });
       if(cur) lines.push(cur);
@@ -2467,10 +2491,9 @@
       const fs = Math.max(4.5, Math.min(9, arcW/(lines.length*1.2), 74/(longest*0.6)));
       const lh = fs*1.2;
       const tspans = lines.map((l,k)=>`<tspan x="${tx.toFixed(2)}" dy="${k===0 ? (-(lines.length-1)/2*lh).toFixed(2) : lh.toFixed(2)}">${escapeHtml(l)}</tspan>`).join('');
-      return `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${wheelColor(i)}" stroke="#fffdf9" stroke-width="1.5"/>`
-        + `<text x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" fill="#fff" font-size="${fs.toFixed(2)}" font-weight="700" text-anchor="middle" dominant-baseline="middle" transform="rotate(${textRotate.toFixed(2)}, ${tx.toFixed(2)}, ${ty.toFixed(2)})" style="paint-order:stroke;stroke:#00000066;stroke-width:1.6px;">${tspans}</text>`;
+      return path + `<text x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" fill="#fff" font-size="${fs.toFixed(2)}" font-weight="700" text-anchor="middle" dominant-baseline="middle" transform="rotate(${textRotate.toFixed(2)}, ${tx.toFixed(2)}, ${ty.toFixed(2)})" style="paint-order:stroke;stroke:#00000066;stroke-width:1.6px;">${tspans}</text>`;
     }).join('');
-    return `<svg viewBox="0 0 200 200" style="width:100%;height:100%;display:block;">${parts}</svg>`;
+    return `<svg viewBox="0 0 200 200" style="width:100%;height:100%;display:block;"><defs>${defs.join('')}</defs>${parts}</svg>`;
   }
   let wheelSpinTimeout = null;
   function openGuaranteedStage(entryId){
@@ -2482,7 +2505,7 @@
     state.guaranteedRevealedPrize = null;
     state.guaranteedSpinning = false;
     state.guaranteedWheelPool = pool;
-    sendLiveMessage({type:'focus', mode:'wheel', wheelItems: pool.map(p=>p.name), context: en ? (en.name + (en.customerName?` · ${t('顾客','Customer')} ${en.customerName}`:'')) : ''});
+    sendLiveMessage({type:'focus', mode:'wheel', wheelItems: pool.map(p=>p.name), wheelPhotos: pool.map(wheelPhotoUrl), context: en ? (en.name + (en.customerName?` · ${t('顾客','Customer')} ${en.customerName}`:'')) : ''});
     render();
   }
   async function startGuaranteedDraw(entryId){
@@ -2504,7 +2527,7 @@
     state.guaranteedSpinning = true;
     state.guaranteedWheelPool = pool;
     render();
-    sendLiveMessage({type:'draw_start', mode:'wheel', wheelItems: pool.map(p=>p.name), finalRotation, rollingItems: pool.map(p=>p.name), context: displayName(spinningEntry), durationSeconds: duration});
+    sendLiveMessage({type:'draw_start', mode:'wheel', wheelItems: pool.map(p=>p.name), wheelPhotos: pool.map(wheelPhotoUrl), finalRotation, rollingItems: pool.map(p=>p.name), context: displayName(spinningEntry), durationSeconds: duration});
     requestAnimationFrame(()=>{
       const wheelEl = document.getElementById('wheel-'+entryId);
       if(wheelEl){
