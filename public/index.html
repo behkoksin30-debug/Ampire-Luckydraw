@@ -203,13 +203,13 @@
   .fs-wheel .wheel{border:clamp(7px,1.2vh,13px) solid #E3BD6A;box-shadow:0 0 0 clamp(2px,.5vh,5px) rgba(255,243,209,.5),0 0 60px rgba(232,199,119,.35),0 12px 36px rgba(0,0,0,.35);}
   .fs-wheel .wheel-pointer{font-size:clamp(30px,6vh,60px);top:-4vh;color:#FFF3D1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4));}
   .fs-wheel .wheel-hub{width:clamp(30px,6vh,60px);height:clamp(30px,6vh,60px);margin:calc(-.5*clamp(30px,6vh,60px)) 0 0 calc(-.5*clamp(30px,6vh,60px));background:#E3BD6A;border-color:#3a2a10;}
-  .nm3{position:relative;z-index:3;display:flex;gap:2vw;justify-content:center;align-items:stretch;margin:1.4vh auto 0;width:96%;max-width:1400px}
-  .nm3 .blk{flex:1 1 0;min-width:0;text-align:center;padding:1.6vh 1vw 2vh;border:2px solid rgba(240,217,160,.6);border-radius:16px;background:rgba(62,22,56,.6);display:flex;flex-direction:column;justify-content:center}
-  .nm3 .blk .l{font-size:clamp(20px,3.8vh,38px);letter-spacing:.3em;color:#F0D9A0;font-weight:800;margin-bottom:.8vh;padding-left:.3em}
-  .nm3 .blk .v{font-family:'Manrope','Noto Sans SC',sans-serif;font-weight:800;color:#FFF3D1;font-size:clamp(28px,7vh,72px);line-height:1.12;word-break:break-word;text-shadow:0 0 20px rgba(198,150,60,.6)}
-  .nm3 .blk.main{border-color:#E3BD6A;background:rgba(62,22,56,.78);box-shadow:0 0 30px rgba(227,189,106,.25)}
-  .nm3 .blk.main .v{font-size:clamp(32px,8.6vh,88px)}
-  .nm3.two .blk.main .v{font-size:clamp(34px,9.6vh,100px)}
+  .nm3{position:relative;z-index:3;width:94%;max-width:1200px;margin:1.2vh auto 0;text-align:center;font-family:'Manrope','Noto Sans SC',sans-serif}
+  .nm3 .hl{font-family:'Noto Sans SC',sans-serif;font-size:clamp(16px,2.6vh,24px);color:#F0D9A0;letter-spacing:.4em;font-weight:700;padding-left:.4em}
+  .nm3 .hv{font-size:clamp(56px,15vh,150px);line-height:1.05;font-weight:800;color:#FFF3D1;text-shadow:0 0 32px rgba(227,189,106,.7);margin:.4vh 0 1.8vh;word-break:break-word}
+  .nm3 .row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+  .nm3 .chip{display:flex;align-items:baseline;gap:12px;padding:8px 20px;border-radius:999px;background:rgba(30,10,28,.7);border:1px solid rgba(240,217,160,.4);max-width:48%;min-width:0}
+  .nm3 .chip .l{font-family:'Noto Sans SC',sans-serif;font-weight:700;letter-spacing:.2em;font-size:clamp(14px,2.2vh,20px);color:#bda77a;white-space:nowrap}
+  .nm3 .chip .v{font-size:clamp(20px,3.8vh,34px);font-weight:800;color:#FFF3D1;min-width:0;overflow:hidden;white-space:nowrap}
   .draw-confirmed{position:relative;z-index:3;margin-top:2vh;padding:9px 18px;border-radius:999px;background:linear-gradient(180deg,#f3d98f,#d4a54a);color:#3E1638;font-weight:700;font-size:clamp(15px,2.4vh,22px);animation:revDrop .5s ease-out both}
   .tp{display:none}
   .draw-stage.fs:not(.fs-wheel) .tp{position:fixed;top:0;left:0;right:0;z-index:7;display:flex;gap:10px;justify-content:center;padding:8px 160px 8px 16px;background:linear-gradient(180deg,rgba(24,8,22,.92),rgba(24,8,22,.7))}
@@ -244,12 +244,7 @@
   .nm-contact{position:relative;z-index:3;color:#d9c6d4;font-size:clamp(14px,2.3vh,22px);margin-top:1.6vh}
   .draw-stage.fs.revealed .rev-photo img{width:min(20vh,60vw);height:min(20vh,60vw)}
   .draw-stage.fs.revealed .rev-photo{margin:4vh 0 .6vh}
-  @media (max-width:700px){
-    .nm3{flex-direction:column;gap:10px;width:94%}
-    .nm3 .blk{padding:10px 10px 12px}
-    .nm3 .blk .l{font-size:20px}
-    .nm3 .blk .v,.nm3 .blk.main .v,.nm3.two .blk.main .v{font-size:34px}
-  }
+  @media (max-width:700px){ .nm3 .hv{font-size:54px} .nm3 .chip{max-width:100%} .nm3 .chip .v{font-size:22px} }
   .draw-stage.fs-wheel .draw-sub{font-size:clamp(15px,2.2vh,22px);color:#F5E8C8;position:relative;z-index:2;font-weight:600;}
   .draw-stage.fs-wheel .draw-name,.draw-stage.fs-wheel.revealed .draw-name{position:relative;z-index:2;color:#FFF3D1;font-size:clamp(30px,6.5vh,64px)!important;font-weight:800;letter-spacing:.06em;text-align:center;}
   .fs-wheel .draw-actions{position:relative;z-index:2;display:flex;gap:14px;align-items:center;}
@@ -1405,13 +1400,13 @@
   }
   function isVideoSrc(s){ return typeof s==='string' && /^\/media\/help-/.test(s); }
   function fitNameCards(){
-    document.querySelectorAll('.nm3 .v').forEach(el=>{
+    document.querySelectorAll('.nm3 .hv, .nm3 .chip .v').forEach(el=>{
       el.style.fontSize=''; el.style.whiteSpace='nowrap'; el.style.wordBreak='normal'; el.style.overflowWrap='normal';
       const base = parseFloat(getComputedStyle(el).fontSize) || 40;
       const min = Math.max(14, base*0.4);
       let size = base;
       while(el.scrollWidth > el.clientWidth + 1 && size > min){ size = Math.max(min, size*0.93); el.style.fontSize = size+'px'; }
-      if(el.scrollWidth > el.clientWidth + 1){ el.style.whiteSpace='normal'; el.style.overflowWrap='anywhere'; }
+      if(el.scrollWidth > el.clientWidth + 1){ el.style.whiteSpace='normal'; el.style.overflowWrap='anywhere'; el.style.overflow='visible'; }
     });
   }
   window.addEventListener('resize', ()=>{ try{ fitNameCards(); }catch(e){} });
@@ -1420,9 +1415,9 @@
     const c = (c0 && c0!=='—' && c0!=='-') ? c0 : '';
     const d = String(dd||'').trim() || '—';
     const same = !c || !n || c.toLowerCase().replace(/\s+/g,' ') === n.toLowerCase().replace(/\s+/g,' ');
-    const ddCard = `<div class="blk"><div class="l">${t('DD 名字','DD Name')}</div><div class="v">${escapeHtml(d)}</div></div>`;
-    if(same) return `<div class="nm3 two"><div class="blk main"><div class="l">${t('姓名 · 顾客','Name · Customer')}</div><div class="v">${escapeHtml(c||n||'—')}</div></div>${ddCard}</div>`;
-    return `<div class="nm3"><div class="blk"><div class="l">${t('姓名','Name')}</div><div class="v">${escapeHtml(n)}</div></div><div class="blk main"><div class="l">${t('顾客名字','Customer')}</div><div class="v">${escapeHtml(c)}</div></div>${ddCard}</div>`;
+    const ddChip = `<div class="chip"><span class="l">${t('DD 名字','DD Name')}</span><span class="v">${escapeHtml(d)}</span></div>`;
+    if(same) return `<div class="nm3"><div class="hl">${t('姓名 · 顾客','Name · Customer')}</div><div class="hv">${escapeHtml(c||n||'—')}</div><div class="row">${ddChip}</div></div>`;
+    return `<div class="nm3"><div class="hl">${t('顾客名字','Customer')}</div><div class="hv">${escapeHtml(c)}</div><div class="row"><div class="chip"><span class="l">${t('姓名','Name')}</span><span class="v">${escapeHtml(n)}</span></div>${ddChip}</div></div>`;
   }
   function displayName(en){
     if(!en) return '';
