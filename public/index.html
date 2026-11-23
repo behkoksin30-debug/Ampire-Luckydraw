@@ -243,7 +243,7 @@
     pdpaFilter: 'all',
     ddMenuOpen: false, prizeMenuOpen: false,
     showAddEntryForm: false,
-    newEntryForm: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null },
+    newEntryForm: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, original:null, pdpa:false }, neOcrBusy:false,
     newEntryFormErrors: {},
     draftTutorialImages: undefined,
     draftHelpImages: undefined,
@@ -1856,9 +1856,11 @@
             <div class="upload-box" style="padding:8px 10px;">
               <label class="upload-btn" style="padding:7px 12px;font-size:12.5px;">${f.photo?t('更换照片','Change Photo'):t('选择照片','Choose Photo')}<input type="file" id="ne-photo" accept="image/*"></label>
               ${f.photo?`<img class="thumb mini-thumb" style="width:40px;height:40px;" data-src="${f.photo}" src="${f.photo}">`:''}
+              ${f.photo?`<button type="button" class="small-btn" id="ne-ocr-btn" style="padding:7px 12px;font-size:12.5px;" ${state.neOcrBusy?'disabled':''}>${state.neOcrBusy?t('识别中…','Recognizing…'):t('OCR 自动识别','OCR Auto-Detect')}</button>`:''}
             </div>
           </div>
         </div>
+        ${state.eventConfig.pdpaEnabled?`<label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-size:13px;cursor:pointer;"><input type="checkbox" id="ne-pdpa" ${f.pdpa?'checked':''} style="width:20px;height:20px;margin-top:2px;flex:none;accent-color:#c6963c;"><span>${t('已获得参与者的 PDPA 同意','Participant has given PDPA consent')}</span></label>`:''}
         <div style="margin-top:14px;display:flex;gap:10px;">
           <button class="small-btn" id="submit-new-entry-btn">${t('新增','Add')}</button>
           <button class="small-btn ghost" id="cancel-new-entry-btn">${t('取消','Cancel')}</button>
@@ -1942,7 +1944,7 @@
     };
     container.querySelector('#toggle-add-entry-btn').onclick = ()=>{
       state.showAddEntryForm = !state.showAddEntryForm;
-      if(state.showAddEntryForm){ state.newEntryForm = { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null }; state.newEntryFormErrors = {}; }
+      if(state.showAddEntryForm){ state.newEntryForm = { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, original:null, pdpa:false }; state.newEntryFormErrors = {}; }
       renderAdminEntriesTab(container);
     };
     const neName = container.querySelector('#ne-name'); if(neName) neName.oninput = e=>{ state.newEntryForm.name = upperInput(e); };
@@ -1955,8 +1957,29 @@
     const nePhoto = container.querySelector('#ne-photo');
     if(nePhoto) nePhoto.onchange = async (e)=>{
       const file = e.target.files[0]; if(!file) return;
-      try{ state.newEntryForm.photo = await compressImage(file); renderAdminEntriesTab(container); }
+      try{ state.newEntryForm.photo = await compressImage(file); state.newEntryForm.original = file; renderAdminEntriesTab(container); }
       catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
+    };
+    const nePdpa = container.querySelector('#ne-pdpa'); if(nePdpa) nePdpa.onchange = e=>{ state.newEntryForm.pdpa = e.target.checked; };
+    const neOcrBtn = container.querySelector('#ne-ocr-btn');
+    if(neOcrBtn) neOcrBtn.onclick = async ()=>{
+      const f = state.newEntryForm;
+      if(window.__ocrLoadFailed || typeof Tesseract === 'undefined' || typeof Tesseract.createWorker !== 'function'){ showToast(t('OCR识别暂不可用，请手动填写','OCR unavailable, please fill in manually')); return; }
+      state.neOcrBusy = true; renderAdminEntriesTab(container);
+      try{
+        let img = f.photo;
+        if(f.original){ try{ img = await prepareOcrImage(f.original); }catch(e){} }
+        const worker = await getOcrWorker();
+        const { data } = await worker.recognize(img);
+        const text = (data && data.text) ? data.text : '';
+        const guess = guessOrderIdAndAmount(text);
+        if(guess.orderId) f.orderId = guess.orderId;
+        if(guess.amount) f.amount = guess.amount;
+        const gd = guessOrderDate(text, state.eventConfig.regStartDate, state.eventConfig.regEndDate);
+        if(gd) f.orderDate = gd;
+        showToast((guess.orderId||guess.amount||gd) ? t('已自动填入，请核对','Auto-filled, please verify') : t('未能自动识别，请手动填写','Could not auto-detect, please fill in manually'));
+      }catch(e){ showToast(t('OCR识别失败，请手动填写','OCR failed, please fill in manually')); }
+      state.neOcrBusy = false; renderAdminEntriesTab(container);
     };
     const cancelNewEntryBtn = container.querySelector('#cancel-new-entry-btn');
     if(cancelNewEntryBtn) cancelNewEntryBtn.onclick = ()=>{ state.showAddEntryForm = false; renderAdminEntriesTab(container); };
@@ -1975,7 +1998,7 @@
       try{
         await api('/api/admin/entries', {method:'POST', auth:true, body:{
           name: f.name.trim(), contact: f.contact.trim(), ddName: f.ddName.trim(), customerName: f.customerName.trim(),
-          orderId: f.orderId.trim(), orderDate: f.orderDate||'', amount: f.amount.toString().trim(), photo: f.photo||null
+          orderId: f.orderId.trim(), orderDate: f.orderDate||'', amount: f.amount.toString().trim(), photo: f.photo||null, pdpaConsent: !!f.pdpa
         }});
         state.showAddEntryForm = false;
         await loadAdminData();
