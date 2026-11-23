@@ -211,6 +211,18 @@
   .nm3 .blk.main .v{font-size:clamp(32px,8.6vh,88px)}
   .nm3.two .blk.main .v{font-size:clamp(34px,9.6vh,100px)}
   .draw-confirmed{position:relative;z-index:3;margin-top:2vh;padding:9px 18px;border-radius:999px;background:linear-gradient(180deg,#f3d98f,#d4a54a);color:#3E1638;font-weight:700;font-size:clamp(15px,2.4vh,22px);animation:revDrop .5s ease-out both}
+  .psel{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:6;width:min(560px,86vw)}
+  .psel .pb{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:12px 18px;border-radius:999px;border:2px solid #E3BD6A;background:rgba(62,22,56,.85);color:#FFF3D1;font:700 18px 'Noto Sans SC',sans-serif;cursor:pointer;box-shadow:0 0 24px rgba(227,189,106,.25);text-align:left}
+  .psel .pb small{color:#F0D9A0;font-weight:600;margin-left:8px}
+  .psel .pl{margin-top:8px;max-height:46vh;overflow:auto;border:2px solid rgba(227,189,106,.7);border-radius:16px;background:rgba(40,14,36,.96);padding:6px}
+  .psel .pi{display:flex;justify-content:space-between;gap:12px;padding:11px 14px;border-radius:10px;color:#FFF3D1;font:600 17px 'Noto Sans SC',sans-serif;cursor:pointer}
+  .psel .pi:hover{background:rgba(227,189,106,.25)}
+  .psel .pi i{font-style:normal;color:#F0D9A0;white-space:nowrap}
+  .psel .pi.on{background:linear-gradient(135deg,#f6e3b0,#d4a54a);color:#3E1638}.psel .pi.on i{color:#3E1638}
+  .psel .pv{position:absolute;left:calc(100% + 14px);top:60px;width:260px;padding:8px;border:2px solid #E3BD6A;border-radius:16px;background:#fff;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  .psel .pv img{width:100%;display:block;border-radius:10px;background:#000;max-height:50vh;object-fit:contain}
+  .psel .pv div{margin-top:6px;text-align:center;color:#3E1638;font:700 14px 'Noto Sans SC',sans-serif}
+  @media (max-width:900px){ .psel .pv{display:none!important} }
   @keyframes sndPulse{0%,100%{opacity:1}50%{opacity:.45}}
   .snd-pulse{animation:sndPulse 1.2s ease-in-out infinite}
   .draw-remain{display:none;position:relative;z-index:3;color:#F0D9A0;font-weight:700;letter-spacing:.08em}
@@ -319,7 +331,7 @@
     posterVideoUploading: false,
     ddFilters: [],
     pdpaFilter: 'all',
-    ddMenuOpen: false, prizeMenuOpen: false,
+    ddMenuOpen: false, prizeMenuOpen: false, fsPrizeMenu: false,
     showAddEntryForm: false,
     newEntryForm: { name:'', contact:'', ddName:'', customerName:'', orderId:'', orderDate:'', amount:'', photo:null, original:null, pdpa:false }, neOcrBusy:false,
     newEntryFormErrors: {},
@@ -1438,13 +1450,14 @@
     const selectedPrize = state.prizes.find(p=>p.id===state.drawSelectedPrize);
     if(!selectedPrize || selectedPrize.qty<1){
       showToast(t('这个奖品的库存已经用完了，请重新选择','This prize is out of stock, please choose another'));
+      if(state.drawFs && selectedPrize){ state.fsPrizeMenu = true; render(); return; }
       state.drawSelectedPrize = '';
       render();
       return;
     }
     const pool = eligibleTicketPool();
     if(pool.length===0){ showToast(t('没有符合条件的参与者','No eligible participants')); return; }
-    state.drawFs = true; state.drawConfirmed = false; state.drawing = true; state.revealedWinner = null; render();
+    state.drawFs = true; state.fsPrizeMenu = false; state.drawConfirmed = false; state.drawing = true; state.revealedWinner = null; render();
     sendLiveMessage({type:'draw_start', mode:'main', rollingItems: Array.from(new Set(pool.map(p=>displayName(p)))), context: selectedPrize.name, prizeTier: selectedPrize.tier, prizeValue: selectedPrize.value, prizePhoto: selectedPrize.photo, durationSeconds: state.eventConfig.drawDurationSeconds || 5});
     let count = 0; const totalTicks = drawTickCount();
     clearInterval(rollInterval);
@@ -1477,6 +1490,7 @@
       state.drawConfirmed = true;
       try{ playTick(1000); setTimeout(()=>{ try{ playTick(1400); }catch(e){} },120); }catch(e){}
       await loadAdminData();
+      { const sp = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(state.drawFs && sp && (sp.qty||0)<1) state.fsPrizeMenu = true; }
       render();
     }catch(e){ showToast(e.message); }
   }
@@ -2575,6 +2589,7 @@
       </div>
       <div class="draw-stage staged ${state.revealedWinner?'revealed':''} ${(state.drawing||state.revealedWinner||(state.drawFs&&selectedPrize))?'fs':''}">
         <div class="rev-rays"></div>
+        ${(state.drawFs&&selectedPrize&&!state.drawing&&!state.revealedWinner)?`<div class="psel" id="fs-psel"><button type="button" class="pb" id="fs-psel-btn"><span>🎁 ${escapeHtml(selectedPrize.name)}${selectedPrize.value?' (RM'+escapeHtml(String(selectedPrize.value))+')':''}<small>${t('剩余','Left')} ${selectedPrize.qty||0}</small></span><span>${state.fsPrizeMenu?'▴':'▾'}</span></button>${state.fsPrizeMenu?`<div class="pl">${availablePrizes.length?availablePrizes.map(p=>`<div class="pi ${p.id===selectedPrize.id?'on':''}" data-fspid="${p.id}" data-photo="${escapeAttr(p.photo||'')}" data-pname="${escapeAttr(p.name+(p.value?' (RM'+p.value+')':''))}"><span>${escapeHtml(p.name)}${p.value?' (RM'+escapeHtml(String(p.value))+')':''}</span><i>${t('剩余','Left')} ${p.qty||0}</i></div>`).join(''):`<div class="pi"><span>${t('没有可抽的奖品了','No prizes left')}</span></div>`}</div><div class="pv" id="fs-psel-pv" style="display:none;"><img alt=""><div></div></div>`:''}</div>`:''}
         ${(state.drawFs&&selectedPrize&&!state.drawing&&!state.revealedWinner)?`<button type="button" class="small-btn ghost" id="draw-fs-exit" style="position:fixed;top:14px;right:16px;z-index:5;">✕ ${t('退出全屏','Exit full screen')}</button>`:''}
         ${state.revealedWinner?`<div class="rev-banner">${t('恭喜 / Congratulations','Congratulations')}</div>`:''}
         ${(()=>{ const pz = state.prizes.find(p=>p.id===state.drawSelectedPrize); if(!(pz && pz.photo)) return ''; return `<div class="rev-photo"><img src="${pz.photo}"><i></i></div>`; })()}
@@ -2740,7 +2755,14 @@
       it.onclick = ()=>{ state.drawSelectedPrize = it.getAttribute('data-pid'); state.drawFs = !!state.drawSelectedPrize; state.drawConfirmed = false; state.prizeMenuOpen = false; state.revealedWinner=null; broadcastPrizeSelection(); renderAdminDrawTab(container); };
     });
     const startBtn = container.querySelector('#start-draw-btn'); if(startBtn) startBtn.onclick = startDraw;
-    const fsExitBtn = container.querySelector('#draw-fs-exit'); if(fsExitBtn) fsExitBtn.onclick = ()=>{ state.drawFs = false; renderAdminDrawTab(container); };
+    const fsBtn = container.querySelector('#fs-psel-btn'); if(fsBtn) fsBtn.onclick = ()=>{ state.fsPrizeMenu = !state.fsPrizeMenu; renderAdminDrawTab(container); };
+    const fsPv = container.querySelector('#fs-psel-pv');
+    container.querySelectorAll('[data-fspid]').forEach(it=>{
+      it.onmouseenter = ()=>{ if(!fsPv) return; const ph = it.getAttribute('data-photo'); if(ph){ fsPv.querySelector('img').src = ph; fsPv.querySelector('div').textContent = it.getAttribute('data-pname')||''; fsPv.style.display='block'; } else fsPv.style.display='none'; };
+      it.onmouseleave = ()=>{ if(fsPv) fsPv.style.display='none'; };
+      it.onclick = ()=>{ state.drawSelectedPrize = it.getAttribute('data-fspid'); state.drawFs = true; state.fsPrizeMenu = false; state.drawConfirmed = false; state.revealedWinner = null; broadcastPrizeSelection(); renderAdminDrawTab(container); };
+    });
+    const fsExitBtn = container.querySelector('#draw-fs-exit'); if(fsExitBtn) fsExitBtn.onclick = ()=>{ state.drawFs = false; state.fsPrizeMenu = false; renderAdminDrawTab(container); };
     const confirmBtn = container.querySelector('#confirm-winner-btn'); if(confirmBtn) confirmBtn.onclick = confirmWinner;
     const redrawBtn = container.querySelector('#redraw-btn'); if(redrawBtn) redrawBtn.onclick = ()=>{ discardDraw(); startDraw(); };
     const cancelBtn = container.querySelector('#cancel-draw-btn'); if(cancelBtn) cancelBtn.onclick = discardDraw;
@@ -3399,6 +3421,11 @@
   }
 
   document.addEventListener('click', (e)=>{
+    if(state.fsPrizeMenu && !(e.target && e.target.closest && e.target.closest('#fs-psel'))){
+      state.fsPrizeMenu = false;
+      const c3 = document.getElementById('admin-content');
+      if(c3 && state.view==='admin' && state.adminTab==='draw') renderAdminDrawTab(c3);
+    }
     if(state.prizeMenuOpen && !(e.target && e.target.closest && e.target.closest('#prize-dd-wrap'))){
       state.prizeMenuOpen = false;
       const c2 = document.getElementById('admin-content');
