@@ -818,11 +818,12 @@
         || (d.winnerCustomerName||'').toLowerCase().includes(q) || (d.winnerDdName||'').toLowerCase().includes(q);
     });
     const ts = d=> new Date(d.timestamp).getTime() || 0;
-    if(state.historySort === 'dd'){
+    if(state.historySort === 'dd' || state.historySort === 'cust'){
+      const keyOf = state.historySort === 'cust' ? (d=> { const c=(d.winnerCustomerName||'').trim().toLowerCase(); return (c==='—'||c==='-')?'':c; }) : (d=> (d.winnerDdName||'').trim().toLowerCase());
       const first = new Map();
-      list.forEach(d=>{ const k=(d.winnerDdName||'').trim().toLowerCase(); const t0=ts(d); if(!first.has(k) || t0<first.get(k)) first.set(k,t0); });
+      list.forEach(d=>{ const k=keyOf(d); const t0=ts(d); if(!first.has(k) || t0<first.get(k)) first.set(k,t0); });
       return list.slice().sort((a,b)=>{
-        const ka=(a.winnerDdName||'').trim().toLowerCase(), kb=(b.winnerDdName||'').trim().toLowerCase();
+        const ka=keyOf(a), kb=keyOf(b);
         if(ka!==kb){ if(!ka) return 1; if(!kb) return -1; return first.get(ka)-first.get(kb) || ka.localeCompare(kb); }
         return ts(a)-ts(b);
       });
@@ -2881,6 +2882,7 @@
         <select id="history-sort-select" style="padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;height:42px;">
           <option value="time" ${state.historySort!=='dd'?'selected':''}>${t('排序：按时间','Sort: by time')}</option>
           <option value="dd" ${state.historySort==='dd'?'selected':''}>${t('排序：DD 分组','Sort: group by DD')}</option>
+          <option value="cust" ${state.historySort==='cust'?'selected':''}>${t('排序：顾客名字','Sort: group by customer')}</option>
         </select>
         <div id="history-dd-wrap" style="position:relative;">
           <button type="button" id="history-dd-btn" class="small-btn ghost" style="min-width:150px;max-width:240px;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 12px;"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ddLabelText)}</span><span>▾</span></button>
