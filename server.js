@@ -196,7 +196,8 @@ app.get('/api/config', (req, res) => {
     drawDurationSeconds: cfg.drawDurationSeconds || 5,
     wheelDurationSeconds: cfg.wheelDurationSeconds || 0,
     registrationDeadline: cfg.registrationDeadline || '',
-    soundTheme: cfg.soundTheme || 'classic'
+    soundTheme: ['classic','marimba','bit8'].includes(cfg.soundTheme) ? cfg.soundTheme : 'classic',
+    wheelSoundTheme: ['classic','marimba','bit8'].includes(cfg.wheelSoundTheme) ? cfg.wheelSoundTheme : ''
   });
 });
 app.put('/api/config', requireAdmin, (req, res) => {
@@ -249,6 +250,9 @@ app.put('/api/config', requireAdmin, (req, res) => {
     cfg.helpImages = Array.isArray(req.body.helpImages) ? req.body.helpImages.filter(Boolean).slice(0, 20) : [];
     cleanupHelpVideos(cfg);
   }
+  if (req.body.wheelSoundTheme !== undefined) {
+    cfg.wheelSoundTheme = ['classic','marimba','bit8'].includes(req.body.wheelSoundTheme) ? req.body.wheelSoundTheme : '';
+  }
   if (req.body.drawDurationSeconds !== undefined) {
     const ds = parseFloat(req.body.drawDurationSeconds);
     cfg.drawDurationSeconds = (!isNaN(ds) && ds >= 1 && ds <= 10) ? ds : (cfg.drawDurationSeconds || 5);
@@ -266,7 +270,7 @@ app.put('/api/config', requireAdmin, (req, res) => {
     }
   }
   if (req.body.soundTheme !== undefined) {
-    cfg.soundTheme = ['classic','electronic','drum'].includes(req.body.soundTheme) ? req.body.soundTheme : (cfg.soundTheme || 'classic');
+    cfg.soundTheme = ['classic','marimba','bit8'].includes(req.body.soundTheme) ? req.body.soundTheme : 'classic';
   }
   if (req.body.pdpaEnabled !== undefined) cfg.pdpaEnabled = !!req.body.pdpaEnabled;
   if (req.body.pdpaTextZh !== undefined) cfg.pdpaTextZh = String(req.body.pdpaTextZh).slice(0, 1000);
