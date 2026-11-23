@@ -1861,6 +1861,7 @@
           </div>
         </div>
         ${state.eventConfig.pdpaEnabled?`<label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-size:13px;cursor:pointer;"><input type="checkbox" id="ne-pdpa" ${f.pdpa?'checked':''} style="width:20px;height:20px;margin-top:2px;flex:none;accent-color:#c6963c;"><span>${t('已获得参与者的 PDPA 同意','Participant has given PDPA consent')}</span></label>`:''}
+        ${Object.keys(errs).length?`<div class="error-summary" id="ne-error-summary">⚠ 还有 ${Object.keys(errs).length} 项需要检查，请看红色的栏位<span>${Object.keys(errs).length} ${Object.keys(errs).length>1?'fields need':'field needs'} your attention</span></div>`:''}
         <div style="margin-top:14px;display:flex;gap:10px;">
           <button class="small-btn" id="submit-new-entry-btn">${t('新增','Add')}</button>
           <button class="small-btn ghost" id="cancel-new-entry-btn">${t('取消','Cancel')}</button>
@@ -1960,6 +1961,22 @@
       try{ state.newEntryForm.photo = await compressImage(file); state.newEntryForm.original = file; renderAdminEntriesTab(container); }
       catch(err){ showToast(t('照片处理失败，请重试','Photo processing failed, please try again')); }
     };
+    (()=>{
+      const m = {name:'ne-name',contact:'ne-contact',ddName:'ne-ddname',customerName:'ne-customername',orderId:'ne-orderid',amount:'ne-amount'};
+      const fe = state.newEntryFormErrors || {};
+      Object.keys(m).forEach(k=>{
+        const el = container.querySelector('#'+m[k]); if(!el) return;
+        if(fe[k]) el.classList.add('input-error');
+        el.addEventListener('input', ()=>{
+          if(!state.newEntryFormErrors[k]) return;
+          delete state.newEntryFormErrors[k]; el.classList.remove('input-error');
+          const et = el.parentElement.querySelector('.error-text'); if(et) et.remove();
+          const sm = container.querySelector('#ne-error-summary');
+          if(sm){ const n = Object.keys(state.newEntryFormErrors).length; if(!n) sm.remove(); else sm.innerHTML = `⚠ 还有 ${n} 项需要检查，请看红色的栏位<span>${n} ${n>1?'fields need':'field needs'} your attention</span>`; }
+        });
+      });
+    })();
+    const neScrollErr = ()=> setTimeout(()=>{ const first = container.querySelector('.error-text'); const tg = first ? (first.closest('.field')||first) : null; if(tg) tg.scrollIntoView({behavior:'smooth', block:'center'}); }, 50);
     const nePdpa = container.querySelector('#ne-pdpa'); if(nePdpa) nePdpa.onchange = e=>{ state.newEntryForm.pdpa = e.target.checked; };
     const neOcrBtn = container.querySelector('#ne-ocr-btn');
     if(neOcrBtn) neOcrBtn.onclick = async ()=>{
@@ -1994,7 +2011,7 @@
       if(!f.orderId.trim()) errs.orderId = t('请输入订单号','Required');
       if(!f.amount.toString().trim()) errs.amount = t('请输入金额','Required');
       state.newEntryFormErrors = errs;
-      if(Object.keys(errs).length){ renderAdminEntriesTab(container); return; }
+      if(Object.keys(errs).length){ renderAdminEntriesTab(container); neScrollErr(); return; }
       try{
         await api('/api/admin/entries', {method:'POST', auth:true, body:{
           name: f.name.trim(), contact: f.contact.trim(), ddName: f.ddName.trim(), customerName: f.customerName.trim(),
@@ -2004,7 +2021,12 @@
         await loadAdminData();
         showToast(t('已新增','Added'));
         renderAdminEntriesTab(container);
-      }catch(e){ showToast(e.message); }
+      }catch(e){
+        if(/已经登记过|already been registered/i.test(e.message||'')){
+          state.newEntryFormErrors = {orderId: '该订单号已经登记过 / This Order ID has already been registered'};
+          renderAdminEntriesTab(container); neScrollErr();
+        } else showToast(e.message);
+      }
     };
   }
 
