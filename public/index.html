@@ -2853,25 +2853,32 @@
     return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
   }
   function renderAdminHistoryTab(container){
+    const oldPanel = container.querySelector('#history-dd-panel'); const keepScroll = oldPanel ? oldPanel.scrollTop : 0;
     const q = (state.historySearch||'').trim().toLowerCase();
     const ddMap = new Map();
-    state.draws.forEach(d=>{ const n=(d.winnerDdName||'').trim(); if(n && !ddMap.has(n.toLowerCase())) ddMap.set(n.toLowerCase(), n); });
-    const ddList = [...ddMap.values()].sort((a,b)=>a.localeCompare(b));
+    state.draws.forEach(d=>{ const n=(d.winnerDdName||'').trim(); if(!n) return; const k=n.toLowerCase(); if(!ddMap.has(k)) ddMap.set(k,{key:k,label:n,count:0}); ddMap.get(k).count++; });
+    const ddOpts = [...ddMap.values()].sort((a,b)=> b.count-a.count || a.label.localeCompare(b.label));
     state.historyDds = (state.historyDds||[]).filter(k=>ddMap.has(k));
     const selDds = state.historyDds;
+    const ddLabelText = (()=>{ if(!selDds.length) return t('全部 DD','All DD'); const labels = ddOpts.filter(o=>selDds.includes(o.key)).map(o=>o.label); const joined = labels.join('、'); return joined.length<=18 ? joined : t('已选 '+labels.length+' 个 DD','Selected '+labels.length+' DD'); })();
     const filtered = filteredDraws();
     const isFiltered = !!(q || selDds.length);
     container.innerHTML = state.draws.length===0? `<div class="empty-state">${t('暂无中奖记录','No draw records yet')}</div>` : `
       <div class="toolbar" style="gap:12px;">
         <div style="font-size:13.5px;color:var(--ink-soft);white-space:nowrap;">${t('共','Total:')} ${state.draws.length} ${t('笔中奖记录','draw records')} ${isFiltered?`· ${t('筛选出','Filtered:')} ${filtered.length}`:''}</div>
+        <input class="searchbar" id="history-search-input" placeholder="${t('按姓名 / 奖品 / 订单号 / 联系方式搜索','Search by name / prize / order ID / contact')}" value="${escapeAttr(state.historySearch||'')}" style="flex:1;min-width:180px;margin-bottom:0;">
         <div id="history-dd-wrap" style="position:relative;">
-          <button type="button" class="small-btn ghost" id="history-dd-btn" style="margin:0;height:42px;min-width:150px;">${selDds.length?`DD：${selDds.length} ${t('个','selected')}`:t('全部 DD','All DD')} ▾</button>
-          ${state.historyDdOpen?`<div style="position:absolute;z-index:30;top:46px;left:0;min-width:220px;max-height:320px;overflow:auto;background:#fff;border:1.5px solid var(--gold);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);padding:6px;">
-            <div style="display:flex;justify-content:space-between;padding:4px 8px 8px;border-bottom:1px solid var(--line);margin-bottom:4px;font-size:12.5px;"><span style="color:var(--ink-soft);">${t('可多选','Multi-select')}</span><a href="#" id="history-dd-clear" style="color:var(--plum);font-weight:700;">${t('清除','Clear')}</a></div>
-            ${ddList.map(n=>`<label style="display:flex;align-items:center;gap:8px;padding:7px 8px;cursor:pointer;font-size:14px;border-radius:6px;"><input type="checkbox" data-ddkey="${escapeAttr(n.toLowerCase())}" ${selDds.includes(n.toLowerCase())?'checked':''}> ${escapeHtml(n)}</label>`).join('')}
+          <button type="button" id="history-dd-btn" class="small-btn ghost" style="min-width:150px;max-width:240px;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 12px;"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ddLabelText)}</span><span>▾</span></button>
+          ${state.historyDdOpen?`
+          <div id="history-dd-panel" style="position:fixed;z-index:60;top:0;left:0;min-width:220px;max-height:280px;overflow:auto;background:var(--paper,#fff);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(62,22,56,.18);padding:6px;">
+            ${ddOpts.map(o=>`
+              <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:14px;white-space:nowrap;">
+                <input type="checkbox" data-ddkey="${escapeAttr(o.key)}" ${selDds.includes(o.key)?'checked':''} style="width:16px;height:16px;margin:0;accent-color:var(--plum);flex-shrink:0;">
+                <span>${escapeHtml(o.label)}（${o.count}）</span>
+              </label>`).join('')}
+            <div style="border-top:1px solid var(--line);margin-top:4px;padding:8px 10px 4px;"><button type="button" id="history-dd-clear" class="small-btn ghost" style="padding:6px 12px;">${t('清除','Clear')}</button></div>
           </div>`:''}
         </div>
-        <input class="searchbar" id="history-search-input" placeholder="${t('按姓名 / 奖品 / 订单号 / 联系方式搜索','Search by name / prize / order ID / contact')}" value="${escapeAttr(state.historySearch||'')}" style="flex:1;min-width:180px;margin-bottom:0;">
         <div style="display:flex;gap:10px;flex-shrink:0;">
           <button class="small-btn ghost" id="export-draws-btn">${t('导出 CSV','Export CSV')}</button>
           <button class="small-btn danger" id="reset-draws-btn">${t('重置全部','Reset All')}</button>
@@ -2905,6 +2912,17 @@
     if(resetBtn) resetBtn.onclick = resetAllDraws;
     const exportBtn = container.querySelector('#export-draws-btn');
     if(exportBtn) exportBtn.onclick = exportDrawsCsv;
+    function placeDdPanel(){
+      const pn = container.querySelector('#history-dd-panel'), bt = container.querySelector('#history-dd-btn');
+      if(!pn || !bt) return;
+      const r = bt.getBoundingClientRect();
+      pn.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pn.offsetWidth - 8)) + 'px';
+      pn.style.top = (r.bottom + 4) + 'px';
+      pn.style.maxHeight = Math.max(140, window.innerHeight - r.bottom - 16) + 'px';
+    }
+    placeDdPanel();
+    { const pn = container.querySelector('#history-dd-panel'); if(pn) pn.scrollTop = keepScroll; }
+    if(state.historyDdOpen){ window.onresize = placeDdPanel; window.onscroll = placeDdPanel; }
     const ddBtn = container.querySelector('#history-dd-btn');
     if(ddBtn) ddBtn.onclick = e=>{ e.stopPropagation(); state.historyDdOpen = !state.historyDdOpen; renderAdminHistoryTab(container); };
     container.querySelectorAll('[data-ddkey]').forEach(cb=>{ cb.onchange = ()=>{
