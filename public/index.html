@@ -836,9 +836,13 @@
     return audioCtx;
   }
   let audioUnlocked = false;
+  let soundMuted = false;
+  try{ soundMuted = localStorage.getItem('ld_live_muted')==='1'; }catch(e){}
+  function setMuted(v){ soundMuted = !!v; try{ localStorage.setItem('ld_live_muted', v?'1':'0'); }catch(e){} updateSoundBtn(); }
   function updateSoundBtn(){
     const b = document.getElementById('live-sound-btn'); if(!b) return;
-    if(audioUnlocked){ b.textContent = t('🔊 声音已开启','🔊 Sound on'); b.classList.remove('snd-pulse'); b.style.opacity = '.85'; }
+    if(soundMuted){ b.textContent = t('🔇 声音已关闭','🔇 Sound off'); b.classList.remove('snd-pulse'); b.style.opacity = '.85'; }
+    else if(audioUnlocked){ b.textContent = t('🔊 声音已开启','🔊 Sound on'); b.classList.remove('snd-pulse'); b.style.opacity = '.85'; }
     else { b.textContent = t('🔇 点一下开启声音','🔇 Tap to enable sound'); b.classList.add('snd-pulse'); b.style.opacity = '1'; }
   }
   function unlockAudio(){
@@ -858,6 +862,7 @@
     return normTheme(mode==='wheel' && w ? w : state.eventConfig.soundTheme);
   }
   function playTick(pitch, mode){
+    if(soundMuted && state.view==='live') return;
     const theme = themeFor(mode);
     try{
       const ctx = getAudioCtx();
@@ -910,6 +915,7 @@
     }catch(e){}
   }
   function playWinChime(previewTheme, mode){
+    if(soundMuted && state.view==='live') return;
     const theme = previewTheme ? normTheme(previewTheme) : themeFor(mode);
     try{
       const ctx = getAudioCtx();
@@ -1279,7 +1285,7 @@
           <p>${t('抽奖进行时会自动同步画面','The screen updates automatically while a draw is happening')}</p>
         </div>
         <div class="perforation"></div>
-        <div style="text-align:center;padding:10px 0 0;background:var(--plum);"><button id="live-sound-btn" type="button" class="small-btn ghost ${audioUnlocked?'':'snd-pulse'}" style="border-color:var(--gold-light);color:var(--gold-light);background:transparent;">${audioUnlocked?t('🔊 声音已开启','🔊 Sound on'):t('🔇 点一下开启声音','🔇 Tap to enable sound')}</button></div>
+        <div style="text-align:center;padding:10px 0 0;background:var(--plum);"><button id="live-sound-btn" type="button" class="small-btn ghost ${(audioUnlocked||soundMuted)?'':'snd-pulse'}" style="border-color:var(--gold-light);color:var(--gold-light);background:transparent;">${soundMuted?t('🔇 声音已关闭','🔇 Sound off'):audioUnlocked?t('🔊 声音已开启','🔊 Sound on'):t('🔇 点一下开启声音','🔇 Tap to enable sound')}</button></div>
         <div class="draw-stage staged" id="live-stage" style="border-radius:0;border-left:0;border-right:0;padding:0 20px 34px;min-height:260px;">
           <div class="rev-rays"></div>
           <div id="live-banner" class="rev-banner" style="display:none;">♛ ${t('恭喜 / Congratulations','Congratulations')} ♛</div>
@@ -1302,7 +1308,7 @@
         <div class="admin-link"><a id="back-to-entry-link">${t('← 返回报名','← Back to entry')}</a></div>
       </div>
     `;
-    const soundBtn = document.getElementById('live-sound-btn'); if(soundBtn){ updateSoundBtn(); soundBtn.onclick = ()=>{ unlockAudio(); }; }
+    const soundBtn = document.getElementById('live-sound-btn'); if(soundBtn){ updateSoundBtn(); soundBtn.onclick = ()=>{ if(!audioUnlocked){ unlockAudio(); if(soundMuted) setMuted(false); } else setMuted(!soundMuted); }; }
     document.getElementById('back-to-entry-link').onclick = ()=>{ clearInterval(liveRollInterval); state.view='entry'; render(); };
     connectLiveSocket();
   }
