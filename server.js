@@ -475,13 +475,56 @@ app.post('/api/admin/entries', requireAdmin, (req, res) => {
   getOrderIndex().set(id, orderIdNorm);
   res.json({ id });
 });
+/* The admin list never carries the (large) base64 photos; photos load one by one from /api/entries/:id/photo.
+   Parsed entries (without photo) are cached by file mtime+size so a refresh only re-reads files that changed. */
+const entryMetaCache = new Map();
+function stripPhoto(e) {
+  const c = Object.assign({}, e);
+  c.hasPhoto = !!e.photo;
+  delete c.photo;
+  return c;
+}
+function loadEntryMetas() {
+  const files = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
+  const seen = new Set();
+  const out = [];
+  for (const f of files) {
+    const fp = path.join(ENTRIES_DIR, f);
+    let st;
+    try { st = fs.statSync(fp); } catch (e) { continue; }
+    const key = st.mtimeMs + ':' + st.size;
+    let hit = entryMetaCache.get(f);
+    if (!hit || hit.key !== key) {
+      const e = readJson(fp, null);
+      if (!e) continue;
+      hit = { key, meta: stripPhoto(e) };
+      entryMetaCache.set(f, hit);
+    }
+    seen.add(f);
+    out.push(hit.meta);
+  }
+  for (const f of entryMetaCache.keys()) if (!seen.has(f)) entryMetaCache.delete(f);
+  return out;
+}
+app.get('/api/entries/:id/photo', (req, res) => {
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : String(req.query.token || '');
+  const expiry = token && tokens.get(token);
+  if (!expiry || expiry < Date.now()) return res.status(401).end();
+  const id = String(req.params.id).replace(/[^A-Za-z0-9\-]/g, '');
+  const e = readJson(path.join(ENTRIES_DIR, id + '.json'), null);
+  const m = e && typeof e.photo === 'string' && e.photo.match(/^data:([\w\/+.-]+);base64,(.+)$/s);
+  if (!m) return res.status(404).end();
+  res.set('Content-Type', m[1]);
+  res.set('Cache-Control', 'private, max-age=86400');
+  res.send(Buffer.from(m[2], 'base64'));
+});
 app.get('/api/entries', requireAdmin, (req, res) => {
   const cfg = readConfig();
   const rate = cfg.conversionRate || 100;
   const tiers = cfg.tiers || [];
   const maxTickets = cfg.maxTicketsPerPerson || 0;
-  const files = fs.readdirSync(ENTRIES_DIR).filter(f => f.endsWith('.json'));
-  const list = files.map(f => readJson(path.join(ENTRIES_DIR, f), null)).filter(Boolean);
+  const list = loadEntryMetas().map(e => Object.assign({}, e));
   list.forEach(entry => {
     const count = computeTicketCount(entry.amount, rate, tiers, maxTickets);
     entry.ticketCount = count;
@@ -758,7 +801,7 @@ app.get('/api/archives/:id', requireAdmin, (req, res) => {
   const maxTickets = cfg.maxTicketsPerPerson || 0;
   const entriesDir = path.join(archiveDir, 'entries');
   const entryFiles = fs.existsSync(entriesDir) ? fs.readdirSync(entriesDir).filter(f => f.endsWith('.json')) : [];
-  const entries = entryFiles.map(f => readJson(path.join(entriesDir, f), null)).filter(Boolean);
+  const entries = entryFiles.map(f => readJson(path.join(entriesDir, f), null)).filter(Boolean).map(stripPhoto);
   entries.forEach(entry => {
     const count = computeTicketCount(entry.amount, rate, tiers, maxTickets);
     entry.ticketCount = count;
@@ -830,13 +873,25 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.use((err, req, res, next) => {
+  console.error('request error:', err && err.message);
+  if (res.headersSent) return next(err);
+  const tooBig = err && (err.type === 'entity.too.large' || err.status === 413);
+  res.status(tooBig ? 413 : 500).json({ error: tooBig ? '照片太大，请换一张或重新压缩 / Photo too large, please try another' : '服务器出错了，请再试一次 / Server error, please try again' });
+});
+process.on('uncaughtException', (e) => { console.error('uncaughtException:', e && e.stack || e); });
+process.on('unhandledRejection', (e) => { console.error('unhandledRejection:', e && e.stack || e); });
+
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 let lastLiveState = null;
 wss.on('connection', (ws) => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+  ws.on('error', () => {});
   if (lastLiveState) {
-    try { ws.send(JSON.stringify(lastLiveState)); } catch (e) {}
+    try { ws.send(JSON.stringify(Object.assign({}, lastLiveState, { replay: true }))); } catch (e) {}
   }
   ws.on('message', (raw) => {
     let msg;
@@ -857,4 +912,11 @@ wss.on('connection', (ws) => {
     });
   });
 });
+setInterval(() => {
+  wss.clients.forEach((c) => {
+    if (c.isAlive === false) { try { c.terminate(); } catch (e) {} return; }
+    c.isAlive = false;
+    try { c.ping(); } catch (e) {}
+  });
+}, 25000);
 server.listen(PORT, () => console.log('幸运抽奖系统 running on port ' + PORT));
