@@ -211,6 +211,19 @@
   .nm3 .blk.main .v{font-size:clamp(32px,8.6vh,88px)}
   .nm3.two .blk.main .v{font-size:clamp(34px,9.6vh,100px)}
   .draw-confirmed{position:relative;z-index:3;margin-top:2vh;padding:9px 18px;border-radius:999px;background:linear-gradient(180deg,#f3d98f,#d4a54a);color:#3E1638;font-weight:700;font-size:clamp(15px,2.4vh,22px);animation:revDrop .5s ease-out both}
+  .tp{display:none}
+  .draw-stage.fs:not(.fs-wheel) .tp{position:fixed;top:0;left:0;right:0;z-index:7;display:flex;gap:10px;justify-content:center;padding:8px 160px 8px 16px;background:linear-gradient(180deg,rgba(24,8,22,.92),rgba(24,8,22,.7))}
+  .tp .c{position:relative;flex:0 1 auto;display:flex;align-items:center;gap:10px;padding:7px 16px 7px 20px;border-radius:12px;background:rgba(30,10,28,.8);border:1px solid rgba(240,217,160,.2);overflow:hidden}
+  .tp .c::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:linear-gradient(180deg,#F0D9A0,#C6963C)}
+  .tp .n{font:800 clamp(22px,3.8vh,32px)/1 'Manrope','Noto Sans SC',sans-serif;color:#FFF3D1}
+  .tp .l{font:600 clamp(11px,1.7vh,14px)/1.2 'Noto Sans SC',sans-serif;color:#bda77a;max-width:130px}
+  .tp .c.hero{background:rgba(227,189,106,.2);border-color:#E3BD6A;box-shadow:0 0 22px rgba(227,189,106,.35)}
+  .tp .c.hero .n{color:#FFE9A8}.tp .c.hero .l{color:#F0D9A0}
+  .draw-stage.fs:not(.fs-wheel){padding-top:64px}
+  .draw-stage.fs:not(.fs-wheel) .rev-banner{top:62px}
+  .draw-stage.fs:not(.fs-wheel) .psel{top:76px}
+  .draw-stage.fs:not(.fs-wheel) #draw-fs-exit{top:12px!important;z-index:8!important}
+  @media (max-width:700px){ .draw-stage.fs:not(.fs-wheel) .tp{display:none} .draw-stage.fs:not(.fs-wheel){padding-top:0} .draw-stage.fs:not(.fs-wheel) .rev-banner{top:0} .draw-stage.fs:not(.fs-wheel) .psel{top:16px} }
   .psel{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:6;width:min(560px,86vw)}
   .psel .pb{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:12px 18px;border-radius:999px;border:2px solid #E3BD6A;background:rgba(62,22,56,.85);color:#FFF3D1;font:700 18px 'Noto Sans SC',sans-serif;cursor:pointer;box-shadow:0 0 24px rgba(227,189,106,.25);text-align:left}
   .psel .pb small{color:#F0D9A0;font-weight:600;margin-left:8px}
@@ -2589,6 +2602,7 @@
       </div>
       <div class="draw-stage staged ${state.revealedWinner?'revealed':''} ${(state.drawing||state.revealedWinner||(state.drawFs&&selectedPrize))?'fs':''}">
         <div class="rev-rays"></div>
+        ${(selectedPrize&&(state.drawing||state.revealedWinner||state.drawFs))?`<div class="tp"><div class="c"><div class="n">${eligibleCount}</div><div class="l">${t('符合抽奖条件人数','Eligible participants')}</div></div><div class="c"><div class="n">${ticketCount}</div><div class="l">${t('共有机会次数','Total chances')}</div></div><div class="c"><div class="n">${maxWins>0?maxWins:t('不限','Unlimited')}</div><div class="l">${t('每人最多中奖次数','Max wins per person')}</div></div><div class="c"><div class="n">${state.prizes.reduce((sum,p)=>sum+(p.qty||0),0)}</div><div class="l">${t('奖品数量','Prizes left')}</div></div><div class="c hero"><div class="n">${selectedTotalQty}</div><div class="l">${escapeHtml(selectedPrize.name)} ${t('总剩余数量','total remaining')}</div></div></div>`:''}
         ${(state.drawFs&&selectedPrize&&!state.drawing&&!state.revealedWinner)?`<div class="psel" id="fs-psel"><button type="button" class="pb" id="fs-psel-btn"><span>🎁 ${escapeHtml(selectedPrize.name)}${selectedPrize.value?' (RM'+escapeHtml(String(selectedPrize.value))+')':''}<small>${t('剩余','Left')} ${selectedPrize.qty||0}</small></span><span>${state.fsPrizeMenu?'▴':'▾'}</span></button>${state.fsPrizeMenu?`<div class="pl">${availablePrizes.length?availablePrizes.map(p=>`<div class="pi ${p.id===selectedPrize.id?'on':''}" data-fspid="${p.id}" data-photo="${escapeAttr(p.photo||'')}" data-pname="${escapeAttr(p.name+(p.value?' (RM'+p.value+')':''))}"><span>${escapeHtml(p.name)}${p.value?' (RM'+escapeHtml(String(p.value))+')':''}</span><i>${t('剩余','Left')} ${p.qty||0}</i></div>`).join(''):`<div class="pi"><span>${t('没有可抽的奖品了','No prizes left')}</span></div>`}</div><div class="pv" id="fs-psel-pv" style="display:none;"><img alt=""><div></div></div>`:''}</div>`:''}
         ${(state.drawFs&&selectedPrize&&!state.drawing&&!state.revealedWinner)?`<button type="button" class="small-btn ghost" id="draw-fs-exit" style="position:fixed;top:14px;right:16px;z-index:5;">✕ ${t('退出全屏','Exit full screen')}</button>`:''}
         ${state.revealedWinner?`<div class="rev-banner">${t('恭喜 / Congratulations','Congratulations')}</div>`:''}
