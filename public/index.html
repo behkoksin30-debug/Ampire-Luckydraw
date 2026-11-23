@@ -186,6 +186,28 @@
   .draw-stage.fs .small-btn{font-size:clamp(14px,2.2vh,20px);padding:clamp(8px,1.4vh,14px) clamp(16px,2.6vh,30px);}
   .draw-stage.staged .small-btn.ghost:hover{background:rgba(240,217,160,.15);}
   .draw-stage.staged .wheel-pointer{color:var(--gold-light);}
+  /* Lucky Wheel full-screen (bronze-gold) */
+  .draw-stage.fs-wheel{background:radial-gradient(circle at 50% 45%,#7a561a 0%,#4a3210 55%,#2b1c08 100%)!important;}
+  .fs-wheel .rev-rays{background:repeating-conic-gradient(from 0deg,rgba(240,217,160,.09) 0 6deg,transparent 6deg 12deg)!important;transform:translate(-50%,-50%);-webkit-mask-image:radial-gradient(circle,#000 0,transparent 68%);mask-image:radial-gradient(circle,#000 0,transparent 68%);}
+  .fs-wheel .fs-head{position:relative;z-index:3;text-align:center;margin-bottom:3.4vh;}
+  .fs-wheel.revealed .fs-head{margin:7vh 0 1.6vh;}
+  .fs-wheel .fs-head .k{font-size:clamp(14px,2.1vh,20px);letter-spacing:.45em;color:#E8C777;font-weight:800;}
+  .fs-wheel .fs-head .n{font-size:clamp(30px,6vh,60px);font-weight:800;color:#FFF3D1;letter-spacing:.08em;line-height:1.15;word-break:break-word;}
+  .fs-wheel .fs-head .n i{font-style:normal;color:#E8C777;margin:0 .4em;}
+  .fs-wheel .fs-head .s{font-size:clamp(15px,2.3vh,23px);color:#F5E8C8;margin-top:.8vh;font-weight:600;}
+  .fs-wheel .fs-head .s b{color:#FFF3D1;font-weight:800;}
+  .draw-stage.fs-wheel .wheel-wrap{width:min(52vh,86vw);height:min(52vh,86vw);margin:0 auto 3vh!important;z-index:2;}
+  .fs-wheel .wheel{border:clamp(7px,1.2vh,13px) solid #E3BD6A;box-shadow:0 0 0 clamp(2px,.5vh,5px) rgba(255,243,209,.5),0 0 60px rgba(232,199,119,.35),0 12px 36px rgba(0,0,0,.35);}
+  .fs-wheel .wheel-pointer{font-size:clamp(30px,6vh,60px);top:-4vh;color:#FFF3D1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4));}
+  .fs-wheel .wheel-hub{width:clamp(30px,6vh,60px);height:clamp(30px,6vh,60px);margin:calc(-.5*clamp(30px,6vh,60px)) 0 0 calc(-.5*clamp(30px,6vh,60px));background:#E3BD6A;border-color:#3a2a10;}
+  .draw-stage.fs-wheel .draw-sub{font-size:clamp(15px,2.2vh,22px);color:#F5E8C8;position:relative;z-index:2;font-weight:600;}
+  .draw-stage.fs-wheel .draw-name,.draw-stage.fs-wheel.revealed .draw-name{position:relative;z-index:2;color:#FFF3D1;font-size:clamp(30px,6.5vh,64px)!important;font-weight:800;letter-spacing:.06em;text-align:center;}
+  .fs-wheel .draw-actions{position:relative;z-index:2;display:flex;gap:14px;align-items:center;}
+  .draw-stage.fs-wheel .small-btn{font-size:clamp(16px,2.6vh,24px);padding:clamp(10px,1.6vh,16px) clamp(28px,5vh,56px);border-radius:999px;letter-spacing:.2em;background:linear-gradient(180deg,#f3d98f,#d4a54a);color:#3E1638;box-shadow:0 6px 16px rgba(0,0,0,.35);font-weight:800;border:0;}
+  .draw-stage.fs-wheel .small-btn.ghost{font-size:clamp(14px,2.1vh,19px);padding:clamp(8px,1.4vh,14px) clamp(18px,3vh,34px);background:transparent;color:#F5E8C8;border:1.5px solid #F5E8C8;box-shadow:none;}
+  .fs-wheel .fs-foot{position:absolute;bottom:2vh;left:0;right:0;text-align:center;font-size:clamp(12px,1.7vh,16px);letter-spacing:.3em;color:rgba(245,232,200,.55);z-index:3;text-transform:uppercase;}
+  .fs-wheel .rev-banner{background:#E3BD6A;color:#3E1638;font-weight:800;}
+  .fs-wheel .rev-photo{border-color:#E3BD6A;box-shadow:0 10px 30px rgba(0,0,0,.35);position:relative;z-index:2;}
   .select-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;}
   select{padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;}
   .checkline{font-size:13.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px;}
@@ -2441,9 +2463,14 @@
                   <div class="pname">${escapeHtml(en.name)} <span style="font-weight:400;color:var(--ink-soft);">· ${t('顾客','Customer')} ${escapeHtml(en.customerName||'—')}</span></div>
                   <div class="pqty">${t('金额','Amount')} RM${escapeHtml(String(en.amount))} · ${t('已中','Won')} ${winsOf(en)} ${t('次','x')} · ${t('编号','ID')} ${en.id}</div>
                 </div>
-                <div class="draw-stage staged ${state.guaranteedRevealedPrize?'revealed':''}" style="margin-top:10px;">
+                <div class="draw-stage staged fs fs-wheel ${state.guaranteedRevealedPrize?'revealed':''}">
                   <div class="rev-rays"></div>
-                  ${state.guaranteedRevealedPrize?`<div class="rev-banner">${t('恭喜 / Congratulations','Congratulations')}</div>`:''}
+                  ${state.guaranteedRevealedPrize?`<div class="rev-banner">♛ ${t('恭喜 / Congratulations','Congratulations')} ♛</div>`:''}
+                  <div class="fs-head">
+                    ${state.guaranteedRevealedPrize
+                      ?`<div class="k">${escapeHtml(en.name)} ${t('获得','WINS')}</div>`
+                      :`<div class="k">LUCKY WHEEL · ${t('幸运轮盘','')}</div><div class="n"><i>♛</i>${escapeHtml(en.name)}<i>♛</i></div><div class="s">${t('顾客','Customer')} ${escapeHtml(en.customerName||'—')} · ${t('消费金额','Amount')} <b>RM${(isNaN(parseFloat(en.amount))?escapeHtml(String(en.amount)):parseFloat(en.amount).toLocaleString('en-US'))}</b></div>`}
+                  </div>
                   ${!state.guaranteedRevealedPrize?`
                     <div class="wheel-wrap" style="position:relative;z-index:2;margin-top:30px;">
                       <div class="wheel-pointer">▼</div>
@@ -2464,6 +2491,7 @@
                     ${(!state.guaranteedSpinning && !state.guaranteedRevealedPrize)?`<button class="small-btn go-btn" data-start-guaranteed="${en.id}">${t('开始抽','Start')}</button>`:''}
                     ${!state.guaranteedSpinning?`<button class="small-btn ghost" data-cancel-guaranteed="${en.id}">${t('取消','Cancel')}</button>`:''}
                   </div>
+                  <div class="fs-foot">${escapeHtml(state.eventConfig.subtitle||state.eventConfig.title||'')}</div>
                 </div>
               </div>`}
             `;}).join('')}
