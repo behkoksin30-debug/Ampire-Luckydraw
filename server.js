@@ -57,6 +57,7 @@ function defaultConfig() {
     pdpaTextZh: '',
     pdpaTextEn: '',
     drawDurationSeconds: 5,
+    wheelDurationSeconds: 0,
     registrationDeadline: '',
     soundTheme: 'classic',
     startGateEnforcedFor: ''
@@ -193,6 +194,7 @@ app.get('/api/config', (req, res) => {
     pdpaTextZh: cfg.pdpaTextZh || '',
     pdpaTextEn: cfg.pdpaTextEn || '',
     drawDurationSeconds: cfg.drawDurationSeconds || 5,
+    wheelDurationSeconds: cfg.wheelDurationSeconds || 0,
     registrationDeadline: cfg.registrationDeadline || '',
     soundTheme: cfg.soundTheme || 'classic'
   });
@@ -250,6 +252,10 @@ app.put('/api/config', requireAdmin, (req, res) => {
   if (req.body.drawDurationSeconds !== undefined) {
     const ds = parseFloat(req.body.drawDurationSeconds);
     cfg.drawDurationSeconds = (!isNaN(ds) && ds >= 1 && ds <= 10) ? ds : (cfg.drawDurationSeconds || 5);
+  }
+  if (req.body.wheelDurationSeconds !== undefined) {
+    const ws = parseFloat(req.body.wheelDurationSeconds);
+    cfg.wheelDurationSeconds = (!isNaN(ws) && ws >= 1 && ws <= 10) ? ws : (cfg.wheelDurationSeconds || 0);
   }
   if (req.body.registrationDeadline !== undefined) {
     const dl = req.body.registrationDeadline;
