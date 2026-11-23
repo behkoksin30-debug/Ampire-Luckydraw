@@ -322,7 +322,7 @@
     formErrors: {},
     ocrBusy: false, ocrText: '', ocrStatusText: '',
     search: '',
-    historySearch: '', historyDd: '',
+    historySearch: '', historyDds: [], historyDdOpen: false,
     showTotalAmount: true,
     prizeSortMode: 'value_asc', prizeFilter: 'all',
     editingEntryId: null,
@@ -809,9 +809,9 @@
   }
   function filteredDraws(){
     const q = (state.historySearch||'').trim().toLowerCase();
-    const dd = state.historyDd || '';
+    const dds = state.historyDds || [];
     return state.draws.filter(d=>{
-      if(dd && (d.winnerDdName||'').trim().toLowerCase() !== dd.toLowerCase()) return false;
+      if(dds.length && !dds.includes((d.winnerDdName||'').trim().toLowerCase())) return false;
       if(!q) return true;
       return d.winnerName.toLowerCase().includes(q) || d.prizeName.toLowerCase().includes(q)
         || d.winnerOrderId.toLowerCase().includes(q) || d.winnerContact.toLowerCase().includes(q)
@@ -2857,13 +2857,20 @@
     const ddMap = new Map();
     state.draws.forEach(d=>{ const n=(d.winnerDdName||'').trim(); if(n && !ddMap.has(n.toLowerCase())) ddMap.set(n.toLowerCase(), n); });
     const ddList = [...ddMap.values()].sort((a,b)=>a.localeCompare(b));
-    if(state.historyDd && !ddMap.has(state.historyDd.toLowerCase())) state.historyDd = '';
+    state.historyDds = (state.historyDds||[]).filter(k=>ddMap.has(k));
+    const selDds = state.historyDds;
     const filtered = filteredDraws();
-    const isFiltered = !!(q || state.historyDd);
+    const isFiltered = !!(q || selDds.length);
     container.innerHTML = state.draws.length===0? `<div class="empty-state">${t('暂无中奖记录','No draw records yet')}</div>` : `
       <div class="toolbar" style="gap:12px;">
         <div style="font-size:13.5px;color:var(--ink-soft);white-space:nowrap;">${t('共','Total:')} ${state.draws.length} ${t('笔中奖记录','draw records')} ${isFiltered?`· ${t('筛选出','Filtered:')} ${filtered.length}`:''}</div>
-        <select id="history-dd-select" class="searchbar" style="width:auto;min-width:150px;margin-bottom:0;"><option value="">${t('全部 DD','All DD')}</option>${ddList.map(n=>`<option value="${escapeAttr(n)}" ${state.historyDd && state.historyDd.toLowerCase()===n.toLowerCase()?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select>
+        <div id="history-dd-wrap" style="position:relative;">
+          <button type="button" class="small-btn ghost" id="history-dd-btn" style="margin:0;height:42px;min-width:150px;">${selDds.length?`DD：${selDds.length} ${t('个','selected')}`:t('全部 DD','All DD')} ▾</button>
+          ${state.historyDdOpen?`<div style="position:absolute;z-index:30;top:46px;left:0;min-width:220px;max-height:320px;overflow:auto;background:#fff;border:1.5px solid var(--gold);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);padding:6px;">
+            <div style="display:flex;justify-content:space-between;padding:4px 8px 8px;border-bottom:1px solid var(--line);margin-bottom:4px;font-size:12.5px;"><span style="color:var(--ink-soft);">${t('可多选','Multi-select')}</span><a href="#" id="history-dd-clear" style="color:var(--plum);font-weight:700;">${t('清除','Clear')}</a></div>
+            ${ddList.map(n=>`<label style="display:flex;align-items:center;gap:8px;padding:7px 8px;cursor:pointer;font-size:14px;border-radius:6px;"><input type="checkbox" data-ddkey="${escapeAttr(n.toLowerCase())}" ${selDds.includes(n.toLowerCase())?'checked':''}> ${escapeHtml(n)}</label>`).join('')}
+          </div>`:''}
+        </div>
         <input class="searchbar" id="history-search-input" placeholder="${t('按姓名 / 奖品 / 订单号 / 联系方式搜索','Search by name / prize / order ID / contact')}" value="${escapeAttr(state.historySearch||'')}" style="flex:1;min-width:180px;margin-bottom:0;">
         <div style="display:flex;gap:10px;flex-shrink:0;">
           <button class="small-btn ghost" id="export-draws-btn">${t('导出 CSV','Export CSV')}</button>
@@ -2898,8 +2905,15 @@
     if(resetBtn) resetBtn.onclick = resetAllDraws;
     const exportBtn = container.querySelector('#export-draws-btn');
     if(exportBtn) exportBtn.onclick = exportDrawsCsv;
-    const ddSel = container.querySelector('#history-dd-select');
-    if(ddSel) ddSel.onchange = e=>{ state.historyDd = e.target.value; renderAdminHistoryTab(container); };
+    const ddBtn = container.querySelector('#history-dd-btn');
+    if(ddBtn) ddBtn.onclick = e=>{ e.stopPropagation(); state.historyDdOpen = !state.historyDdOpen; renderAdminHistoryTab(container); };
+    container.querySelectorAll('[data-ddkey]').forEach(cb=>{ cb.onchange = ()=>{
+      const k = cb.getAttribute('data-ddkey'); const cur = new Set(state.historyDds||[]);
+      if(cb.checked) cur.add(k); else cur.delete(k);
+      state.historyDds = [...cur]; renderAdminHistoryTab(container);
+    }; });
+    const ddClear = container.querySelector('#history-dd-clear');
+    if(ddClear) ddClear.onclick = e=>{ e.preventDefault(); state.historyDds = []; renderAdminHistoryTab(container); };
     const searchInput = container.querySelector('#history-search-input');
     if(searchInput) searchInput.oninput = e=>{
       state.historySearch = e.target.value;
@@ -3467,6 +3481,11 @@
   }
 
   document.addEventListener('click', (e)=>{
+    if(state.historyDdOpen && !(e.target && e.target.closest && e.target.closest('#history-dd-wrap'))){
+      state.historyDdOpen = false;
+      const c4 = document.getElementById('admin-content');
+      if(c4 && state.view==='admin' && state.adminTab==='history') renderAdminHistoryTab(c4);
+    }
     if(state.fsPrizeMenu && !(e.target && e.target.closest && e.target.closest('#fs-psel'))){
       state.fsPrizeMenu = false;
       const c3 = document.getElementById('admin-content');
